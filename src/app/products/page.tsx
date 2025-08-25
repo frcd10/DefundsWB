@@ -1,6 +1,7 @@
 'use client';
 
 import { TrendingUp, Clock3, Zap, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Products() {
   return (
@@ -56,12 +57,12 @@ export default function Products() {
 
         {/* -------------------------------------------------- CTA */}
         <div className="mt-20 text-center">
-          <a
+          <Link
             href="/#get"
             className="inline-flex items-center gap-2 rounded-xl bg-sol-accent text-sol-900 font-semibold px-8 py-3 shadow-lg hover:scale-105 transition"
           >
             Explore funds <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
       </section>
     </main>

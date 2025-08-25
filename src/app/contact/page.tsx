@@ -161,22 +161,3 @@ function TeamMember({
     </article>
   );
 }
-
-/* Advisor card component */
-function AdvisorCard({
-  name,
-  role,
-  description,
-}: {
-  name: string;
-  role: string;
-  description: string;
-}) {
-  return (
-    <article className="bg-sol-800/40 rounded-xl p-4 border-l-4 border-sol-accent">
-      <h4 className="font-bold text-sol-accent">{name}</h4>
-      <p className="font-semibold text-sol-200 text-sm">{role}</p>
-      <p className="text-sol-300 text-xs mt-1">{description}</p>
-    </article>
-  );
-}

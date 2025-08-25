@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, Lock, Wallet, GitBranch } from 'lucide-react';
+import Link from 'next/link';
 
 export default function HowItWorks() {
   return (
@@ -122,12 +123,12 @@ export default function HowItWorks() {
 
         {/* CTA */}
         <div className="mt-20 text-center">
-          <a
+          <Link
             href="/#get"
             className="inline-flex items-center gap-2 rounded-xl bg-sol-accent text-sol-900 font-semibold px-8 py-3 shadow-lg hover:scale-105 transition"
           >
             Get started now <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
       </section>
     </main>

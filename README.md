@@ -1,4 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Defunds.Finance - Web3 Hedge Fund Platform
+
+A modern DeFi platform that democratizes hedge fund access through Solana blockchain technology.
+
+## 🚀 Quick Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/frcd10/DefundsWB)
 
 ## Getting Started
 

@@ -18,8 +18,8 @@ export default function InvestorPage() {
             <span className="text-sol-accent block">Asset Management</span>
           </h1>
           <p className="text-xl text-sol-200 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Become a seed investor in the world's first fully decentralized hedge fund platform. 
-            We're revolutionizing asset management with self-custodial funds, transparent operations, 
+            Become a seed investor in the world&apos;s first fully decentralized hedge fund platform. 
+            We&apos;re revolutionizing asset management with self-custodial funds, transparent operations, 
             and unprecedented investor protection.
           </p>
           

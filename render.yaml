@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: defunds-finance
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+    domains:
+      - defunds.finance
+      - www.defunds.finance

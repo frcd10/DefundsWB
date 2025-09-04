@@ -47,13 +47,13 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800">
-      <section className="max-w-6xl mx-auto px-4 py-20">
+      <section className="max-w-6xl mx-auto px-4 py-12 sm:py-20">
         {/* Hero */}
-        <header className="mb-12 text-center">
-          <h1 className="text-5xl font-extrabold text-white drop-shadow-lg">
+        <header className="mb-8 sm:mb-12 text-center">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg mb-2 sm:mb-4">
             Solana Managed Funds
           </h1>
-          <p className="text-sol-50 mt-4">
+          <p className="text-sol-50 text-sm sm:text-base mb-4 sm:mb-0">
             The first marketplace where traders launch token funds on&nbsp;Solana.
           </p>
           <CreateFundModal />
@@ -64,21 +64,21 @@ export default function Home() {
 
         {/* Cards grid */}
         {pageSlice.length === 0 ? (
-          <p className="text-sol-50">No fund matches your filters.</p>
+          <p className="text-sol-50 text-center py-8">No fund matches your filters.</p>
         ) : (
           <>
-            <div className="grid md:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-10">
               {pageSlice.map((f) => (
                 <FundCard f={f} key={f.id} />
               ))}
             </div>
 
             {/* Pagination controls */}
-            <nav className="flex items-center justify-center gap-2">
+            <nav className="flex items-center justify-center gap-1 sm:gap-2 px-2">
               <button
                 onClick={prev}
                 disabled={page === 0}
-                className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40"
+                className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40 text-sm"
               >
                 ‹ Prev
               </button>
@@ -89,7 +89,7 @@ export default function Home() {
                     <button
                       key={i}
                       onClick={() => goto(i)}
-                      className={`px-3 py-1 rounded-lg ${
+                      className={`px-2 sm:px-3 py-1 rounded-lg text-sm ${
                         page === i
                           ? 'bg-sol-accent text-sol-900 font-semibold'
                           : 'bg-sol-800/60 text-sol-100'
@@ -104,30 +104,30 @@ export default function Home() {
                       <>
                         <button
                           onClick={() => goto(0)}
-                          className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100"
+                          className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
                         >
                           1
                         </button>
-                        {page > 2 && <span className="text-sol-100">…</span>}
+                        {page > 2 && <span className="text-sol-100 text-sm">…</span>}
                       </>
                     )}
                     {page > 0 && (
                       <button
                         onClick={() => goto(page - 1)}
-                        className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
                       >
                         {page}
                       </button>
                     )}
                     <button
-                      className="px-3 py-1 rounded-lg bg-sol-accent text-sol-900 font-semibold"
+                      className="px-2 sm:px-3 py-1 rounded-lg bg-sol-accent text-sol-900 font-semibold text-sm"
                     >
                       {page + 1}
                     </button>
                     {page < totalPages - 1 && (
                       <button
                         onClick={() => goto(page + 1)}
-                        className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
                       >
                         {page + 2}
                       </button>
@@ -135,11 +135,11 @@ export default function Home() {
                     {page < totalPages - 2 && (
                       <>
                         {page < totalPages - 3 && (
-                          <span className="text-sol-100">…</span>
+                          <span className="text-sol-100 text-sm">…</span>
                         )}
                         <button
                           onClick={() => goto(totalPages - 1)}
-                          className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100"
+                          className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
                         >
                           {totalPages}
                         </button>
@@ -151,7 +151,7 @@ export default function Home() {
               <button
                 onClick={next}
                 disabled={page === totalPages - 1}
-                className="px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40"
+                className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40 text-sm"
               >
                 Next ›
               </button>

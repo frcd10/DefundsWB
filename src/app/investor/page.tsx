@@ -11,19 +11,19 @@ export default function InvestorPage() {
   return (
     <main className="min-h-screen bg-sol-900 text-sol-50">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 px-4 pt-28 pb-20">
+      <section className="relative bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 px-4 pt-16 sm:pt-28 pb-12 sm:pb-20">
         <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-6xl font-extrabold mb-6 drop-shadow-lg">
+          <h1 className="text-4xl sm:text-6xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
             Join the Future of
             <span className="text-sol-accent block">Asset Management</span>
           </h1>
-          <p className="text-xl text-sol-200 mb-8 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-sol-200 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed">
             Become a seed investor in the world&apos;s first fully decentralized hedge fund platform. 
             We&apos;re revolutionizing asset management with self-custodial funds, transparent operations, 
             and unprecedented investor protection.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 sm:mb-12">
             <Button
               size="lg"
               className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
@@ -43,18 +43,18 @@ export default function InvestorPage() {
             </Button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="bg-sol-800/60 rounded-xl p-6">
+          <div className="grid md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
+            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
               <DollarSign className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
               <h3 className="font-bold text-lg mb-2">$50M+ Target AUM</h3>
               <p className="text-sol-200 text-sm">First year projection</p>
             </div>
-            <div className="bg-sol-800/60 rounded-xl p-6">
+            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
               <Users className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
               <h3 className="font-bold text-lg mb-2">10,000+ Users</h3>
               <p className="text-sol-200 text-sm">Expected platform adoption</p>
             </div>
-            <div className="bg-sol-800/60 rounded-xl p-6">
+            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
               <Globe className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
               <h3 className="font-bold text-lg mb-2">Global Market</h3>
               <p className="text-sol-200 text-sm">$4.5T hedge fund industry</p>

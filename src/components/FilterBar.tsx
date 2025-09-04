@@ -20,24 +20,24 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
   };
 
   return (
-    <div className="flex flex-wrap gap-4 bg-sol-800/40 p-4 rounded-xl mb-10">
+    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-sol-800/40 p-4 rounded-xl mb-10">
       {/* Search ---------------------------------------------------------- */}
-      <div>
-        <label className="text-sol-100 text-sm">Trader / Fund</label>
+      <div className="flex-1 min-w-[200px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Trader / Fund</label>
         <input
           type="text"
           placeholder="search"
-          className="input w-40"
+          className="input w-full sm:w-40"
           onChange={(e) => update({ query: e.target.value || undefined })}
         />
       </div>
 
       {/* Max perf-fee % -------------------------------------------------- */}
-      <div>
-        <label className="text-sol-100 text-sm">Max perf-fee %</label>
+      <div className="flex-1 min-w-[120px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Max perf-fee %</label>
         <input
           type="number"
-          className="input w-24"
+          className="input w-full sm:w-24"
           onChange={(e) =>
             update({ maxPerfFee: Number(e.target.value) || undefined })
           }
@@ -45,20 +45,20 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
       </div>
 
       {/* Max cap -------------------------------------------------------- */}
-      <div>
-        <label className="text-sol-100 text-sm">Max cap (SOL)</label>
+      <div className="flex-1 min-w-[140px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Max cap (SOL)</label>
         <input
           type="number"
-          className="input w-28"
+          className="input w-full sm:w-28"
           onChange={(e) => update({ maxCap: Number(e.target.value) || undefined })}
         />
       </div>
 
       {/* Type selector --------------------------------------------------- */}
-      <div>
-        <label className="text-sol-100 text-sm">Type</label>
+      <div className="flex-1 min-w-[160px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Type</label>
         <select
-          className="input"
+          className="input w-full"
           defaultValue=""
           onChange={(e) =>
             update({ type: (e.target.value as FundType) || undefined })

@@ -40,12 +40,12 @@ export default function CreateFundModal() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="bg-sol-900 p-8 rounded-2xl w-full max-w-lg text-sol-50 space-y-4 overflow-y-auto max-h-[90vh]"
+            className="bg-sol-900 p-4 sm:p-8 rounded-2xl w-full max-w-lg text-sol-50 space-y-4 overflow-y-auto max-h-[90vh]"
           >
-            <h2 className="text-2xl font-bold mb-2">Launch new fund</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">Launch new fund</h2>
 
             <input
               {...register('fundName')}
@@ -71,7 +71,7 @@ export default function CreateFundModal() {
               className="input"
             />
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 {...register('minTicket', { valueAsNumber: true })}
                 type="number"
@@ -100,33 +100,33 @@ export default function CreateFundModal() {
               className="input"
             />
 
-            <label className="flex items-center gap-2">
-              <input type="checkbox" {...register('inviteOnly')} />
-              <span>Invite only</span>
+            <label className="flex items-center gap-2 py-2">
+              <input type="checkbox" {...register('inviteOnly')} className="w-4 h-4" />
+              <span className="text-sm sm:text-base">Invite only</span>
             </label>
 
             <textarea
               {...register('strategy')}
               placeholder="Describe strategy (tokens, leverage, long/short…) "
-              className="input h-24"
+              className="input h-20 sm:h-24 resize-none"
             />
 
-            <p className="text-xs text-sol-200">
+            <p className="text-xs text-sol-200 leading-relaxed">
               You will deposit <b>10 SOL</b> seed. Fund-share tokens are non-transferable; redemption
               burns shares and sends back your proportional SOL.
             </p>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
               <button
                 type="button"
-                className="flex-1 border border-sol-500 rounded-xl py-2"
+                className="flex-1 border border-sol-500 rounded-xl py-3 sm:py-2 text-sm sm:text-base min-h-[44px]"
                 onClick={() => setOpen(false)}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-sol-accent text-sol-900 font-bold rounded-xl py-2"
+                className="flex-1 bg-sol-accent text-sol-900 font-bold rounded-xl py-3 sm:py-2 text-sm sm:text-base min-h-[44px]"
               >
                 Continue
               </button>

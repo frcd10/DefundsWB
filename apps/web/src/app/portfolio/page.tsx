@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 import { WithdrawFromFundModal } from '@/components/WithdrawFromFundModal';
@@ -36,66 +36,37 @@ export default function PortfolioPage() {
   const [selectedPosition, setSelectedPosition] = useState<PortfolioPosition | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
-  const fetchPortfolio = async () => {
+  const fetchPortfolio = useCallback(async () => {
     if (!wallet.publicKey) {
+      setPortfolio(null);
       setLoading(false);
       return;
     }
 
+    setLoading(true);
     try {
-      console.log('Fetching portfolio for:', wallet.publicKey.toString());
+      console.log('Fetching portfolio for wallet:', wallet.publicKey.toString());
       
       const response = await fetch(`/api/portfolio?walletAddress=${wallet.publicKey.toString()}`);
       const data = await response.json();
 
-      console.log('Portfolio API response:', data);
+      console.log('Portfolio response:', data);
 
-      if (!response.ok) {
-        // If it's a client error (like no wallet), show empty portfolio instead of error
-        if (response.status === 400) {
-          console.log('No wallet address provided, showing empty portfolio');
-          setPortfolio({
-            totalValue: 0,
-            totalInvested: 0,
-            totalWithdrawn: 0,
-            totalPnL: 0,
-            totalPnLPercentage: 0,
-            activeFunds: 0,
-            positions: []
-          });
-          setError(null);
-          return;
-        }
-        throw new Error(data.error || 'Failed to fetch portfolio');
+      if (data.success) {
+        setPortfolio(data.data);
+      } else {
+        console.error('Portfolio fetch failed:', data.error);
+        setPortfolio(null);
       }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch portfolio');
-      }
-
-      // Set portfolio data or empty portfolio if no positions
-      setPortfolio(data.data || {
-        totalValue: 0,
-        totalInvested: 0,
-        totalWithdrawn: 0,
-        totalPnL: 0,
-        totalPnLPercentage: 0,
-        activeFunds: 0,
-        positions: []
-      });
-      setError(null);
     } catch (error) {
       console.error('Error fetching portfolio:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load portfolio');
       setPortfolio(null);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
+  }, [wallet.publicKey]);  useEffect(() => {
     fetchPortfolio();
-  }, [wallet.publicKey]);
+  }, [wallet.publicKey, fetchPortfolio]);
 
   const handleWithdraw = (position: PortfolioPosition) => {
     console.log('Opening withdraw modal for position:', position);
@@ -167,7 +138,7 @@ export default function PortfolioPage() {
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
             <p className="text-xl text-gray-400 mb-8">
-              You don't have any fund positions yet.
+              You don&apos;t have any fund positions yet.
             </p>
             <p className="text-gray-500 mb-8">
               Start by creating a fund or investing in existing funds to build your portfolio.

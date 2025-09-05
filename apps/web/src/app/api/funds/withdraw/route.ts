@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest) {
     const sharesToWithdraw = sharePercentage / 100;
 
     // Find the user's current position in this fund
-    const userInvestment = fund.investments?.find((inv: any) => 
+    const userInvestment = fund.investments?.find((inv: { walletAddress: string }) => 
       inv.walletAddress === walletAddress
     );
 
@@ -113,7 +112,7 @@ export async function POST(request: NextRequest) {
               timestamp: new Date()
             }
           } as any
-        }
+        } as any
       );
     } else {
       // Update the user's shares
@@ -140,7 +139,7 @@ export async function POST(request: NextRequest) {
               timestamp: new Date()
             }
           } as any
-        }
+        } as any
       );
     }
 

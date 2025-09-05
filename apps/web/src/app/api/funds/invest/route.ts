@@ -144,6 +144,8 @@ export async function POST(req: NextRequest) {
     const updateResult = await collection.updateOne(
       { fundId },
       {
+        },
+      {
         $set: {
           totalDeposits: newTotalDeposits,
           totalShares: newTotalShares,
@@ -156,12 +158,12 @@ export async function POST(req: NextRequest) {
           performanceHistory: {
             date: new Date().toISOString(),
             tvl: newTotalDeposits,
-            nav: newCurrentValue / newTotalShares, // Correct NAV per share
+            nav: newNavPerShare,
             pnl: newCurrentValue - newTotalDeposits, // Current PnL (should be 0 for deposits only)
             pnlPercentage: newTotalDeposits > 0 ? ((newCurrentValue - newTotalDeposits) / newTotalDeposits) * 100 : 0
           }
-        } as any
-      }
+        }
+      } as any // eslint-disable-line @typescript-eslint/no-explicit-any -- MongoDB operation type assertion
     );
 
     if (updateResult.matchedCount === 0) {

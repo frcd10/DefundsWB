@@ -39,19 +39,19 @@ export async function GET(req: NextRequest) {
       const isManager = fund.manager === walletAddress;
       let userShares = 0;
       let totalInvested = 0;
-      let investmentHistory: any[] = [];
+      let investmentHistory: Array<{ walletAddress: string; amount: number; shares: number; timestamp: string; transactionSignature: string; type: string }> = [];
 
       if (fund.investments && fund.investments.length > 0) {
         // Find all investments by this wallet
-        const userInvestments = fund.investments.filter((inv: any) => 
+        const userInvestments = fund.investments.filter((inv: { walletAddress: string }) => 
           inv.walletAddress === walletAddress
         );
         
         console.log('Found user investments:', userInvestments.length);
         
         if (userInvestments.length > 0) {
-          userShares = userInvestments.reduce((sum: number, inv: any) => sum + (inv.shares || 0), 0);
-          totalInvested = userInvestments.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
+          userShares = userInvestments.reduce((sum: number, inv: { shares?: number }) => sum + (inv.shares || 0), 0);
+          totalInvested = userInvestments.reduce((sum: number, inv: { amount?: number }) => sum + (inv.amount || 0), 0);
           investmentHistory = userInvestments;
         }
       } else if (isManager) {
@@ -72,16 +72,17 @@ export async function GET(req: NextRequest) {
         : totalInvested; // Fallback to invested amount if no current value
       
       // Calculate P&L (difference between current value and what was invested)
-      const pnl = currentValue - totalInvested;
-      const pnlPercentage = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
+      // const pnl = currentValue - totalInvested;
+      // Remove unused variable
+      // const pnlPercentage = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
       // Calculate user's total withdrawals from this fund
       let totalWithdrawals = 0;
       if (fund.withdrawals && fund.withdrawals.length > 0) {
-        const userWithdrawals = fund.withdrawals.filter((withdrawal: any) => 
+        const userWithdrawals = fund.withdrawals.filter((withdrawal: { walletAddress: string }) => 
           withdrawal.walletAddress === walletAddress
         );
-        totalWithdrawals = userWithdrawals.reduce((sum: number, withdrawal: any) => 
+        totalWithdrawals = userWithdrawals.reduce((sum: number, withdrawal: { amount?: number }) => 
           sum + (withdrawal.amount || 0), 0
         );
       }

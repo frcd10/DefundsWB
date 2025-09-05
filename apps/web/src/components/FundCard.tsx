@@ -18,7 +18,7 @@ export default function FundCard({ f }: { f: Fund }) {
   const [showInvestModal, setShowInvestModal] = useState(false);
 
   // Transform performance data to show PnL instead of cumulative NAV
-  const performanceData = f.performance.map((point, index) => {
+  const performanceData = f.performance.map((point) => {
     // If pnl field exists, use it directly
     if ('pnl' in point && point.pnl !== undefined) {
       return point;
@@ -123,7 +123,7 @@ export default function FundCard({ f }: { f: Fund }) {
                 <XAxis dataKey="date" hide />
                 <YAxis hide domain={['dataMin', 'dataMax']} />
                 <Tooltip 
-                  formatter={(value: any) => [`${Number(value).toFixed(2)} SOL`, 'P&L']}
+                  formatter={(value: number) => [`${Number(value).toFixed(2)} SOL`, 'P&L']}
                   labelFormatter={() => 'Performance'}
                 />
               </LineChart>

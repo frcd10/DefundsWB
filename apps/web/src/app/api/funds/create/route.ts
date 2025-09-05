@@ -114,20 +114,42 @@ export async function POST(req: NextRequest) {
       maxCapacity,
       isPublic,
       signature,
-      totalDeposits: initialDeposit,
-      totalShares: initialDeposit,
+      
+      // Financial tracking
+      totalDeposits: initialDeposit, // Total SOL deposited (TVL)
+      totalShares: initialDeposit,   // Total shares issued
+      currentValue: initialDeposit,  // Current vault value (will change with trading)
+      
+      // Investment tracking
+      investments: initialDeposit > 0 ? [{
+        walletAddress: manager,
+        amount: initialDeposit,
+        shares: initialDeposit,
+        timestamp: new Date(),
+        transactionSignature: signature,
+        type: 'initial_deposit'
+      }] : [],
+      
+      // Metadata
       investorCount: initialDeposit > 0 ? 1 : 0,
       createdAt: new Date(),
       updatedAt: new Date(),
-      performance: [{
+      
+      // Performance history (will track actual trading performance)
+      performanceHistory: [{
         date: new Date().toISOString(),
-        nav: initialDeposit
+        tvl: initialDeposit,
+        nav: 1.0, // Net Asset Value per share (starts at 1.0)
+        pnl: 0,   // Trading P&L (starts at 0)
+        pnlPercentage: 0
       }],
+      
+      // Trading stats (for future use)
       stats: {
-        total: 0,
-        wins: 0,
-        losses: 0,
-        avgWinPct: 0,
+        totalTrades: 0,
+        winningTrades: 0,
+        losingTrades: 0,
+        totalPnL: 0,
         avgWinSol: 0,
         avgLossPct: 0,
         avgLossSol: 0,

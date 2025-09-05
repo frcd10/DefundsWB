@@ -97,25 +97,68 @@ export async function POST(req: NextRequest) {
 
     console.log('Updating fund with new investment...');
     
-    // Calculate new totals (simplified for now - in production you'd calculate based on NAV)
+    // Calculate shares based on current NAV (Net Asset Value)
+    // NAV per share = current fund value / total shares outstanding
+    const currentNavPerShare = fund.currentValue && fund.totalShares > 0 
+      ? fund.currentValue / fund.totalShares 
+      : 1.0;
+    
+    // Shares to issue = investment amount / NAV per share
+    const sharesToIssue = amount / currentNavPerShare;
+    
+    console.log('=== SHARE CALCULATION ===');
+    console.log('Fund current state:');
+    console.log('- Current value:', fund.currentValue, 'SOL');
+    console.log('- Total shares:', fund.totalShares);
+    console.log('- NAV per share:', currentNavPerShare);
+    console.log('New investment:');
+    console.log('- Amount invested:', amount, 'SOL');
+    console.log('- Shares to issue:', sharesToIssue);
+    console.log('After investment:');
+    console.log('- New current value:', fund.currentValue + amount, 'SOL');
+    console.log('- New total shares:', fund.totalShares + sharesToIssue);
+    console.log('- New NAV per share:', (fund.currentValue + amount) / (fund.totalShares + sharesToIssue));
+    
+    // Verify NAV stays constant (should be ~1.0 for deposits)
+    const newNavPerShare = (fund.currentValue + amount) / (fund.totalShares + sharesToIssue);
+    console.log('NAV per share should remain constant:', currentNavPerShare, '→', newNavPerShare);
+    
+    // Calculate new totals
     const newTotalDeposits = fund.totalDeposits + amount;
-    const newTotalShares = fund.totalShares + amount; // 1:1 ratio for simplicity
+    const newTotalShares = fund.totalShares + sharesToIssue;
+    const newCurrentValue = fund.currentValue + amount; // TVL increases by deposit amount
     const newInvestorCount = fund.investorCount + 1;
 
-    // Update the fund
+    // Create investment record
+    const investmentRecord = {
+      walletAddress: investorWallet,
+      amount: amount,
+      shares: sharesToIssue,
+      navAtTime: currentNavPerShare,
+      timestamp: new Date(),
+      transactionSignature: signature,
+      type: 'investment'
+    };
+
+    // Update the fund with investment tracking
     const updateResult = await collection.updateOne(
       { fundId },
       {
         $set: {
           totalDeposits: newTotalDeposits,
           totalShares: newTotalShares,
+          currentValue: newCurrentValue,
           investorCount: newInvestorCount,
           updatedAt: new Date()
         },
         $push: {
-          performance: {
+          investments: investmentRecord,
+          performanceHistory: {
             date: new Date().toISOString(),
-            nav: newTotalDeposits
+            tvl: newTotalDeposits,
+            nav: newCurrentValue / newTotalShares, // Correct NAV per share
+            pnl: newCurrentValue - newTotalDeposits, // Current PnL (should be 0 for deposits only)
+            pnlPercentage: newTotalDeposits > 0 ? ((newCurrentValue - newTotalDeposits) / newTotalDeposits) * 100 : 0
           }
         } as any
       }

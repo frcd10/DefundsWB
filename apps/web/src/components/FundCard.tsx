@@ -2,6 +2,7 @@
 import { Fund } from '@/data/mockFunds';
 import { useState } from 'react';
 import { InvestInFundModal } from './InvestInFundModal';
+import { formatSol } from '@/lib/formatters';
 import {
   LineChart,
   Line,
@@ -15,6 +16,25 @@ export default function FundCard({ f }: { f: Fund }) {
   const [details, setDetails] = useState(false);
   const [invite, setInvite] = useState('');
   const [showInvestModal, setShowInvestModal] = useState(false);
+
+  // Transform performance data to show PnL instead of cumulative NAV
+  const performanceData = f.performance.map((point, index) => {
+    // If pnl field exists, use it directly
+    if ('pnl' in point && point.pnl !== undefined) {
+      return point;
+    }
+    
+    // Otherwise, calculate PnL from NAV (for mock funds)
+    // PnL = current NAV - initial NAV (assuming initial NAV was around 10-11)
+    const initialNav = f.performance[0]?.nav || 10;
+    const pnl = point.nav - initialNav;
+    
+    return {
+      ...point,
+      pnl: pnl,
+      pnlPercentage: ((point.nav - initialNav) / initialNav) * 100
+    };
+  });
 
   const invest = () => {
     if (f.inviteOnly && !invite.trim()) {
@@ -48,10 +68,10 @@ export default function FundCard({ f }: { f: Fund }) {
       {/* ── Key metrics ────────────────────────────── */}
       <div className="flex flex-wrap justify-between text-sol-100 text-xs sm:text-sm mb-4 gap-1">
         <span className="whitespace-nowrap">
-          <b>{f.tvl}</b>&nbsp;SOL&nbsp;TVL
+          <b>{formatSol(f.tvl)}</b>&nbsp;SOL&nbsp;TVL
         </span>
         <span className="whitespace-nowrap">
-          Perf&nbsp;<b>{f.perfFee}%</b>
+          Performance fee&nbsp;<b>{f.perfFee}%</b>
         </span>
         <span className="whitespace-nowrap">
           <b>{f.investorCount}</b>&nbsp;Investors
@@ -88,20 +108,24 @@ export default function FundCard({ f }: { f: Fund }) {
       {/* ── Expanded stats ────────────────────────── */}
       {details && (
         <div className="mt-4">
-          {/* Evolution graph */}
+          {/* PnL Performance graph */}
+          <h4 className="text-sol-50 text-sm font-semibold mb-2">P&L Performance</h4>
           <div className="h-32 sm:h-40 mb-3">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={f.performance}>
+              <LineChart data={performanceData}>
                 <Line
                   type="monotone"
-                  dataKey="nav"
+                  dataKey="pnl"
                   stroke="#44FFB3"
                   strokeWidth={2}
                   dot={false}
                 />
                 <XAxis dataKey="date" hide />
                 <YAxis hide domain={['dataMin', 'dataMax']} />
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: any) => [`${Number(value).toFixed(2)} SOL`, 'P&L']}
+                  labelFormatter={() => 'Performance'}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

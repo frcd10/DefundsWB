@@ -11,17 +11,23 @@ import { Button } from '@/components/ui/button';
 const PAGE_SIZE = 21;
 
 interface RealFund {
+  id: string; // API returns 'id', not just 'fundId'
   fundId: string;
   manager: string;
   name: string;
   description: string;
   fundType: string;
-  performanceFee: number;
+  type: string; // API returns 'type' as well
+  tvl: number; // API returns 'tvl', not 'totalDeposits'
+  perfFee: number; // API returns 'perfFee', not 'performanceFee'
+  performanceFee: number; // Keep for backward compatibility
   maxCapacity: number;
+  maxCap: number; // API returns 'maxCap' as well
   isPublic: boolean;
-  totalDeposits: number;
+  inviteOnly: boolean; // API returns 'inviteOnly' as well
+  totalDeposits: number; // Keep for backward compatibility
   investorCount: number;
-  performance: Array<{ date: string; nav: number }>;
+  performance: Array<{ date: string; nav: number; pnl?: number; pnlPercentage?: number }>;
   stats: {
     total: number;
     wins: number;
@@ -74,8 +80,8 @@ export default function Home() {
     traderTwitter: '@' + fund.manager.slice(0, 8),
     description: fund.description,
     type: fund.fundType as FundType,
-    tvl: fund.totalDeposits || 0,
-    perfFee: fund.performanceFee || 0,
+    tvl: fund.tvl || 0, // Use tvl from API response (already transformed)
+    perfFee: fund.perfFee || 0, // Use perfFee from API response (already transformed)
     maxCap: fund.maxCapacity || 0,
     investorCount: fund.investorCount || 0,
     inviteOnly: !fund.isPublic,

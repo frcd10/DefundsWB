@@ -1,111 +1,363 @@
-/* app/portfolio/page.tsx */
 'use client';
 
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from 'recharts';
+import { useState, useEffect } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Button } from '@/components/ui/button';
+import { WithdrawFromFundModal } from '@/components/WithdrawFromFundModal';
 
-// ------------------------------------------------------------------
-// ‣ Mock data -------------------------------------------------------
-const addr = '9XhZ…3Wb1t';
+interface PortfolioPosition {
+  fundId: string;
+  fundName: string;
+  fundType: string;
+  sharePercentage: number;
+  userShares: number;
+  totalShares: number;
+  currentValue: number;
+  initialInvestment: number;
+  totalWithdrawals: number;
+  lastUpdated: string;
+}
 
-const portfolioHistory = [
-  { date: '2024-04', value: 100 },
-  { date: '2024-07', value: 550 },
-  { date: '2024-10', value: 330 },
-  { date: '2025-01', value: 789 },
-  { date: '2025-04', value: 1200 },
-];
+interface PortfolioData {
+  totalValue: number;
+  totalInvested: number;
+  totalWithdrawn: number;
+  totalPnL: number;
+  totalPnLPercentage: number;
+  activeFunds: number;
+  positions: PortfolioPosition[];
+}
 
-// start capital = 100 SOL, so % == SOL for demo
-const positions = [
-  { fund: 'Bonk Legend Fund', pnlSol: 520,  pnlPct: 520 },
-  { fund: 'Arb Titans',       pnlSol: -45,  pnlPct: -45 },
-  { fund: 'Yieldies',         pnlSol: 180,  pnlPct: 180 },
-  { fund: 'Meme Long-only',   pnlSol: 320,  pnlPct: 320 },
-  { fund: 'Perp Masters',     pnlSol: -60,  pnlPct: -60 },
-  { fund: 'Quant Alpha',      pnlSol: 85,   pnlPct: 85 },
-  { fund: 'Stable Farm',      pnlSol: 0,    pnlPct: 0 },
-  { fund: 'DeFi Index',       pnlSol: 110,  pnlPct: 110 },
-  { fund: 'Futures Turbo',    pnlSol: 160,  pnlPct: 160 },
-  { fund: 'NFT Floor Hedge',  pnlSol: 30,   pnlPct: 30 },
-];
-// ------------------------------------------------------------------
+export default function PortfolioPage() {
+  const wallet = useWallet();
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState<PortfolioPosition | null>(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
-export default function Portfolio() {
+  const fetchPortfolio = async () => {
+    if (!wallet.publicKey) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching portfolio for:', wallet.publicKey.toString());
+      
+      const response = await fetch(`/api/portfolio?walletAddress=${wallet.publicKey.toString()}`);
+      const data = await response.json();
+
+      console.log('Portfolio API response:', data);
+
+      if (!response.ok) {
+        // If it's a client error (like no wallet), show empty portfolio instead of error
+        if (response.status === 400) {
+          console.log('No wallet address provided, showing empty portfolio');
+          setPortfolio({
+            totalValue: 0,
+            totalInvested: 0,
+            totalWithdrawn: 0,
+            totalPnL: 0,
+            totalPnLPercentage: 0,
+            activeFunds: 0,
+            positions: []
+          });
+          setError(null);
+          return;
+        }
+        throw new Error(data.error || 'Failed to fetch portfolio');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch portfolio');
+      }
+
+      // Set portfolio data or empty portfolio if no positions
+      setPortfolio(data.data || {
+        totalValue: 0,
+        totalInvested: 0,
+        totalWithdrawn: 0,
+        totalPnL: 0,
+        totalPnLPercentage: 0,
+        activeFunds: 0,
+        positions: []
+      });
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching portfolio:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load portfolio');
+      setPortfolio(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPortfolio();
+  }, [wallet.publicKey]);
+
+  const handleWithdraw = (position: PortfolioPosition) => {
+    console.log('Opening withdraw modal for position:', position);
+    setSelectedPosition(position);
+    setShowWithdrawModal(true);
+  };
+
+  const handleWithdrawComplete = (signature: string) => {
+    console.log('Withdrawal completed with signature:', signature);
+    // Refresh portfolio data after withdrawal
+    fetchPortfolio();
+    setShowWithdrawModal(false);
+    setSelectedPosition(null);
+  };
+
+  if (!wallet.connected) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
+            <p className="text-xl text-gray-400 mb-8">
+              Connect your wallet to view your fund positions and manage your investments.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
+            <p className="text-xl text-gray-400">Loading your portfolio...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
+            <div className="bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-lg max-w-md mx-auto">
+              <p>Error: {error}</p>
+            </div>
+            <Button 
+              onClick={fetchPortfolio} 
+              className="mt-4 bg-blue-600 hover:bg-blue-700"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!portfolio || portfolio.positions.length === 0) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
+            <p className="text-xl text-gray-400 mb-8">
+              You don't have any fund positions yet.
+            </p>
+            <p className="text-gray-500 mb-8">
+              Start by creating a fund or investing in existing funds to build your portfolio.
+            </p>
+            <Button 
+              onClick={() => window.location.href = '/Funds'} 
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Explore Funds
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800">
-      <section className="max-w-6xl mx-auto px-4 pt-20">
-        <h1 className="text-4xl font-extrabold text-sol-50 mb-8">My portfolio</h1>
-
-        {/* Address */}
-        <div className="mb-8">
-          <span className="text-sol-200">Solana address:</span>{' '}
-          <code className="text-sol-accent">{addr}</code>
+    <div className="min-h-screen bg-black text-white">
+      <div className="container mx-auto px-4 py-20">
+        <h1 className="text-4xl font-bold mb-8 text-center">Your Portfolio</h1>
+        
+        {/* Portfolio Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-12">
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Value</h3>
+            <p className="text-2xl font-bold text-green-400">
+              {portfolio.totalValue.toFixed(2)} SOL
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Invested</h3>
+            <p className="text-2xl font-bold">
+              {portfolio.totalInvested.toFixed(2)} SOL
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Withdraw</h3>
+            <p className="text-2xl font-bold text-orange-400">
+              {portfolio.totalWithdrawn?.toFixed(2) || '0.00'} SOL
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">P&L</h3>
+            <p className={`text-2xl font-bold ${portfolio.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(2)} SOL
+              <span className="text-sm ml-2">
+                ({portfolio.totalPnLPercentage >= 0 ? '+' : ''}{portfolio.totalPnLPercentage.toFixed(2)}%)
+              </span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Invested - Value + Withdrawn
+            </p>
+          </div>
+          <div className="bg-gray-900 p-6 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-400 mb-2">Active Funds</h3>
+            <p className="text-2xl font-bold text-blue-400">
+              {portfolio.activeFunds}
+            </p>
+          </div>
         </div>
 
-        {/* Chart */}
-        <div className="h-64 bg-sol-800/60 rounded-2xl p-4 mb-12">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={portfolioHistory}>
-              <Line type="monotone" dataKey="value" stroke="#44FFB3" strokeWidth={2} dot={false} />
-              <XAxis dataKey="date" stroke="#AAA" />
-              <YAxis stroke="#AAA" domain={[0, 'dataMax']} />
-              <Tooltip contentStyle={{ background: '#111', border: 'none' }} labelStyle={{ color: '#AAA' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Positions */}
-        <table className="w-full text-sol-50">
-          <thead>
-            <tr className="text-left border-b border-sol-700">
-              <th className="py-2">Fund</th>
-              <th className="py-2">P/L&nbsp;(SOL)</th>
-              <th className="py-2">P/L&nbsp;(%)</th>
-              <th className="py-2 text-right">Withdraw</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map(({ fund, pnlSol, pnlPct }) => {
-              const cls = pnlSol >= 0 ? 'text-green-400' : 'text-red-400';
-              return (
-                <tr key={fund} className="border-b border-sol-800">
-                  <td className="py-2">{fund}</td>
-                  <td className={`py-2 font-semibold ${cls}`}>{pnlSol.toFixed(2)}</td>
-                  <td className={`py-2 font-semibold ${cls}`}>{pnlPct.toFixed(0)}%</td>
-                  {/* right-aligned small withdraw UI */}
-                  <td className="py-2 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        placeholder="%"
-                        className="w-14 input text-sm"
-                        onChange={(e) =>
-                          console.log('desired %', fund, Number(e.target.value))
-                        }
-                      />
-                      <button
-                        onClick={() => console.log('withdraw click', fund)}
-                        className="px-2 py-1 rounded-md bg-sol-accent text-sol-900 text-xs font-semibold hover:scale-105 transition"
-                      >
-                        Go
-                      </button>
-                    </div>
-                  </td>
+        {/* Positions Table */}
+        <div className="bg-gray-900 rounded-lg overflow-hidden">
+          <div className="p-6 border-b border-gray-700">
+            <h2 className="text-xl font-bold">Fund Positions</h2>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-800">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Fund
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Ownership
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Current Value
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Invested
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Withdrawn
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    P&L
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
-    </main>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {portfolio.positions.map((position) => (
+                  <tr key={position.fundId} className="hover:bg-gray-800">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <p className="text-sm font-medium text-white">{position.fundName}</p>
+                        <p className="text-xs text-gray-400">{position.fundId.slice(0, 8)}...</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-200">
+                        {position.fundType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <p className="text-sm font-medium text-white">{position.sharePercentage.toFixed(2)}%</p>
+                        <p className="text-xs text-gray-400">
+                          {position.userShares.toFixed(2)} / {position.totalShares.toFixed(2)}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(2)} SOL</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(2)} SOL</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(2)} SOL</p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        {(() => {
+                          // Calculate P&L: Current Value + Withdrawn - Invested
+                          const pnl = position.currentValue + position.totalWithdrawals - position.initialInvestment;
+                          const pnlPercentage = position.initialInvestment > 0 
+                            ? (pnl / position.initialInvestment) * 100 
+                            : 0;
+                          
+                          return (
+                            <>
+                              <p className={`text-sm font-medium ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} SOL
+                              </p>
+                              <p className={`text-xs ${pnlPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
+                              </p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Button
+                        onClick={() => handleWithdraw(position)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm"
+                      >
+                        Withdraw
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Last Updated */}
+        <div className="text-center mt-8">
+          <p className="text-sm text-gray-500">
+            Portfolio last updated: {new Date().toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Withdraw Modal */}
+      {selectedPosition && (
+        <WithdrawFromFundModal
+          isOpen={showWithdrawModal}
+          onClose={() => {
+            setShowWithdrawModal(false);
+            setSelectedPosition(null);
+          }}
+          fundId={selectedPosition.fundId}
+          fundName={selectedPosition.fundName}
+          userShares={selectedPosition.userShares}
+          totalShares={selectedPosition.totalShares}
+          sharePercentage={selectedPosition.sharePercentage}
+          currentValue={selectedPosition.currentValue}
+          onWithdrawComplete={handleWithdrawComplete}
+        />
+      )}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 import { Fund } from '@/data/mockFunds';
 import { useState } from 'react';
+import { InvestInFundModal } from './InvestInFundModal';
 import {
   LineChart,
   Line,
@@ -13,13 +14,22 @@ import {
 export default function FundCard({ f }: { f: Fund }) {
   const [details, setDetails] = useState(false);
   const [invite, setInvite] = useState('');
+  const [showInvestModal, setShowInvestModal] = useState(false);
 
   const invest = () => {
     if (f.inviteOnly && !invite.trim()) {
       return alert('Invite code required');
     }
-    // TODO: trigger on-chain deposit
-    console.log('investing →', f.id, 'invite=', invite);
+    
+    // Open the investment modal
+    setShowInvestModal(true);
+    console.log('Opening investment modal for fund:', f.id);
+  };
+
+  const handleInvestmentComplete = (signature: string) => {
+    console.log('Investment completed with signature:', signature);
+    // TODO: Refresh fund data or show success message
+    alert(`Investment successful! Transaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
   };
 
   return (
@@ -154,6 +164,15 @@ export default function FundCard({ f }: { f: Fund }) {
           </ul>
         </div>
       )}
+
+      {/* Investment Modal */}
+      <InvestInFundModal
+        isOpen={showInvestModal}
+        onClose={() => setShowInvestModal(false)}
+        fundId={f.id}
+        fundName={f.name}
+        onInvestmentComplete={handleInvestmentComplete}
+      />
     </div>
   );
 }

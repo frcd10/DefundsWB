@@ -1,5 +1,5 @@
 import { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
-import { Program, AnchorProvider, BN } from '@coral-xyz/anchor';
+import { Program, AnchorProvider } from '@coral-xyz/anchor';
 import { WalletContextState } from '@solana/wallet-adapter-react';
 
 // Program IDL - simplified for key operations
@@ -143,41 +143,71 @@ export class SolanaFundService {
         console.log('Fund PDA:', fundPda.toString());
         console.log('Vault PDA:', vaultPda.toString());
 
-        // Create a SOL transfer transaction to the actual program vault
-        const transaction = new Transaction().add(
+        // Create transaction with fresh blockhash
+        const transaction = new Transaction();
+        
+        // Get the most recent blockhash
+        console.log('Getting latest blockhash...');
+        const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+        
+        transaction.add(
           SystemProgram.transfer({
             fromPubkey: wallet.publicKey,
-            toPubkey: vaultPda, // This is now your program's vault PDA!
+            toPubkey: vaultPda,
             lamports: Math.floor(params.initialDeposit * LAMPORTS_PER_SOL),
           })
         );
 
-        // Get recent blockhash
-        const { blockhash } = await this.connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = wallet.publicKey;
 
         console.log('Signing transaction to program vault...');
         const signedTransaction = await wallet.signTransaction(transaction);
         
-        console.log('Sending transaction to program vault...');
-        const signature = await this.connection.sendRawTransaction(signedTransaction.serialize());
+        console.log('Sending transaction with fresh blockhash...');
+        const signature = await this.connection.sendRawTransaction(
+          signedTransaction.serialize(),
+          {
+            skipPreflight: false,
+            preflightCommitment: 'processed',
+            maxRetries: 3
+          }
+        );
         
-        console.log('Confirming transaction...');
-        await this.connection.confirmTransaction(signature, 'confirmed');
+        console.log('Confirming transaction with block height check...');
+        const confirmation = await this.connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight
+        }, 'confirmed');
+
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
         
         console.log('Real transaction signature:', signature);
         console.log('SOL transferred to program vault:', vaultPda.toString());
 
         return {
-          fundId: fundPda.toString(), // Use the actual fund PDA
-          signature // Real transaction signature to your program vault
+          fundId: fundPda.toString(),
+          signature
         };
       } else {
         throw new Error('Initial deposit is required to create a fund');
       }
     } catch (error) {
       console.error('Error creating fund with program vault:', error);
+      
+      // Enhanced error handling
+      if (error instanceof Error) {
+        if (error.message.includes('Blockhash not found')) {
+          throw new Error('Transaction expired. Please try again with a fresh transaction.');
+        }
+        if (error.message.includes('insufficient funds')) {
+          throw new Error('Insufficient SOL balance. Please check your wallet balance.');
+        }
+      }
+      
       throw error;
     }
   }
@@ -222,34 +252,64 @@ export class SolanaFundService {
 
       console.log('Depositing to vault PDA:', vaultPda.toString());
 
-      // Create a real SOL transfer transaction to the program vault
-      const transaction = new Transaction().add(
+      // Create transaction with fresh blockhash
+      const transaction = new Transaction();
+      
+      // Get the most recent blockhash
+      console.log('Getting latest blockhash for deposit...');
+      const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+      
+      transaction.add(
         SystemProgram.transfer({
           fromPubkey: wallet.publicKey,
-          toPubkey: vaultPda, // Transfer to the actual program vault
+          toPubkey: vaultPda,
           lamports: Math.floor(amount * LAMPORTS_PER_SOL),
         })
       );
 
-      // Get recent blockhash
-      const { blockhash } = await this.connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = wallet.publicKey;
 
       console.log('Signing deposit transaction to program vault...');
       const signedTransaction = await wallet.signTransaction(transaction);
       
-      console.log('Sending deposit transaction...');
-      const signature = await this.connection.sendRawTransaction(signedTransaction.serialize());
+      console.log('Sending deposit transaction with fresh blockhash...');
+      const signature = await this.connection.sendRawTransaction(
+        signedTransaction.serialize(),
+        {
+          skipPreflight: false,
+          preflightCommitment: 'processed',
+          maxRetries: 3
+        }
+      );
       
       console.log('Confirming deposit transaction...');
-      await this.connection.confirmTransaction(signature, 'confirmed');
+      const confirmation = await this.connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight
+      }, 'confirmed');
+
+      if (confirmation.value.err) {
+        throw new Error(`Deposit transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      }
       
       console.log('Real deposit transaction signature:', signature);
       
       return signature;
     } catch (error) {
       console.error('Error making real deposit to program vault:', error);
+      
+      // Enhanced error handling
+      if (error instanceof Error) {
+        if (error.message.includes('Blockhash not found')) {
+          throw new Error('Transaction expired. Please try again.');
+        }
+        if (error.message.includes('insufficient funds')) {
+          throw new Error('Insufficient SOL balance for this deposit.');
+        }
+      }
+      
       throw error;
     }
   }

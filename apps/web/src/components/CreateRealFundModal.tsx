@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { solanaFundService, CreateFundParams } from '@/services/solana-fund.service';
-import { FundType } from '@/data/mockFunds';
+import { FundType } from '@/types/fund';
 
 interface CreateRealFundModalProps {
   isOpen: boolean;

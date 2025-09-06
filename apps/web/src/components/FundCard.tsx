@@ -1,5 +1,5 @@
 'use client';
-import { Fund } from '@/data/mockFunds';
+import { FundCardData } from '@/types/fund';
 import { useState } from 'react';
 import { InvestInFundModal } from './InvestInFundModal';
 import { formatSol } from '@/lib/formatters';
@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-export default function FundCard({ f }: { f: Fund }) {
+export default function FundCard({ f }: { f: FundCardData }) {
   const [details, setDetails] = useState(false);
   const [invite, setInvite] = useState('');
   const [showInvestModal, setShowInvestModal] = useState(false);

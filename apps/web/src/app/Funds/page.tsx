@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import FilterBar, { Filters } from '@/components/FilterBar';
 import FundCard from '@/components/FundCard';
-import { mockFunds, FundType } from '@/data/mockFunds';
-import CreateFundModal from '@/components/CreateFundModal';
+import { FundType, FundCardData } from '@/types/fund';
+// Removed mock create modal and mocks usage
 import { CreateRealFundModal } from '@/components/CreateRealFundModal';
 import { Button } from '@/components/ui/button';
 
@@ -46,7 +46,6 @@ interface RealFund {
 export default function Home() {
   const [filters, setFilters] = useState<Filters>({});
   const [page, setPage] = useState(0);          // 0-based
-  const [showMockFunds, setShowMockFunds] = useState(true);
   const [realFunds, setRealFunds] = useState<RealFund[]>([]);
   const [showCreateReal, setShowCreateReal] = useState(false);
 
@@ -73,7 +72,7 @@ export default function Home() {
   };
 
   /* ── Compute visible funds ----------------------------------------- */
-  const allFunds = showMockFunds ? mockFunds : realFunds.map(fund => ({
+  const allFunds: FundCardData[] = realFunds.map(fund => ({
     id: fund.fundId,
     name: fund.name,
     handle: fund.manager.slice(0, 8) + '...',
@@ -145,37 +144,14 @@ export default function Home() {
             The first marketplace where traders launch token funds on&nbsp;Solana.
           </p>
           
-          {/* Toggle and Create Buttons */}
+          {/* Create Button */}
           <div className="flex flex-wrap gap-3 justify-center items-center mb-6">
-            <div className="flex bg-white/10 rounded-lg p-1">
-              <Button
-                onClick={() => setShowMockFunds(true)}
-                variant={showMockFunds ? "default" : "ghost"}
-                size="sm"
-                className={showMockFunds ? "bg-white text-black" : "text-white hover:bg-white/20"}
-              >
-                Mock Funds
-              </Button>
-              <Button
-                onClick={() => setShowMockFunds(false)}
-                variant={!showMockFunds ? "default" : "ghost"}
-                size="sm"
-                className={!showMockFunds ? "bg-white text-black" : "text-white hover:bg-white/20"}
-              >
-                Real Funds ({realFunds.length})
-              </Button>
-            </div>
-            
-            {showMockFunds ? (
-              <CreateFundModal />
-            ) : (
-              <Button
-                onClick={() => setShowCreateReal(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                Create Real Fund
-              </Button>
-            )}
+            <Button
+              onClick={() => setShowCreateReal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Create a fund
+            </Button>
           </div>
         </header>
 

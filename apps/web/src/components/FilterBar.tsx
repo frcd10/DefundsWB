@@ -1,6 +1,6 @@
 'use client';
 
-import { FundType } from '@/data/mockFunds';
+import { FundType } from '@/types/fund';
 import { useState } from 'react';
 
 export interface Filters {

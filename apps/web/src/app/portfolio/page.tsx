@@ -84,7 +84,7 @@ export default function PortfolioPage() {
 
   if (!wallet.connected) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
@@ -99,7 +99,7 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
@@ -112,7 +112,7 @@ export default function PortfolioPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
@@ -133,7 +133,7 @@ export default function PortfolioPage() {
 
   if (!portfolio || portfolio.positions.length === 0) {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
@@ -156,7 +156,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
       <div className="container mx-auto px-4 py-20">
         <h1 className="text-4xl font-bold mb-8 text-center">Your Portfolio</h1>
         

@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo};
+use anchor_spl::associated_token::AssociatedToken;
 use crate::state::*;
 use crate::errors::*;
 
@@ -49,8 +50,8 @@ pub struct Deposit<'info> {
     #[account(
         init_if_needed,
         payer = investor,
-        token::mint = shares_mint,
-        token::authority = investor
+        associated_token::mint = shares_mint,
+        associated_token::authority = investor
     )]
     pub investor_shares_account: Account<'info, TokenAccount>,
 
@@ -59,6 +60,7 @@ pub struct Deposit<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 

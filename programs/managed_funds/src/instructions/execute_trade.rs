@@ -4,6 +4,7 @@ use crate::state::*;
 use crate::errors::*;
 
 #[derive(Accounts)]
+#[instruction(input_mint: Pubkey, output_mint: Pubkey, amount_in: u64, minimum_amount_out: u64)]
 pub struct ExecuteTrade<'info> {
     #[account(
         mut,
@@ -25,7 +26,7 @@ pub struct ExecuteTrade<'info> {
         init,
         payer = manager,
         space = Trade::SPACE,
-        seeds = [b"trade", fund.key().as_ref(), &Clock::get()?.unix_timestamp.to_le_bytes()],
+        seeds = [b"trade", fund.key().as_ref(), input_mint.as_ref(), output_mint.as_ref()],
         bump
     )]
     pub trade: Account<'info, Trade>,

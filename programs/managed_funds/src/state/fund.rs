@@ -3,8 +3,8 @@ use anchor_lang::prelude::*;
 #[account]
 pub struct Fund {
     pub manager: Pubkey,           // Fund manager/creator
-    pub name: String,              // Fund name (max 50 chars)
-    pub description: String,       // Fund description (max 200 chars)
+    pub name: String,              // Fund name (max 32 chars)
+    pub description: String,       // Fund description (max 100 chars)
     pub base_mint: Pubkey,         // Base token mint (e.g., USDC)
     pub vault: Pubkey,             // Token account holding fund assets
     pub shares_mint: Pubkey,       // Mint for fund shares
@@ -22,8 +22,8 @@ pub struct Fund {
 impl Fund {
     pub const SPACE: usize = 8 + // discriminator
         32 + // manager
-        4 + 50 + // name (String with length prefix)
-        4 + 200 + // description (String with length prefix)
+        4 + 32 + // name (String with length prefix)
+        4 + 100 + // description (String with length prefix)
         32 + // base_mint
         32 + // vault
         32 + // shares_mint

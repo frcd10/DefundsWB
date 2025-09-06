@@ -31,4 +31,10 @@ pub enum FundError {
     
     #[msg("Math overflow")]
     MathOverflow,
+    
+    #[msg("Invalid withdrawal status")]
+    InvalidWithdrawalStatus,
+    
+    #[msg("Invalid input parameters")]
+    InvalidInput,
 }

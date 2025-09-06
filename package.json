@@ -22,10 +22,14 @@
     "anchor:deploy": "anchor deploy"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
-    "@turbo/gen": "^2.0.0"
+    "@turbo/gen": "^2.0.0",
+    "turbo": "^2.0.0"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "node-fetch": "^2.6.7"
   }
 }

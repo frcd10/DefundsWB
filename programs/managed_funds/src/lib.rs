@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 pub mod instructions;
 pub mod state;
@@ -56,5 +55,27 @@ pub mod managed_funds {
         performance_fee: Option<u16>,
     ) -> Result<()> {
         instructions::update_fund(ctx, name, description, management_fee, performance_fee)
+    }
+
+    /// Initiate a withdrawal with position liquidation
+    pub fn initiate_withdrawal(
+        ctx: Context<InitiateWithdrawal>,
+        shares_to_withdraw: u64,
+    ) -> Result<()> {
+        instructions::initiate_withdrawal(ctx, shares_to_withdraw)
+    }
+
+    /// Liquidate positions in batches during withdrawal
+    pub fn liquidate_positions_batch(
+        ctx: Context<LiquidatePositionsBatch>,
+        position_indices: Vec<u8>,
+        minimum_amounts_out: Vec<u64>,
+    ) -> Result<()> {
+        instructions::liquidate_positions_batch(ctx, position_indices, minimum_amounts_out)
+    }
+
+    /// Finalize withdrawal and distribute SOL
+    pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
+        instructions::finalize_withdrawal(ctx)
     }
 }

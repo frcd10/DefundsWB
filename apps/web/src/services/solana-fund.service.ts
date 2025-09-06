@@ -1,68 +1,21 @@
-import { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js';
-import { Program, AnchorProvider } from '@coral-xyz/anchor';
+import { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import { Program, AnchorProvider, Idl, BN } from '@coral-xyz/anchor';
 import { WalletContextState } from '@solana/wallet-adapter-react';
+import { TOKEN_PROGRAM_ID, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createSyncNativeInstruction } from '@solana/spl-token';
 
 // Program IDL - simplified for key operations
 const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || 'tNo3sxFi51AhRzQ3zuSfQVBusNpPRyNrec5LA4xdDom');
 
-// Simple IDL for the functions we need
-const IDL = {
-  version: "0.1.0",
-  name: "managed_funds",
-  instructions: [
-    {
-      name: "initializeFund",
-      accounts: [
-        { name: "fund", isMut: true, isSigner: false },
-        { name: "manager", isMut: true, isSigner: true },
-        { name: "vault", isMut: true, isSigner: false },
-        { name: "systemProgram", isMut: false, isSigner: false },
-      ],
-      args: [
-        { name: "name", type: "string" },
-        { name: "description", type: "string" },
-        { name: "performanceFee", type: "u16" },
-        { name: "maxCapacity", type: "u64" },
-        { name: "isPublic", type: "bool" },
-        { name: "fundType", type: "string" },
-      ]
-    },
-    {
-      name: "deposit",
-      accounts: [
-        { name: "fund", isMut: true, isSigner: false },
-        { name: "investor", isMut: true, isSigner: true },
-        { name: "investorPosition", isMut: true, isSigner: false },
-        { name: "vault", isMut: true, isSigner: false },
-        { name: "systemProgram", isMut: false, isSigner: false },
-      ],
-      args: [
-        { name: "amount", type: "u64" }
-      ]
-    }
-  ],
-  accounts: [
-    {
-      name: "Fund",
-      type: {
-        kind: "struct",
-        fields: [
-          { name: "manager", type: "publicKey" },
-          { name: "name", type: "string" },
-          { name: "description", type: "string" },
-          { name: "fundType", type: "string" },
-          { name: "totalDeposits", type: "u64" },
-          { name: "totalShares", type: "u64" },
-          { name: "performanceFee", type: "u16" },
-          { name: "maxCapacity", type: "u64" },
-          { name: "isPublic", type: "bool" },
-          { name: "createdAt", type: "i64" },
-          { name: "bump", type: "u8" },
-        ]
-      }
-    }
-  ]
-};
+// We'll load the full IDL at runtime from /public/managed_funds.json
+let cachedIdl: Idl | null = null;
+async function loadIdl(): Promise<Idl> {
+  if (cachedIdl) return cachedIdl;
+  const res = await fetch('/managed_funds.json');
+  if (!res.ok) throw new Error('Failed to load program IDL');
+  const idl = (await res.json()) as Idl;
+  cachedIdl = idl;
+  return idl;
+}
 
 export interface CreateFundParams {
   name: string;
@@ -99,7 +52,7 @@ export class SolanaFundService {
     this.connection = new Connection(rpcUrl, 'confirmed');
   }
 
-  private getProgram(wallet: WalletContextState) {
+  private async getProgram(wallet: WalletContextState) {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error('Wallet not connected');
     }
@@ -111,8 +64,9 @@ export class SolanaFundService {
       { commitment: 'confirmed' }
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new Program(IDL as any, provider);
+  const idl = await loadIdl();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new Program(idl as any, provider);
   }
 
   async createFund(wallet: WalletContextState, params: CreateFundParams): Promise<{ fundId: string; signature: string }> {
@@ -121,80 +75,155 @@ export class SolanaFundService {
     }
 
     try {
-      console.log('Creating REAL fund with program vault...');
+      console.log('Creating REAL fund via initialize_fund instruction...');
       console.log('Wallet:', wallet.publicKey.toString());
-      console.log('Initial deposit:', params.initialDeposit, 'SOL');
       console.log('Program ID:', PROGRAM_ID.toString());
+      // Load program from full IDL
+      const program = await this.getProgram(wallet);
 
-      if (params.initialDeposit > 0) {
-        // Generate fund PDA using your actual program
-        const fundSeed = Keypair.generate().publicKey.toBuffer().slice(0, 8);
-        const [fundPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("fund"), wallet.publicKey.toBuffer(), fundSeed],
-          PROGRAM_ID
-        );
+      // Sanitize name/description to fit on-chain struct space
+      const name = params.name.slice(0, 32);
+      const description = params.description.slice(0, 100);
 
-        // Generate vault PDA for this fund using your actual program
-        const [vaultPda] = PublicKey.findProgramAddressSync(
-          [Buffer.from("vault"), fundPda.toBuffer()],
-          PROGRAM_ID
-        );
+      // Convert fees to basis points; default 2% management fee if not provided in UI
+      const managementFeeBps = 200; // 2%
+      const performanceFeeBps = Math.max(0, Math.floor(params.performanceFee * 100));
 
-        console.log('Fund PDA:', fundPda.toString());
-        console.log('Vault PDA:', vaultPda.toString());
+      // Derive PDAs exactly like in testing.js / on-chain seeds
+      const [fundPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('fund'), wallet.publicKey.toBuffer(), Buffer.from(name)],
+        program.programId
+      );
 
-        // Create transaction with fresh blockhash
-        const transaction = new Transaction();
-        
-        // Get the most recent blockhash
-        console.log('Getting latest blockhash...');
-        const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
-        
-        transaction.add(
+      const [vaultPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('vault'), fundPda.toBuffer()],
+        program.programId
+      );
+
+      const [sharesMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('shares'), fundPda.toBuffer()],
+        program.programId
+      );
+
+      console.log('Fund PDA:', fundPda.toString());
+      console.log('Vault PDA:', vaultPda.toString());
+      console.log('Shares Mint PDA:', sharesMintPda.toString());
+
+      // If initial deposit is requested, compose a single transaction that:
+      // 1) initializes the fund, 2) wraps SOL into investor WSOL ATA, 3) calls deposit
+      if (params.initialDeposit && params.initialDeposit > 0) {
+        // Build initialize_fund ix
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const initIx = await (program as any).methods
+          .initializeFund(name, description, managementFeeBps, performanceFeeBps)
+          .accounts({
+            fund: fundPda,
+            vault: vaultPda,
+            sharesMint: sharesMintPda,
+            baseMint: NATIVE_MINT,
+            manager: wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .instruction();
+
+        const amountLamports = Math.floor(params.initialDeposit * LAMPORTS_PER_SOL);
+
+        // Prepare investor WSOL ATA and wrap SOL
+        const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, wallet.publicKey);
+        const tx = new Transaction();
+
+        const ataInfo = await this.connection.getAccountInfo(investorWsolAta);
+        if (!ataInfo) {
+          tx.add(
+            createAssociatedTokenAccountInstruction(
+              wallet.publicKey, // payer
+              investorWsolAta,   // ata
+              wallet.publicKey,  // owner
+              NATIVE_MINT        // mint
+            )
+          );
+        }
+
+        tx.add(
           SystemProgram.transfer({
             fromPubkey: wallet.publicKey,
-            toPubkey: vaultPda,
-            lamports: Math.floor(params.initialDeposit * LAMPORTS_PER_SOL),
+            toPubkey: investorWsolAta,
+            lamports: amountLamports,
           })
         );
 
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = wallet.publicKey;
+        tx.add(createSyncNativeInstruction(investorWsolAta));
 
-        console.log('Signing transaction to program vault...');
-        const signedTransaction = await wallet.signTransaction(transaction);
-        
-        console.log('Sending transaction with fresh blockhash...');
-        const signature = await this.connection.sendRawTransaction(
-          signedTransaction.serialize(),
-          {
-            skipPreflight: false,
-            preflightCommitment: 'processed',
-            maxRetries: 3
-          }
+        // Derive investor position PDA and investor shares ATA for deposit
+        // Derive investor position PDA and investor shares ATA
+        const [investorPositionPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from('position'), wallet.publicKey.toBuffer(), fundPda.toBuffer()],
+          program.programId
         );
-        
-        console.log('Confirming transaction with block height check...');
-        const confirmation = await this.connection.confirmTransaction({
-          signature,
-          blockhash,
-          lastValidBlockHeight
-        }, 'confirmed');
+        const investorSharesAta = await getAssociatedTokenAddress(sharesMintPda, wallet.publicKey);
 
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-        }
-        
-        console.log('Real transaction signature:', signature);
-        console.log('SOL transferred to program vault:', vaultPda.toString());
+        // Build deposit ix
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const depositIx = await (program as any).methods
+          .deposit(new BN(amountLamports))
+          .accounts({
+            fund: fundPda,
+            vault: vaultPda,
+            sharesMint: sharesMintPda,
+            investorPosition: investorPositionPda,
+            investorTokenAccount: investorWsolAta,
+            investorSharesAccount: investorSharesAta,
+            investor: wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .instruction();
 
-        return {
-          fundId: fundPda.toString(),
-          signature
-        };
-      } else {
-        throw new Error('Initial deposit is required to create a fund');
+        // Order matters: init fund -> wrap SOL -> deposit
+        tx.add(initIx);
+        // wrap SOL steps already added above
+        tx.add(depositIx);
+
+        const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = wallet.publicKey;
+
+        const signedTx = await wallet.signTransaction(tx);
+        const sig = await this.connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
+        await this.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+        console.log('single-tx init+deposit signature:', sig);
+
+        return { fundId: fundPda.toString(), signature: sig };
       }
+
+      // No initial deposit: just send initialize_fund as a single tx
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const initOnlyIx = await (program as any).methods
+        .initializeFund(name, description, managementFeeBps, performanceFeeBps)
+        .accounts({
+          fund: fundPda,
+          vault: vaultPda,
+          sharesMint: sharesMintPda,
+          baseMint: NATIVE_MINT,
+          manager: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .instruction();
+      const tx = new Transaction().add(initOnlyIx);
+      const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet.publicKey;
+      const signed = await wallet.signTransaction(tx);
+      const sig = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
+      await this.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+      console.log('initialize_fund signature:', sig);
+      return { fundId: fundPda.toString(), signature: sig };
     } catch (error) {
       console.error('Error creating fund with program vault:', error);
       
@@ -203,8 +232,8 @@ export class SolanaFundService {
         if (error.message.includes('Blockhash not found')) {
           throw new Error('Transaction expired. Please try again with a fresh transaction.');
         }
-        if (error.message.includes('insufficient funds')) {
-          throw new Error('Insufficient SOL balance. Please check your wallet balance.');
+        if (error.message.toLowerCase().includes('insufficient')) {
+          throw new Error('Insufficient balance or rent-exemption. Please check your wallet balance.');
         }
       }
       

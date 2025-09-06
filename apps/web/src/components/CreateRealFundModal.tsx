@@ -45,6 +45,13 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
     initialDeposit: 1.0
   });
 
+  const parseNumberInput = (value: string): number => {
+    // Accept both "," and "." as decimal separators
+    const normalized = value.replace(',', '.');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -219,10 +226,13 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   min="0"
                   step="0.1"
                   value={formData.initialDeposit}
-                  onChange={(e) => setFormData(prev => ({ ...prev, initialDeposit: Number(e.target.value) }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, initialDeposit: parseNumberInput(e.target.value) }))}
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   You&apos;ll own 100% of the fund initially. Others can invest later.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Fund creation requires two signatures: 1) a small rent fee to create the fund accounts (~0.006–0.010 SOL), 2) your initial deposit (the SOL amount above).
                 </p>
               </div>
 

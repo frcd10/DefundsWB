@@ -127,7 +127,12 @@ export async function POST(req: NextRequest) {
     const newTotalDeposits = fund.totalDeposits + amount;
     const newTotalShares = fund.totalShares + sharesToIssue;
     const newCurrentValue = fund.currentValue + amount; // TVL increases by deposit amount
-    const newInvestorCount = fund.investorCount + 1;
+    
+    // Check if this is an existing investor
+    const isExistingInvestor = fund.investments && fund.investments.some((inv: { walletAddress: string }) => 
+      inv.walletAddress === investorWallet
+    );
+    const newInvestorCount = isExistingInvestor ? fund.investorCount : fund.investorCount + 1;
 
     // Create investment record
     const investmentRecord = {
@@ -141,10 +146,8 @@ export async function POST(req: NextRequest) {
     };
 
     // Update the fund with investment tracking
-    const updateResult = await collection.updateOne(
+    const updateResult = await db.collection('Funds').updateOne(
       { fundId },
-      {
-        },
       {
         $set: {
           totalDeposits: newTotalDeposits,

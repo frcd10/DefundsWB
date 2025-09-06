@@ -5,13 +5,7 @@ const newsArticles = [
     id: 1,
     title: "Defunds.Finance Qualified 5th Place at Solana Ideathon Brasil!",
     summary: "We're thrilled to announce that Defunds.Finance has been qualified in 5th place at the prestigious Solana Ideathon Brasil, recognizing our innovative DeFi fund management platform.",
-    content: `We're incredibly excited to share that Defunds.Finance has achieved 5th place qualification at the Solana Ideathon Brasil!
-
-This achievement represents months of hard work developing our revolutionary decentralized fund management platform. Competing against some of the most innovative projects in the Solana ecosystem, our team successfully demonstrated how Defunds is transforming traditional fund management through blockchain technology.
-
-The judges were particularly impressed with our approach to democratizing access to professional-grade investment strategies, our robust smart contract architecture, and the potential impact on both retail and institutional investors.
-
-This recognition validates our mission to bridge traditional finance with decentralized technologies, and we're more motivated than ever to continue building the future of fund management on Solana.
+    content: `We're incredibly excited to share that Defunds.Finance has achieved 5th place at the Solana Ideathon Brasil!
 
 Thank you to our amazing community, advisors, and the Solana Brasil team for making this possible!`,
     date: "September 4, 2025",

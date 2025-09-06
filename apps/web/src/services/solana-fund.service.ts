@@ -272,59 +272,86 @@ export class SolanaFundService {
       console.log('Making REAL deposit of', amount, 'SOL to fund:', fundId);
       console.log('From wallet:', wallet.publicKey.toString());
 
-      // Use the fundId as the fund PDA and derive the vault
+      const program = await this.getProgram(wallet);
+
+      // Use the fundId as the fund PDA and derive related PDAs
       const fundPda = new PublicKey(fundId);
       const [vaultPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), fundPda.toBuffer()],
-        PROGRAM_ID
+        [Buffer.from('vault'), fundPda.toBuffer()],
+        program.programId
+      );
+      const [sharesMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('shares'), fundPda.toBuffer()],
+        program.programId
+      );
+      const [investorPositionPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('position'), wallet.publicKey.toBuffer(), fundPda.toBuffer()],
+        program.programId
       );
 
-      console.log('Depositing to vault PDA:', vaultPda.toString());
+      // Amount in lamports
+      const amountLamports = Math.floor(amount * LAMPORTS_PER_SOL);
 
-      // Create transaction with fresh blockhash
-      const transaction = new Transaction();
-      
-      // Get the most recent blockhash
-      console.log('Getting latest blockhash for deposit...');
-      const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
-      
-      transaction.add(
+      // Ensure WSOL ATA and wrap SOL
+      const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, wallet.publicKey);
+      const tx = new Transaction();
+      const ataInfo = await this.connection.getAccountInfo(investorWsolAta);
+      if (!ataInfo) {
+        tx.add(
+          createAssociatedTokenAccountInstruction(
+            wallet.publicKey,
+            investorWsolAta,
+            wallet.publicKey,
+            NATIVE_MINT
+          )
+        );
+      }
+      tx.add(
         SystemProgram.transfer({
           fromPubkey: wallet.publicKey,
-          toPubkey: vaultPda,
-          lamports: Math.floor(amount * LAMPORTS_PER_SOL),
+          toPubkey: investorWsolAta,
+          lamports: amountLamports,
         })
       );
+      tx.add(createSyncNativeInstruction(investorWsolAta));
 
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = wallet.publicKey;
+      // Investor shares ATA (will be created inside program if needed)
+      const investorSharesAta = await getAssociatedTokenAddress(sharesMintPda, wallet.publicKey);
 
-      console.log('Signing deposit transaction to program vault...');
-      const signedTransaction = await wallet.signTransaction(transaction);
-      
-      console.log('Sending deposit transaction with fresh blockhash...');
-      const signature = await this.connection.sendRawTransaction(
-        signedTransaction.serialize(),
-        {
-          skipPreflight: false,
-          preflightCommitment: 'processed',
-          maxRetries: 3
-        }
-      );
-      
-      console.log('Confirming deposit transaction...');
-      const confirmation = await this.connection.confirmTransaction({
-        signature,
-        blockhash,
-        lastValidBlockHeight
-      }, 'confirmed');
+      // Build deposit instruction
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const depositIx = await (program as any).methods
+        .deposit(new BN(amountLamports))
+        .accounts({
+          fund: fundPda,
+          vault: vaultPda,
+          sharesMint: sharesMintPda,
+          investorPosition: investorPositionPda,
+          investorTokenAccount: investorWsolAta,
+          investorSharesAccount: investorSharesAta,
+          investor: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+        })
+        .instruction();
 
-      if (confirmation.value.err) {
-        throw new Error(`Deposit transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-      }
-      
-      console.log('Real deposit transaction signature:', signature);
-      
+      tx.add(depositIx);
+
+      // Send single transaction
+      const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet.publicKey;
+
+      const signed = await wallet.signTransaction(tx);
+      const signature = await this.connection.sendRawTransaction(signed.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'processed',
+        maxRetries: 3,
+      });
+      await this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+      console.log('deposit signature:', signature);
       return signature;
     } catch (error) {
       console.error('Error making real deposit to program vault:', error);
@@ -334,8 +361,8 @@ export class SolanaFundService {
         if (error.message.includes('Blockhash not found')) {
           throw new Error('Transaction expired. Please try again.');
         }
-        if (error.message.includes('insufficient funds')) {
-          throw new Error('Insufficient SOL balance for this deposit.');
+        if (error.message.includes('insufficient funds') || error.message.toLowerCase().includes('insufficient')) {
+          throw new Error('Insufficient SOL balance for this deposit (including rent).');
         }
       }
       

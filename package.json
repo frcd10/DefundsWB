@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "cd apps/web && npm start",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean",

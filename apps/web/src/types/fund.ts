@@ -14,7 +14,10 @@ export type FundType =
   | 'BIG 3 only'
   | 'Yield Farming'
   | 'FREE'
-  | 'On Chain Stocks Only';
+  | 'On Chain Stocks Only'
+  // RWA specific types
+  | 'Construction'
+  | 'Advance Receivable';
 
 export interface PerformancePoint {
   date: string;

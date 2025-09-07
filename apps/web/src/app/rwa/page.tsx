@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TrendingUp, Users, AlertTriangle, Shield, Eye, Building, Briefcase, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WaitlistModal from '@/components/WaitlistModal';
+import FundCard from '@/components/FundCard';
+import { FundCardData, FundType } from '@/types/fund';
 
 export default function RWAPage() {
   const [openWaitlist, setOpenWaitlist] = useState(false);
+  const { filteredRwa, setRwaFilters } = useRwaFiltering();
 
   return (
     <main className="min-h-screen bg-sol-900 text-sol-50">
@@ -28,15 +31,10 @@ export default function RWAPage() {
               className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
                          px-8 py-3 font-semibold text-sol-900 shadow-lg text-lg
                          transition hover:scale-105"
-              onClick={() => setOpenWaitlist(true)}
-            >
-              🏗️ Join RWA Platform
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-64 rounded-xl border-2 border-sol-accent text-sol-accent
-                         px-8 py-3 font-semibold text-lg hover:bg-sol-accent hover:text-sol-900"
+              onClick={() => {
+                const el = document.getElementById('rwa-products');
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
             >
               📊 View Active Projects
             </Button>
@@ -228,6 +226,29 @@ export default function RWAPage() {
         </div>
       </section>
 
+      {/* RWA Products Section */}
+      <section id="rwa-products" className="py-20 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-4xl font-extrabold text-center mb-10">
+            RWA <span className="text-sol-accent">Products</span>
+          </h2>
+
+          {/* Filters (same theme as Funds, but with Operator + limited Type) */}
+          <RWAFilterBar onChange={(f) => setRwaFilters(f)} />
+
+          {/* Cards grid (reuse FundCard for consistent theme) */}
+      {filteredRwa.length === 0 ? (
+            <p className="text-sol-50 text-center py-8">No products match your filters.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {filteredRwa.map((f: FundCardData) => (
+                <FundCard f={f} key={f.id} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 bg-sol-800/30">
         <div className="max-w-4xl mx-auto text-center">
@@ -296,3 +317,166 @@ function ProjectType({ icon, title, description, details }: {
     </div>
   );
 }
+
+// ────────────────────────────────────────────────────────────────────
+// RWA Products: Filters + Data + Logic (local to this page)
+// ────────────────────────────────────────────────────────────────────
+type RWAType = Extract<FundType, 'Construction' | 'Advance Receivable'>;
+
+interface RWAFilters {
+  query?: string; // Operator
+  maxPerfFee?: number;
+  maxCap?: number;
+  type?: RWAType;
+}
+
+function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
+  const [filters, setFilters] = useState<RWAFilters>({});
+  const update = (partial: Partial<RWAFilters>) => {
+    const next = { ...filters, ...partial };
+    setFilters(next);
+    onChange(next);
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-sol-800/40 p-4 rounded-xl mb-10">
+      {/* Operator ------------------------------------------------------ */}
+      <div className="flex-1 min-w-[200px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Operator</label>
+        <input
+          type="text"
+          placeholder="search operator"
+          className="input w-full sm:w-40"
+          onChange={(e) => update({ query: e.target.value || undefined })}
+        />
+      </div>
+
+      {/* Max perf-fee % ---------------------------------------------- */}
+      <div className="flex-1 min-w-[120px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Max perf-fee %</label>
+        <input
+          type="number"
+          className="input w-full sm:w-24"
+          onChange={(e) => update({ maxPerfFee: Number(e.target.value) || undefined })}
+        />
+      </div>
+
+      {/* Max cap (SOL) ----------------------------------------------- */}
+      <div className="flex-1 min-w-[140px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Max cap (SOL)</label>
+        <input
+          type="number"
+          className="input w-full sm:w-28"
+          onChange={(e) => update({ maxCap: Number(e.target.value) || undefined })}
+        />
+      </div>
+
+      {/* Type --------------------------------------------------------- */}
+      <div className="flex-1 min-w-[160px] sm:min-w-0 sm:flex-none">
+        <label className="block text-sol-100 text-sm mb-1">Type</label>
+        <select
+          className="input w-full"
+          defaultValue=""
+          onChange={(e) => update({ type: (e.target.value as RWAType) || undefined })}
+        >
+          <option value="">Any</option>
+          <option value="Construction">Construction</option>
+          <option value="Advance Receivable">Advance Receivable</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// Mock RWA products (one per type)
+const rwaProducts: FundCardData[] = [
+  {
+    id: 'rwa-construction-1',
+    name: 'Rio Skyline Tower',
+    handle: 'Acme Builders', // Operator
+    traderTwitter: '@acme_build',
+    description:
+      'High-rise residential development in Rio de Janeiro with phased milestones and secured permits.',
+    type: 'Construction' as FundType,
+    tvl: 2_500,
+    perfFee: 12,
+    maxCap: 10_000,
+    investorCount: 18,
+    inviteOnly: false,
+    performance: [
+      { date: '2025-06-01', nav: 10 },
+      { date: '2025-07-01', nav: 10.8 },
+      { date: '2025-08-01', nav: 11.1 },
+      { date: '2025-09-01', nav: 11.3 },
+    ],
+    stats: {
+      total: 0,
+      wins: 0,
+      losses: 0,
+      avgWinPct: 0,
+      avgWinSol: 0,
+      avgLossPct: 0,
+      avgLossSol: 0,
+      drawdownPct: 0,
+      drawdownSol: 0,
+      topWins: [],
+      topLosses: [],
+    },
+  },
+  {
+    id: 'rwa-advrec-1',
+    name: 'Retail Receivables Q4',
+    handle: 'Nova Financing', // Operator
+    traderTwitter: '@nova_fin',
+    description:
+      'Advance on verified retail invoices with 60–90 day payment horizon and diversified counterparties.',
+    type: 'Advance Receivable' as FundType,
+    tvl: 1_200,
+    perfFee: 8,
+    maxCap: 5_000,
+    investorCount: 32,
+    inviteOnly: false,
+    performance: [
+      { date: '2025-06-01', nav: 10 },
+      { date: '2025-07-01', nav: 10.4 },
+      { date: '2025-08-01', nav: 10.7 },
+      { date: '2025-09-01', nav: 10.9 },
+    ],
+    stats: {
+      total: 0,
+      wins: 0,
+      losses: 0,
+      avgWinPct: 0,
+      avgWinSol: 0,
+      avgLossPct: 0,
+      avgLossSol: 0,
+      drawdownPct: 0,
+      drawdownSol: 0,
+      topWins: [],
+      topLosses: [],
+    },
+  },
+];
+
+// Local state and filtering for RWA products
+function useRwaFiltering() {
+  const [rwaFilters, setRwaFilters] = useState<RWAFilters>({});
+  const filteredRwa = useMemo(() => {
+    return rwaProducts.filter((p) => {
+      if (rwaFilters.maxPerfFee !== undefined && p.perfFee > rwaFilters.maxPerfFee)
+        return false;
+      if (rwaFilters.maxCap !== undefined && p.maxCap > rwaFilters.maxCap)
+        return false;
+      if (rwaFilters.type && p.type !== rwaFilters.type) return false;
+      if (rwaFilters.query) {
+        const q = rwaFilters.query.toLowerCase();
+        if (!p.handle.toLowerCase().includes(q) && !p.name.toLowerCase().includes(q))
+          return false;
+      }
+      return true;
+    });
+  }, [rwaFilters]);
+
+  return { filteredRwa, setRwaFilters };
+}
+

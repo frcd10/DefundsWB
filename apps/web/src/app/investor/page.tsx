@@ -96,15 +96,15 @@ export default function InvestorPage() {
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
                   <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Proven Team:</strong> Former Goldman Sachs, Citadel, and Web3 veterans</span>
+                  <span><strong>Proven Team:</strong> TradiFi market team and Web3 veterans</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Patent-Pending Technology:</strong> Unique self-destructing key architecture</span>
+                  <span><strong>Technology:</strong> self-destructing key architecture</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Revenue Model:</strong> 2% management + 20% performance fees</span>
+                  <span><strong>Revenue Model:</strong> 0.1%% management/month + 20% of performance fees</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-sol-accent font-bold">•</span>
@@ -134,38 +134,30 @@ export default function InvestorPage() {
           <div className="grid md:grid-cols-3 gap-8">
             <InvestmentTier
               tier="Angel"
-              amount="$25K - $100K"
+              amount="$5K - $25K"
               features={[
                 "Early investor status",
-                "Token allocation bonus",
-                "Quarterly updates",
-                "Platform beta access"
+                "Increase position in 25% in 1 year at same terms",
               ]}
               highlight={false}
             />
             
             <InvestmentTier
               tier="Strategic"
-              amount="$100K - $500K"
+              amount="$25k - $150K"
               features={[
-                "Advisory board position",
-                "Enhanced token allocation",
-                "Monthly strategic calls",
                 "Product input influence",
-                "VIP platform features"
+                 "Increase position in 30% in 1 year at same terms",
               ]}
               highlight={true}
             />
             
             <InvestmentTier
               tier="Lead"
-              amount="$500K+"
+              amount="$150K+"
               features={[
-                "Board seat consideration",
-                "Maximum token allocation",
-                "Weekly executive access",
-                "Partnership opportunities",
-                "Custom fund creation rights"
+                "Board seat",
+                 "Increase position in 35% in 1 year at same terms",
               ]}
               highlight={false}
             />
@@ -201,7 +193,7 @@ export default function InvestorPage() {
               <Mail className="w-6 h-6 text-sol-accent" />
               <div className="text-left">
                 <h3 className="font-semibold">Email</h3>
-                <p className="text-sol-200 text-sm">investors@defunds.xyz</p>
+                <p className="text-sol-200 text-sm">contact@defunds.finance</p>
               </div>
             </div>
             
@@ -209,7 +201,7 @@ export default function InvestorPage() {
               <Send className="w-6 h-6 text-sol-accent" />
               <div className="text-left">
                 <h3 className="font-semibold">Telegram</h3>
-                <p className="text-sol-200 text-sm">@DefundsInvestors</p>
+                <p className="text-sol-200 text-sm">@felipe_fel</p>
               </div>
             </div>
           </div>

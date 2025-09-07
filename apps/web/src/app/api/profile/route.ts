@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       .project({ name: 1, fundId: 1, isPublic: 1, performance: 1 })
       .toArray();
 
-    let products = funds.length;
+  const products = funds.length;
     let avgReturnPct = 0;
     if (products > 0) {
       let totalPct = 0;

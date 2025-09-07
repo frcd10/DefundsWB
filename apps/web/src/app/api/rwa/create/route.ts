@@ -84,9 +84,9 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    await collection.insertOne(doc as any);
+    await collection.insertOne(doc as unknown as Record<string, unknown>);
     return NextResponse.json({ success: true, data: { id: signature, ...doc } }, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to create RWA product' }, { status: 500 });
   }
 }

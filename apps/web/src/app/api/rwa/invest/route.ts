@@ -35,20 +35,28 @@ export async function POST(req: NextRequest) {
     const db = client.db('Defunds');
     const col = db.collection('Rwa');
 
-    const product = await col.findOne({ fundId });
+    const product = await col.findOne<{
+      totalDeposits?: number;
+      totalShares?: number;
+      currentValue?: number;
+      investorCount?: number;
+      investments?: Array<{ walletAddress: string }>;
+    }>({ fundId } as any);
     if (!product) return NextResponse.json({ success: false, error: 'RWA product not found' }, { status: 404 });
 
-    const currentNav = product.currentValue && product.totalShares > 0 ? product.currentValue / product.totalShares : 1.0;
+    const currentNav = product.currentValue && product.totalShares && product.totalShares > 0
+      ? product.currentValue / product.totalShares
+      : 1.0;
     const sharesToIssue = amount / currentNav;
 
     const newTotals = {
-      totalDeposits: (product.totalDeposits || 0) + amount,
-      totalShares: (product.totalShares || 0) + sharesToIssue,
-      currentValue: (product.currentValue || 0) + amount,
+      totalDeposits: (product.totalDeposits ?? 0) + amount,
+      totalShares: (product.totalShares ?? 0) + sharesToIssue,
+      currentValue: (product.currentValue ?? 0) + amount,
     };
 
-    const isExistingInvestor = (product.investments || []).some((inv: any) => inv.walletAddress === investorWallet);
-    const newInvestorCount = isExistingInvestor ? product.investorCount : (product.investorCount || 0) + 1;
+    const isExistingInvestor = (product.investments ?? []).some((inv) => inv.walletAddress === investorWallet);
+    const newInvestorCount = isExistingInvestor ? (product.investorCount ?? 0) : ((product.investorCount ?? 0) + 1);
 
     await col.updateOne(
       { fundId },
@@ -71,7 +79,7 @@ export async function POST(req: NextRequest) {
           performanceHistory: {
             date: new Date().toISOString(),
             tvl: newTotals.totalDeposits,
-            nav: newTotals.currentValue / newTotals.totalShares,
+            nav: newTotals.totalShares > 0 ? newTotals.currentValue / newTotals.totalShares : 1.0,
             pnl: newTotals.currentValue - newTotals.totalDeposits,
             pnlPercentage: newTotals.totalDeposits > 0 ? ((newTotals.currentValue - newTotals.totalDeposits) / newTotals.totalDeposits) * 100 : 0,
           },
@@ -80,7 +88,7 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true, data: { fundId, amount, signature } }, { status: 201 });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to invest in RWA product' }, { status: 500 });
   }
 }

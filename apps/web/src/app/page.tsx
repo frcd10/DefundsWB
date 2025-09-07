@@ -55,7 +55,7 @@ export default function Landing() {
                        transition hover:scale-105 text-sm sm:text-base"
             onClick={() => setOpenFor('trader')}
           >
-            Join Trader Waitlist
+            Join Traders/RWA Ops Waitlist
           </Button>
         </div>
       </section>

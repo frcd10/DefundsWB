@@ -1,6 +1,6 @@
 /* ------------------------------------------------------------------
    /src/components/WaitlistModal.tsx
-   A lightweight dialog that posts e-mail + role to /api/waitlist
+  A lightweight dialog that posts whitelist info to /whitelist
    ------------------------------------------------------------------ */
 'use client';
 
@@ -15,7 +15,12 @@ interface Props {
 }
 
 export default function WaitlistModal({ forRole, onClose }: Props) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [wallet, setWallet] = useState('');
+  const [phone, setPhone] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [discord, setDiscord] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -26,10 +31,19 @@ export default function WaitlistModal({ forRole, onClose }: Props) {
     setDone(false); // Ensure done is false when starting
     
     try {
-      const response = await fetch('/api/waitlist', {
+      // Submit to new whitelist endpoint with expanded fields
+      const response = await fetch('/whitelist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role: forRole }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          wallet: wallet.trim(),
+          phone: phone.trim() || undefined,
+          twitter: twitter.trim() || undefined,
+          discord: discord.trim() || undefined,
+          role: forRole,
+        }),
       });
 
       const data = await response.json();
@@ -50,7 +64,7 @@ export default function WaitlistModal({ forRole, onClose }: Props) {
         } else if (response.status === 409) {
           setError('This email is already registered on our waitlist.');
         } else if (response.status === 400) {
-          setError(data.error || 'Please enter a valid email address.');
+          setError(data.error || 'Please check required fields.');
         } else {
           setError(data.error || 'Something went wrong. Please try again later.');
         }
@@ -67,38 +81,85 @@ export default function WaitlistModal({ forRole, onClose }: Props) {
   // Add debug logging for state changes
   console.log('Current state:', { done, error: !!error, submitting });
 
+  const roleLabel = forRole === 'trader' ? 'Traders/RWA Ops' : 'Investor';
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-sol-800/90 border border-sol-700 text-sol-50">
         <DialogHeader>
           {done && !error
-            ? `🎉 Welcome to the ${forRole} waitlist!`
-            : `Join as a ${forRole}`}
+            ? `🎉 Welcome to the ${roleLabel} waitlist!`
+            : `Join as ${roleLabel}`}
         </DialogHeader>
 
         {done && !error ? (
           <div className="py-6 text-center space-y-4">
-            <p className="text-sol-200">
-              We&apos;ll keep you posted with early-access details.
-            </p>
-            <Button onClick={onClose} className="w-full">
+            <div className="mx-auto max-w-sm rounded-xl bg-sol-800/60 border border-sol-700 p-4">
+              <p className="text-sol-200">
+                Thanks, please check your email to verify.
+              </p>
+            </div>
+            <Button onClick={onClose} className="w-full rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition">
               Close
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div>
+            <div className="space-y-3">
+              <Input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={submitting}
+                className={`input w-full ${error && !name.trim() ? 'border-red-400' : ''}`}
+              />
               <Input
                 type="email"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
-                className={error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''}
+                className={`input w-full ${error && !email.trim() ? 'border-red-400' : ''}`}
               />
+              <Input
+                type="text"
+                placeholder="Wallet (Solana / ETH)"
+                value={wallet}
+                onChange={(e) => setWallet(e.target.value)}
+                disabled={submitting}
+                className={`input w-full ${error && !wallet.trim() ? 'border-red-400' : ''}`}
+              />
+
+              {/* Optional fields */}
+              <Input
+                type="text"
+                placeholder="Phone (optional)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={submitting}
+                className="input w-full"
+              />
+              <Input
+                type="text"
+                placeholder="Twitter (optional)"
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+                disabled={submitting}
+                className="input w-full"
+              />
+              <Input
+                type="text"
+                placeholder="Discord (optional)"
+                value={discord}
+                onChange={(e) => setDiscord(e.target.value)}
+                disabled={submitting}
+                className="input w-full"
+              />
+
               {error && (
-                <div className="mt-2 p-3 bg-red-900/20 border border-red-400/50 rounded-lg">
-                  <p className="text-red-400 text-sm font-medium">{error}</p>
+                <div className="mt-2 p-3 bg-red-900/30 border border-red-700 rounded-lg">
+                  <p className="text-red-300 text-sm font-medium">{error}</p>
                 </div>
               )}
             </div>
@@ -108,16 +169,16 @@ export default function WaitlistModal({ forRole, onClose }: Props) {
                 variant="outline" 
                 onClick={onClose} 
                 disabled={submitting}
-                className="flex-1"
+                className="flex-1 rounded-xl border-sol-600 text-sol-100"
               >
                 Cancel
               </Button>
               <Button 
-                onClick={join} 
-                disabled={submitting || !email.trim()}
-                className="flex-1"
+                onClick={join}
+                disabled={submitting || !name.trim() || !email.trim() || !wallet.trim()}
+                className="flex-1 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition"
               >
-                {submitting ? 'Adding…' : 'Add to Waitlist'}
+                {submitting ? 'Adding…' : 'Join Waitlist'}
               </Button>
             </div>
           </div>

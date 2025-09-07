@@ -1,16 +1,26 @@
 // Database types for MongoDB collections
 
 export interface TraderDocument {
-  _id?: string;
+  _id: string; // email as id
+  name: string;
   email: string;
+  wallet: string;
+  phone?: string | null;
+  twitter?: string | null;
+  discord?: string | null;
   role: 'trader';
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface InvestorDocument {
-  _id?: string;
+  _id: string; // email as id
+  name: string;
   email: string;
+  wallet: string;
+  phone?: string | null;
+  twitter?: string | null;
+  discord?: string | null;
   role: 'investor';
   createdAt: Date;
   updatedAt: Date;

@@ -249,38 +249,7 @@ export default function RWAPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-sol-800/30">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-extrabold mb-8">
-            Ready to Bridge <span className="text-sol-accent">DeFi & Real World</span>?
-          </h2>
-          <p className="text-xl text-sol-200 mb-12 max-w-2xl mx-auto">
-            Join the future of hybrid finance where blockchain transparency meets real-world opportunities.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Button
-              size="lg"
-              className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
-                         px-8 py-3 font-semibold text-sol-900 shadow-lg text-lg
-                         transition hover:scale-105"
-              onClick={() => setOpenWaitlist(true)}
-            >
-              🚀 Start Investing
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-64 rounded-xl border-2 border-sol-accent text-sol-accent
-                         px-8 py-3 font-semibold text-lg hover:bg-sol-accent hover:text-sol-900"
-              onClick={() => setOpenWaitlist(true)}
-            >
-              💼 Become an Operator
-            </Button>
-          </div>
-        </div>
-      </section>
+  {/* CTA Section removed per request */}
 
       {/* Waitlist Modal */}
       {openWaitlist && (

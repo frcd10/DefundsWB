@@ -19,8 +19,9 @@ export async function GET(req: NextRequest) {
 
     // Connect to MongoDB
     const client = await getClientPromise();
-    const db = client.db('Defunds'); // Match the database name used everywhere else
-    const fundsCollection = db.collection('Funds'); // Match the collection name used everywhere else
+  const db = client.db('Defunds'); // Match the database name used everywhere else
+  const fundsCollection = db.collection('Funds'); // Match the collection name used everywhere else
+  const rwaCollection = db.collection('Rwa');
 
     // Get all funds where this wallet is involved
     const funds = await fundsCollection.find({
@@ -110,6 +111,32 @@ export async function GET(req: NextRequest) {
 
     console.log('Final positions:', positions.length);
 
+    // RWA positions for this wallet (investments only)
+    const rwaDocs = await rwaCollection.find({ 'investments.walletAddress': walletAddress }).toArray();
+    console.log('Found RWA products with investments from wallet:', rwaDocs.length);
+
+    const rwaPositions = rwaDocs.map((p: any) => {
+      const userInvestments = (p.investments || []).filter((inv: any) => inv.walletAddress === walletAddress);
+      if (userInvestments.length === 0) return null;
+
+      const userShares = userInvestments.reduce((sum: number, inv: any) => sum + (inv.shares || 0), 0);
+      const invested = userInvestments.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
+      const totalShares = p.totalShares || 0;
+      const currentValue = p.currentValue || 0;
+      const expectedReturn = totalShares > 0 ? (userShares / totalShares) * currentValue : invested;
+
+      return {
+        fundId: p.fundId,
+        name: p.name,
+        type: p.fundType || 'General',
+        invested,
+        expectedReturn,
+        userShares,
+        totalShares,
+        lastUpdated: p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString(),
+      };
+    }).filter(Boolean);
+
     // Calculate total portfolio values
     const totalValue = positions.reduce((sum, pos) => sum + pos.currentValue, 0);
     const totalInvested = positions.reduce((sum, pos) => sum + pos.initialInvestment, 0);
@@ -133,8 +160,9 @@ export async function GET(req: NextRequest) {
         totalWithdrawn,
         totalPnL,
         totalPnLPercentage,
-        activeFunds: positions.length,
-        positions
+  activeFunds: positions.length,
+  positions,
+  rwaPositions,
       }
     }, { status: 200 });
 

@@ -26,6 +26,18 @@ interface PortfolioData {
   totalPnLPercentage: number;
   activeFunds: number;
   positions: PortfolioPosition[];
+  rwaPositions?: RwaPosition[];
+}
+
+interface RwaPosition {
+  fundId: string;
+  name: string;
+  type: string;
+  invested: number;
+  expectedReturn: number;
+  userShares: number;
+  totalShares: number;
+  lastUpdated: string;
 }
 
 export default function PortfolioPage() {
@@ -131,17 +143,17 @@ export default function PortfolioPage() {
     );
   }
 
-  if (!portfolio || portfolio.positions.length === 0) {
+  if (!portfolio || (portfolio.positions.length === 0 && (!portfolio.rwaPositions || portfolio.rwaPositions.length === 0))) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
         <div className="max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
             <h1 className="text-4xl font-extrabold mb-8 text-sol-50">Portfolio</h1>
             <p className="text-lg text-sol-200 mb-3">
-              You don&apos;t have any fund positions yet.
+              You don&apos;t have any positions yet.
             </p>
             <p className="text-sm text-sol-300 mb-8">
-              Start by creating a fund or investing in existing funds to build your portfolio.
+              Start by creating a fund or investing in existing funds/RWA products to build your portfolio.
             </p>
             <Button 
               onClick={() => window.location.href = '/Funds'} 
@@ -200,7 +212,7 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* Positions Table */}
+  {/* Positions Table (Funds) */}
         <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 overflow-hidden">
           <div className="p-6 border-b border-sol-700">
             <h2 className="text-xl font-bold text-sol-50">Fund Positions</h2>
@@ -302,6 +314,54 @@ export default function PortfolioPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* RWA Investments Table */}
+        <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 overflow-hidden mt-10">
+          <div className="p-6 border-b border-sol-700">
+            <h2 className="text-xl font-bold text-sol-50">RWA Investments</h2>
+            <p className="text-xs text-sol-300 mt-1">Shows your total invested and expected return. No withdrawals here.</p>
+          </div>
+
+          {portfolio.rwaPositions && portfolio.rwaPositions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-sol-800/60">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Invested</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Expected Return</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sol-700">
+                  {portfolio.rwaPositions.map((p) => (
+                    <tr key={p.fundId} className="hover:bg-sol-800/40">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-sm font-semibold text-sol-50">{p.name}</p>
+                          <p className="text-xs text-sol-300">{p.fundId.slice(0, 8)}...</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sol-accent text-sol-900">
+                          {p.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-sm font-medium text-sol-50">{p.invested.toFixed(2)} SOL</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-sm font-medium text-green-400">{p.expectedReturn.toFixed(2)} SOL</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-6 text-sm text-sol-300">No RWA investments yet.</div>
+          )}
         </div>
 
         {/* Last Updated */}

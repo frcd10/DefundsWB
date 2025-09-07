@@ -1,15 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Users, AlertTriangle, Shield, Eye, Building, Briefcase, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WaitlistModal from '@/components/WaitlistModal';
 import FundCard from '@/components/FundCard';
 import { FundCardData, FundType } from '@/types/fund';
+import { CreateRwaProductModal } from '@/components/CreateRwaProductModal';
 
 export default function RWAPage() {
   const [openWaitlist, setOpenWaitlist] = useState(false);
-  const { filteredRwa, setRwaFilters } = useRwaFiltering();
+  const { filteredRwa, setRwaFilters, reload } = useRwaFiltering();
+  const [showCreate, setShowCreate] = useState(false);
 
   return (
     <main className="min-h-screen bg-sol-900 text-sol-50">
@@ -37,6 +39,13 @@ export default function RWAPage() {
               }}
             >
               📊 View Active Projects
+            </Button>
+            <Button
+              size="lg"
+              className="w-64 rounded-xl !bg-sol-accent text-sol-900 font-semibold shadow-lg text-lg transition hover:scale-105"
+              onClick={() => setShowCreate(true)}
+            >
+              ➕ Create RWA Product
             </Button>
           </div>
 
@@ -255,6 +264,7 @@ export default function RWAPage() {
       {openWaitlist && (
         <WaitlistModal forRole="investor" onClose={() => setOpenWaitlist(false)} />
       )}
+      <CreateRwaProductModal isOpen={showCreate} onClose={() => setShowCreate(false)} onCreated={() => reload()} />
     </main>
   );
 }
@@ -357,97 +367,68 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
   );
 }
 
-// Mock RWA products (one per type)
-const rwaProducts: FundCardData[] = [
-  {
-    id: 'rwa-construction-1',
-    name: 'Rio Skyline Tower',
-  handle: 'Acme Builders', // Operator
-  creatorWallet: 'ACM3bu1Ld3r5W4ll3t0000000000000000000000000',
-    traderTwitter: '@acme_build',
-    description:
-      'High-rise residential development in Rio de Janeiro with phased milestones and secured permits.',
-    type: 'Construction' as FundType,
-    tvl: 2_500,
-    perfFee: 12,
-    maxCap: 10_000,
-    investorCount: 18,
-    inviteOnly: false,
-    performance: [
-      { date: '2025-06-01', nav: 10 },
-      { date: '2025-07-01', nav: 10.8 },
-      { date: '2025-08-01', nav: 11.1 },
-      { date: '2025-09-01', nav: 11.3 },
-    ],
-    stats: {
-      total: 0,
-      wins: 0,
-      losses: 0,
-      avgWinPct: 0,
-      avgWinSol: 0,
-      avgLossPct: 0,
-      avgLossSol: 0,
-      drawdownPct: 0,
-      drawdownSol: 0,
-      topWins: [],
-      topLosses: [],
-    },
-  },
-  {
-    id: 'rwa-advrec-1',
-    name: 'Retail Receivables Q4',
-  handle: 'Nova Financing', // Operator
-  creatorWallet: 'N0V4F1n4nc1ngW4ll3t0000000000000000000000000',
-    traderTwitter: '@nova_fin',
-    description:
-      'Advance on verified retail invoices with 60–90 day payment horizon and diversified counterparties.',
-    type: 'Advance Receivable' as FundType,
-    tvl: 1_200,
-    perfFee: 8,
-    maxCap: 5_000,
-    investorCount: 32,
-    inviteOnly: false,
-    performance: [
-      { date: '2025-06-01', nav: 10 },
-      { date: '2025-07-01', nav: 10.4 },
-      { date: '2025-08-01', nav: 10.7 },
-      { date: '2025-09-01', nav: 10.9 },
-    ],
-    stats: {
-      total: 0,
-      wins: 0,
-      losses: 0,
-      avgWinPct: 0,
-      avgWinSol: 0,
-      avgLossPct: 0,
-      avgLossSol: 0,
-      drawdownPct: 0,
-      drawdownSol: 0,
-      topWins: [],
-      topLosses: [],
-    },
-  },
-];
+// Remote-backed (no local mocks)
 
-// Local state and filtering for RWA products
+// Remote-backed RWA products loader + filters
 function useRwaFiltering() {
   const [rwaFilters, setRwaFilters] = useState<RWAFilters>({});
+  const [items, setItems] = useState<FundCardData[]>([]);
+
+  const load = async () => {
+    try {
+      const res = await fetch('/api/rwa/real');
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = (data?.data?.items || []) as any[];
+      const mapped: FundCardData[] = list.map((p) => ({
+        id: p.fundId,
+        name: p.name,
+        handle: p.manager?.slice(0, 8) + '...',
+        creatorWallet: p.manager,
+        traderTwitter: '@' + (p.manager?.slice(0, 8) || 'user'),
+        description: p.description,
+        type: p.type as FundType,
+        tvl: p.tvl || 0,
+        perfFee: p.perfFee || 0,
+        maxCap: p.maxCapacity || 0,
+        investorCount: p.investorCount || 0,
+        inviteOnly: !p.isPublic,
+        performance: p.performance || [],
+        stats: p.stats || {
+          total: 0,
+          wins: 0,
+          losses: 0,
+          avgWinPct: 0,
+          avgWinSol: 0,
+          avgLossPct: 0,
+          avgLossSol: 0,
+          drawdownPct: 0,
+          drawdownSol: 0,
+          topWins: [],
+          topLosses: [],
+        },
+      }));
+      setItems(mapped);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
   const filteredRwa = useMemo(() => {
-    return rwaProducts.filter((p) => {
-      if (rwaFilters.maxPerfFee !== undefined && p.perfFee > rwaFilters.maxPerfFee)
-        return false;
-      if (rwaFilters.maxCap !== undefined && p.maxCap > rwaFilters.maxCap)
-        return false;
+    return items.filter((p) => {
+      if (rwaFilters.maxPerfFee !== undefined && p.perfFee > rwaFilters.maxPerfFee) return false;
+      if (rwaFilters.maxCap !== undefined && p.maxCap > rwaFilters.maxCap) return false;
       if (rwaFilters.type && p.type !== rwaFilters.type) return false;
       if (rwaFilters.query) {
         const q = rwaFilters.query.toLowerCase();
-        if (!p.handle.toLowerCase().includes(q) && !p.name.toLowerCase().includes(q))
-          return false;
+        if (!p.handle.toLowerCase().includes(q) && !p.name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [rwaFilters]);
+  }, [items, rwaFilters]);
 
-  return { filteredRwa, setRwaFilters };
+  return { filteredRwa, setRwaFilters, reload: load };
 }
 

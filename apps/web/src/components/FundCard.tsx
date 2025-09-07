@@ -2,6 +2,7 @@
 import { FundCardData } from '@/types/fund';
 import { useState } from 'react';
 import { InvestInFundModal } from './InvestInFundModal';
+import Link from 'next/link';
 import { formatSol } from '@/lib/formatters';
 import {
   LineChart,
@@ -55,12 +56,20 @@ export default function FundCard({ f }: { f: FundCardData }) {
   return (
     <div className="rounded-2xl p-4 sm:p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
       {/* ── Header ─────────────────────────────────── */}
-      <div className="flex justify-between items-start mb-3">
+      <div className="flex justify-between items-start mb-1">
         <h3 className="text-base sm:text-lg font-bold text-sol-50 leading-tight pr-2">{f.name}</h3>
         <span className="px-2 py-1 rounded-lg bg-sol-accent text-sol-900 text-xs whitespace-nowrap">
           {f.type}
         </span>
       </div>
+      {f.creatorWallet && (
+        <div className="mb-3 -mt-0.5 text-xs text-sol-300">
+          Creator:&nbsp;
+          <Link href={`/profile/${f.creatorWallet}`} className="text-sol-accent hover:underline">
+            {f.handle || f.creatorWallet.slice(0, 6) + '...' + f.creatorWallet.slice(-4)}
+          </Link>
+        </div>
+      )}
 
       {/* ── Description ────────────────────────────── */}
       <p className="text-xs sm:text-sm text-sol-200 mb-3 line-clamp-2">{f.description}</p>

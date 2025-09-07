@@ -76,6 +76,7 @@ export default function Home() {
     id: fund.fundId,
     name: fund.name,
     handle: fund.manager.slice(0, 8) + '...',
+  creatorWallet: fund.manager,
     traderTwitter: '@' + fund.manager.slice(0, 8),
     description: fund.description,
     type: fund.fundType as FundType,

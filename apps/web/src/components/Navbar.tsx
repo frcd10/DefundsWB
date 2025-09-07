@@ -4,9 +4,11 @@ import { X, Send, Menu } from 'lucide-react';    // lucide-react already in shad
 import Image from 'next/image';
 import logo from '../images/logo.png';
 import { useState, useEffect } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const wallet = useWallet();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -50,6 +52,9 @@ export default function Navbar() {
           <li><Link href="/Funds" className="hover:text-sol-accent/80 transition-colors">Funds</Link></li>
           <li><Link href="/rwa" className="hover:text-sol-accent/80 transition-colors">RWA</Link></li>
           <li><Link href="/portfolio" className="hover:text-sol-accent/80 transition-colors">Portfolio</Link></li>
+          {wallet.connected && (
+            <li><Link href="/my" className="hover:text-sol-accent/80 transition-colors">My Area</Link></li>
+          )}
           <li><Link href="/products" className="hover:text-sol-accent/80 transition-colors">Products</Link></li>
           <li><Link href="/news" className="hover:text-sol-accent/80 transition-colors">News</Link></li>
           <li><Link href="/contact" className="hover:text-sol-accent/80 transition-colors">Contact</Link></li>
@@ -150,6 +155,17 @@ export default function Navbar() {
                     My portfolio
                   </Link>
                 </li>
+                {wallet.connected && (
+                  <li>
+                    <Link 
+                      href="/my" 
+                      className="block text-sol-accent text-2xl py-4 hover:text-sol-accent/80 transition-colors font-medium border-b border-sol-700"
+                      onClick={closeMobileMenu}
+                    >
+                      My Area
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <Link 
                     href="/products" 

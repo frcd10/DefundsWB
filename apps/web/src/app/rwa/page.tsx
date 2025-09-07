@@ -362,7 +362,8 @@ const rwaProducts: FundCardData[] = [
   {
     id: 'rwa-construction-1',
     name: 'Rio Skyline Tower',
-    handle: 'Acme Builders', // Operator
+  handle: 'Acme Builders', // Operator
+  creatorWallet: 'ACM3bu1Ld3r5W4ll3t0000000000000000000000000',
     traderTwitter: '@acme_build',
     description:
       'High-rise residential development in Rio de Janeiro with phased milestones and secured permits.',
@@ -395,7 +396,8 @@ const rwaProducts: FundCardData[] = [
   {
     id: 'rwa-advrec-1',
     name: 'Retail Receivables Q4',
-    handle: 'Nova Financing', // Operator
+  handle: 'Nova Financing', // Operator
+  creatorWallet: 'N0V4F1n4nc1ngW4ll3t0000000000000000000000000',
     traderTwitter: '@nova_fin',
     description:
       'Advance on verified retail invoices with 60–90 day payment horizon and diversified counterparties.',

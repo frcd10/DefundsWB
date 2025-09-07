@@ -45,6 +45,7 @@ export interface FundCardData {
   name: string;
   handle: string;
   traderTwitter: string;
+  creatorWallet?: string; // NEW: wallet address of fund/product creator
   description: string;
   type: FundType;
   tvl: number;

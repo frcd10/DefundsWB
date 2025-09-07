@@ -85,10 +85,10 @@ export default function PortfolioPage() {
   if (!wallet.connected) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-20">
+        <div className="max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
-            <p className="text-xl text-gray-400 mb-8">
+            <h1 className="text-4xl font-extrabold mb-8 text-sol-50">Portfolio</h1>
+            <p className="text-lg text-sol-200 mb-8">
               Connect your wallet to view your fund positions and manage your investments.
             </p>
           </div>
@@ -100,10 +100,10 @@ export default function PortfolioPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-20">
+        <div className="max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
-            <p className="text-xl text-gray-400">Loading your portfolio...</p>
+            <h1 className="text-4xl font-extrabold mb-8 text-sol-50">Portfolio</h1>
+            <p className="text-lg text-sol-200">Loading your portfolio...</p>
           </div>
         </div>
       </div>
@@ -113,15 +113,15 @@ export default function PortfolioPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-20">
+        <div className="max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
-            <div className="bg-red-900/20 border border-red-700 text-red-400 px-6 py-4 rounded-lg max-w-md mx-auto">
+            <h1 className="text-4xl font-extrabold mb-8 text-sol-50">Portfolio</h1>
+            <div className="bg-red-900/30 border border-red-700 text-red-300 px-6 py-4 rounded-xl max-w-md mx-auto">
               <p>Error: {error}</p>
             </div>
             <Button 
               onClick={fetchPortfolio} 
-              className="mt-4 bg-blue-600 hover:bg-blue-700"
+              className="mt-4 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition"
             >
               Retry
             </Button>
@@ -134,18 +134,18 @@ export default function PortfolioPage() {
   if (!portfolio || portfolio.positions.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-20">
+        <div className="max-w-6xl mx-auto px-4 py-20">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8">Portfolio</h1>
-            <p className="text-xl text-gray-400 mb-8">
+            <h1 className="text-4xl font-extrabold mb-8 text-sol-50">Portfolio</h1>
+            <p className="text-lg text-sol-200 mb-3">
               You don&apos;t have any fund positions yet.
             </p>
-            <p className="text-gray-500 mb-8">
+            <p className="text-sm text-sol-300 mb-8">
               Start by creating a fund or investing in existing funds to build your portfolio.
             </p>
             <Button 
               onClick={() => window.location.href = '/Funds'} 
-              className="bg-green-600 hover:bg-green-700"
+              className="rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition"
             >
               Explore Funds
             </Button>
@@ -157,43 +157,43 @@ export default function PortfolioPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-      <div className="container mx-auto px-4 py-20">
-        <h1 className="text-4xl font-bold mb-8 text-center">Your Portfolio</h1>
+      <div className="max-w-6xl mx-auto px-4 py-20">
+        <h1 className="text-4xl font-extrabold mb-8 text-center text-sol-50">Your Portfolio</h1>
         
         {/* Portfolio Summary */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-12">
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Value</h3>
+          <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+            <h3 className="text-sm font-medium text-sol-200 mb-2">Total Value</h3>
             <p className="text-2xl font-bold text-green-400">
               {portfolio.totalValue.toFixed(2)} SOL
             </p>
           </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Invested</h3>
-            <p className="text-2xl font-bold">
+          <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+            <h3 className="text-sm font-medium text-sol-200 mb-2">Total Invested</h3>
+            <p className="text-2xl font-bold text-sol-50">
               {portfolio.totalInvested.toFixed(2)} SOL
             </p>
           </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Total Withdraw</h3>
+          <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+            <h3 className="text-sm font-medium text-sol-200 mb-2">Total Withdraw</h3>
             <p className="text-2xl font-bold text-orange-400">
               {portfolio.totalWithdrawn?.toFixed(2) || '0.00'} SOL
             </p>
           </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">P&L</h3>
+          <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+            <h3 className="text-sm font-medium text-sol-200 mb-2">P&L</h3>
             <p className={`text-2xl font-bold ${portfolio.totalPnL >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(2)} SOL
               <span className="text-sm ml-2">
                 ({portfolio.totalPnLPercentage >= 0 ? '+' : ''}{portfolio.totalPnLPercentage.toFixed(2)}%)
               </span>
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-sol-300 mt-1">
               Invested - Value + Withdrawn
             </p>
           </div>
-          <div className="bg-gray-900 p-6 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-400 mb-2">Active Funds</h3>
+          <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+            <h3 className="text-sm font-medium text-sol-200 mb-2">Active Funds</h3>
             <p className="text-2xl font-bold text-blue-400">
               {portfolio.activeFunds}
             </p>
@@ -201,68 +201,68 @@ export default function PortfolioPage() {
         </div>
 
         {/* Positions Table */}
-        <div className="bg-gray-900 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-gray-700">
-            <h2 className="text-xl font-bold">Fund Positions</h2>
+        <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 overflow-hidden">
+          <div className="p-6 border-b border-sol-700">
+            <h2 className="text-xl font-bold text-sol-50">Fund Positions</h2>
           </div>
           
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-800">
+              <thead className="bg-sol-800/60">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Fund
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Ownership
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Current Value
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Invested
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Withdrawn
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     P&L
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-700">
+              <tbody className="divide-y divide-sol-700">
                 {portfolio.positions.map((position) => (
-                  <tr key={position.fundId} className="hover:bg-gray-800">
+                  <tr key={position.fundId} className="hover:bg-sol-800/40">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <p className="text-sm font-medium text-white">{position.fundName}</p>
-                        <p className="text-xs text-gray-400">{position.fundId.slice(0, 8)}...</p>
+                        <p className="text-sm font-semibold text-sol-50">{position.fundName}</p>
+                        <p className="text-xs text-sol-300">{position.fundId.slice(0, 8)}...</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sol-accent text-sol-900">
                         {position.fundType}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <p className="text-sm font-medium text-white">{position.sharePercentage.toFixed(2)}%</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-sm font-medium text-sol-50">{position.sharePercentage.toFixed(2)}%</p>
+                        <p className="text-xs text-sol-300">
                           {position.userShares.toFixed(2)} / {position.totalShares.toFixed(2)}
                         </p>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-sol-50">{position.currentValue.toFixed(2)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-sol-50">{position.initialInvestment.toFixed(2)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(2)} SOL</p>
@@ -292,7 +292,7 @@ export default function PortfolioPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Button
                         onClick={() => handleWithdraw(position)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm"
+                        className="rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm"
                       >
                         Withdraw
                       </Button>
@@ -306,7 +306,7 @@ export default function PortfolioPage() {
 
         {/* Last Updated */}
         <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-sol-300">
             Portfolio last updated: {new Date().toLocaleString()}
           </p>
         </div>

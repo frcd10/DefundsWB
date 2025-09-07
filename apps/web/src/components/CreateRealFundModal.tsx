@@ -146,10 +146,12 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[540px] bg-sol-800/90 border border-sol-700 text-sol-50 mt-16 sm:mt-24">
         <DialogHeader>
-          <DialogTitle>Create Real Fund on Solana</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl font-extrabold text-sol-50">
+            Create Real Fund on Solana
+          </DialogTitle>
+          <DialogDescription className="text-sol-200">
             Create a real fund on Solana devnet. You&apos;ll need SOL in your wallet for transactions.
           </DialogDescription>
         </DialogHeader>
@@ -157,25 +159,26 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
         <div className="space-y-4">
           {!wallet.connected ? (
             <div className="text-center space-y-4">
-              <p className="text-sm text-gray-600">Connect your wallet to create a fund</p>
-              <WalletMultiButton className="!bg-blue-600 hover:!bg-blue-700" />
+              <p className="text-sm text-sol-200">Connect your wallet to create a fund</p>
+              <WalletMultiButton className="!bg-gradient-to-r !from-sol-accent !to-cyan-400 !text-sol-900 !rounded-xl !font-semibold hover:!scale-105 !transition" />
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Fund Name</label>
+                <label className="block text-sm font-medium mb-1 text-sol-100">Fund Name</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Alpha Trading Fund"
                   required
+                  className="input w-full"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="block text-sm font-medium mb-1 text-sol-100">Description</label>
                 <textarea
-                  className="w-full px-3 py-2 border rounded-md resize-none"
+                  className="input w-full resize-none min-h-24"
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -185,9 +188,9 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Fund Type</label>
+                <label className="block text-sm font-medium mb-1 text-sol-100">Fund Type</label>
                 <select
-                  className="w-full px-3 py-2 border rounded-md"
+                  className="input w-full"
                   value={formData.fundType}
                   onChange={(e) => setFormData(prev => ({ ...prev, fundType: e.target.value as FundType }))}
                 >
@@ -199,39 +202,42 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Performance Fee (%)</label>
+                  <label className="block text-sm font-medium mb-1 text-sol-100">Performance Fee (%)</label>
                   <Input
                     type="number"
                     min="0"
                     max="50"
                     value={formData.performanceFee}
                     onChange={(e) => setFormData(prev => ({ ...prev, performanceFee: Number(e.target.value) }))}
+                    className="input w-full"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Max Capacity (SOL)</label>
+                  <label className="block text-sm font-medium mb-1 text-sol-100">Max Capacity (SOL)</label>
                   <Input
                     type="number"
                     min="0"
                     value={formData.maxCapacity}
                     onChange={(e) => setFormData(prev => ({ ...prev, maxCapacity: Number(e.target.value) }))}
+                    className="input w-full"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Initial Deposit (SOL)</label>
+                <label className="block text-sm font-medium mb-1 text-sol-100">Initial Deposit (SOL)</label>
                 <Input
                   type="number"
                   min="0"
                   step="0.1"
                   value={formData.initialDeposit}
                   onChange={(e) => setFormData(prev => ({ ...prev, initialDeposit: parseNumberInput(e.target.value) }))}
+                  className="input w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-sol-300 mt-1">
                   You&apos;ll own 100% of the fund initially. Others can invest later.
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-sol-300 mt-1">
                   Fund creation requires two signatures: 1) a small rent fee to create the fund accounts (~0.006–0.010 SOL), 2) your initial deposit (the SOL amount above).
                 </p>
               </div>
@@ -242,13 +248,14 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   id="isPublic"
                   checked={formData.isPublic}
                   onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                  className="h-4 w-4 accent-sol-accent"
                 />
-                <label htmlFor="isPublic" className="text-sm">Public fund (anyone can invest)</label>
+                <label htmlFor="isPublic" className="text-sm text-sol-100">Public fund (anyone can invest)</label>
               </div>
 
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="p-3 bg-red-900/30 border border-red-700 rounded-md">
+                  <p className="text-sm text-red-300">{error}</p>
                 </div>
               )}
 
@@ -258,14 +265,14 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   variant="outline"
                   onClick={onClose}
                   disabled={isLoading}
-                  className="flex-1"
+                  className="flex-1 rounded-xl border-sol-600 text-sol-100"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition"
                 >
                   {isLoading ? 'Creating...' : 'Create Fund'}
                 </Button>

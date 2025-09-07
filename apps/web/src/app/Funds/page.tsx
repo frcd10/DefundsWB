@@ -148,7 +148,7 @@ export default function Home() {
           <div className="flex flex-wrap gap-3 justify-center items-center mb-6">
             <Button
               onClick={() => setShowCreateReal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="rounded-xl !bg-sol-accent text-sol-900 font-bold hover:!bg-sol-accent hover:scale-105 transition"
             >
               Create a fund
             </Button>

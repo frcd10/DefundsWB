@@ -5,6 +5,7 @@ import Image from 'next/image';
 import logo from '../images/logo.png';
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -86,6 +87,8 @@ export default function Navbar() {
             <Link href="https://t.me/felipe_fel" aria-label="Telegram" className="hover:opacity-80 transition-opacity">
               <Send className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </Link>
+            {/* Wallet Connect Button */}
+            <WalletMultiButton className="!bg-sol-accent !text-sol-900 !rounded-full !px-3 !py-1 !h-auto !text-sm hover:!brightness-110 !transition" />
           </div>
 
           {/* Mobile Menu Button */}
@@ -197,6 +200,10 @@ export default function Navbar() {
 
               {/* Mobile CTA Buttons */}
               <div className="space-y-4 pt-8 mt-8">
+                {/* Mobile Wallet Button */}
+                <div className="flex justify-center">
+                  <WalletMultiButton className="!bg-sol-accent !text-sol-900 !rounded-full !px-6 !py-4 !h-auto !text-lg hover:!brightness-110 !transition w-full" />
+                </div>
                 <Link
                   href="/investor"
                   className="block w-full rounded-full border-2 border-sol-accent bg-sol-accent/10 px-6 py-4 text-sol-accent text-center font-semibold hover:bg-sol-accent hover:text-sol-900 transition-all duration-200 text-lg"

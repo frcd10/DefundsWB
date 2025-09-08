@@ -10,6 +10,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const wallet = useWallet();
+  const [isTraderEligible, setIsTraderEligible] = useState(false);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -33,6 +34,27 @@ export default function Navbar() {
     };
   }, [isMobileMenuOpen]);
 
+  // Check trader eligibility when wallet changes
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      if (!wallet.connected || !wallet.publicKey) {
+        if (!cancelled) setIsTraderEligible(false);
+        return;
+      }
+      try {
+        const addr = wallet.publicKey.toString();
+        const res = await fetch(`/api/trader/eligible?wallet=${addr}`);
+        const data = await res.json();
+        if (!cancelled) setIsTraderEligible(Boolean(data?.data?.eligible));
+      } catch {
+        if (!cancelled) setIsTraderEligible(false);
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, [wallet.connected, wallet.publicKey]);
+
   return (
     <header className="sticky top-0 z-[100] w-full bg-sol-900/95 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3">
@@ -55,6 +77,13 @@ export default function Navbar() {
           <li><Link href="/portfolio" className="hover:text-sol-accent/80 transition-colors">Portfolio</Link></li>
           {wallet.connected && (
             <li><Link href="/my" className="hover:text-sol-accent/80 transition-colors">My Area</Link></li>
+          )}
+          {isTraderEligible && (
+            <li>
+              <Link href="/trader" className="hover:text-sol-accent/80 transition-colors">
+                Trader
+              </Link>
+            </li>
           )}
           <li><Link href="/products" className="hover:text-sol-accent/80 transition-colors">Products</Link></li>
           <li><Link href="/news" className="hover:text-sol-accent/80 transition-colors">News</Link></li>
@@ -166,6 +195,17 @@ export default function Navbar() {
                       onClick={closeMobileMenu}
                     >
                       My Area
+                    </Link>
+                  </li>
+                )}
+                {isTraderEligible && (
+                  <li>
+                    <Link 
+                      href="/trader" 
+                      className="block text-sol-accent text-2xl py-4 hover:text-sol-accent/80 transition-colors font-medium border-b border-sol-700"
+                      onClick={closeMobileMenu}
+                    >
+                      Trader
                     </Link>
                   </li>
                 )}

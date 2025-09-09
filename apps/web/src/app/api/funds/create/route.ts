@@ -119,6 +119,8 @@ export async function POST(req: NextRequest) {
       totalDeposits: initialDeposit, // Total SOL deposited (TVL)
       totalShares: initialDeposit,   // Total shares issued
       currentValue: initialDeposit,  // Current vault value (will change with trading)
+  // Track explicit SOL holdings for trader UI accounting (reduced by swaps / increased by deposits)
+  solBalance: initialDeposit,    // Initialize SOL balance equal to initial deposit
       
       // Investment tracking
       investments: initialDeposit > 0 ? [{

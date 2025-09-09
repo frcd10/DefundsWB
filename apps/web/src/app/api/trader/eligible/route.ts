@@ -10,7 +10,15 @@ export async function GET(req: NextRequest) {
     const client = await getClientPromise();
     const db = client.db('Defunds');
     const funds = await db.collection('Funds').find({ manager: wallet }).project({
-      _id: 1, fundId: 1, name: 1, manager: 1, totalShares: 1, currentValue: 1, positions: 1, solBalance: 1,
+      _id: 1,
+      fundId: 1,
+      name: 1,
+      manager: 1,
+      totalShares: 1,
+      totalDeposits: 1,
+      currentValue: 1,
+      positions: 1,
+      solBalance: 1,
       investments: 1,
     }).toArray();
     const rwas = await db.collection('Rwa').find({ manager: wallet }).project({

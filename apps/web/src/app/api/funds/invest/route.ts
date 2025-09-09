@@ -156,6 +156,10 @@ export async function POST(req: NextRequest) {
           investorCount: newInvestorCount,
           updatedAt: new Date()
         },
+        // Increase explicit SOL balance tracking (used by trader UI) by deposit amount
+        $inc: {
+          solBalance: amount
+        },
         $push: {
           investments: investmentRecord,
           performanceHistory: {

@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
             totalShares: -sharesToRemove,
             totalDeposits: -withdrawAmount,
             currentValue: -withdrawAmount, // Also update current value
+            solBalance: -withdrawAmount, // Track SOL leaving the fund
             investorCount: -1
           },
           $push: {
@@ -127,7 +128,8 @@ export async function POST(request: NextRequest) {
           $inc: {
             totalShares: -sharesToRemove,
             totalDeposits: -withdrawAmount,
-            currentValue: -withdrawAmount // Also update current value
+            currentValue: -withdrawAmount, // Also update current value
+            solBalance: -withdrawAmount // Track SOL leaving the fund
           },
           $push: {
             withdrawals: {

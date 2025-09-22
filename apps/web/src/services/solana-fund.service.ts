@@ -6,12 +6,18 @@ import { TOKEN_PROGRAM_ID, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociat
 // Program IDL - simplified for key operations
 const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || 'tNo3sxFi51AhRzQ3zuSfQVBusNpPRyNrec5LA4xdDom');
 
-// We'll load the full IDL at runtime from /public/managed_funds.json
+// We'll load the full IDL at runtime from /public/managed_funds.json.
 let cachedIdl: Idl | null = null;
 async function loadIdl(): Promise<Idl> {
   if (cachedIdl) return cachedIdl;
-  const res = await fetch('/managed_funds.json');
-  if (!res.ok) throw new Error('Failed to load program IDL');
+  const res = await fetch('/managed_funds.json', { cache: 'no-store' });
+  if (!res.ok) {
+    const details = `status=${res.status} ${res.statusText}`;
+    throw new Error(
+      `Failed to load program IDL from /managed_funds.json (${details}). ` +
+      `Ensure the file exists at apps/web/public/managed_funds.json (from target/idl/managed_funds.json).`
+    );
+  }
   const idl = (await res.json()) as Idl;
   cachedIdl = idl;
   return idl;
@@ -66,7 +72,19 @@ export class SolanaFundService {
 
   const idl = await loadIdl();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new Program(idl as any, provider);
+  const program = new Program(idl as any, provider);
+  // Sanity check: ensure IDL metadata programId matches env PROGRAM_ID
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadedId = (program as any).programId?.toString?.();
+    if (loadedId && loadedId !== PROGRAM_ID.toString()) {
+      console.warn('Program ID mismatch between IDL metadata and NEXT_PUBLIC_SOLANA_PROGRAM_ID:', {
+        idlProgramId: loadedId,
+        envProgramId: PROGRAM_ID.toString(),
+      });
+    }
+  } catch {}
+  return program;
   }
 
   async createFund(wallet: WalletContextState, params: CreateFundParams): Promise<{ fundId: string; signature: string }> {

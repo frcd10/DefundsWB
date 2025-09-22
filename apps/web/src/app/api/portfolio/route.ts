@@ -119,18 +119,28 @@ export async function GET(req: NextRequest) {
       const userInvestments = (p.investments || []).filter((inv: any) => inv.walletAddress === walletAddress);
       if (userInvestments.length === 0) return null;
 
-      const userShares = userInvestments.reduce((sum: number, inv: any) => sum + (inv.shares || 0), 0);
-      const invested = userInvestments.reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
-      const totalShares = p.totalShares || 0;
-      const currentValue = p.currentValue || 0;
-      const expectedReturn = totalShares > 0 ? (userShares / totalShares) * currentValue : invested;
+  const userSharesRaw = userInvestments.reduce((sum: number, inv: any) => sum + (inv.shares || 0), 0);
+  const userShares = Math.max(0, userSharesRaw);
+  const invested = userInvestments.reduce((sum: number, inv: any) => sum + Math.max(0, inv.amount || 0), 0);
+  // Prefer sum of non-negative investment shares for effective total shares
+  const sumNonNegShares = (p.investments || []).reduce((s: number, inv: any) => s + Math.max(0, inv.shares || 0), 0);
+  const storedTotal = Math.max(0, p.totalShares || 0);
+  const totalShares = sumNonNegShares > 0 ? sumNonNegShares : storedTotal;
+  const ownership = totalShares > 0 ? Math.min(100, (userShares / totalShares) * 100) : 0;
+      const payments = Array.isArray(p.payments) ? p.payments : [];
+      const received = payments.reduce((sum: number, pay: any) => {
+        const rec = Array.isArray(pay.recipients) ? pay.recipients : [];
+        const mine = rec.find((r: any) => r.wallet === walletAddress);
+        return sum + (mine ? (mine.amountSol || 0) : 0);
+      }, 0);
 
       return {
         fundId: p.fundId,
         name: p.name,
         type: p.fundType || 'General',
         invested,
-        expectedReturn,
+        received,
+        ownership,
         userShares,
         totalShares,
         lastUpdated: p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString(),

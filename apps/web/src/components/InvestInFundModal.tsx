@@ -13,6 +13,8 @@ interface InvestInFundModalProps {
   onClose: () => void;
   fundId: string;
   fundName: string;
+  // If true, records the investment using the RWA API instead of Funds API
+  isRwa?: boolean;
   onInvestmentComplete?: (signature: string) => void;
 }
 
@@ -21,6 +23,7 @@ export function InvestInFundModal({
   onClose, 
   fundId, 
   fundName,
+  isRwa = false,
   onInvestmentComplete 
 }: InvestInFundModalProps) {
   const wallet = useWallet();
@@ -64,9 +67,10 @@ export function InvestInFundModal({
 
       console.log('Investment transaction signature:', signature);
 
-      // Record the investment in the database
-      console.log('Recording investment in database...');
-      const response = await fetch('/api/funds/invest', {
+      // Record the investment in the database (Funds vs RWA)
+      const endpoint = isRwa ? '/api/rwa/invest' : '/api/funds/invest';
+      console.log(`Recording investment in database via ${endpoint}...`);
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

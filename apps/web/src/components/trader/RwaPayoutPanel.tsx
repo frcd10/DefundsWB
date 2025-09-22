@@ -123,7 +123,7 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
             <h3 className="text-lg font-bold text-sol-50">Investors</h3>
             <div className="flex items-center gap-3">
               <Button onClick={() => setShowHistory(true)} className="rounded-xl bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80">Payments History</Button>
-              <span className="text-xs text-sol-300">Total Shares: {selected.totalShares || 0}</span>
+              <span className="text-xs text-sol-300">Total Shares: {Math.max(0, (selected.totalShares as number) || 0)}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -137,11 +137,13 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
               </thead>
               <tbody className="divide-y divide-sol-700">
                 {(selected.investments || []).map((inv) => {
-                  const pct = selected.totalShares && selected.totalShares > 0 ? (100 * (inv.shares || 0)) / (selected.totalShares || 1) : 0;
+                  const shares = Math.max(0, inv.shares || 0);
+                  const total = Math.max(0, (selected.investments || []).reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
+                  const pct = total > 0 ? Math.min(100, (100 * shares) / total) : 0;
                   return (
                     <tr key={inv.walletAddress} className="hover:bg-sol-800/40">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{inv.walletAddress.slice(0, 4)}...{inv.walletAddress.slice(-4)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{(inv.shares || 0).toFixed(4)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{shares.toFixed(4)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{pct.toFixed(2)}%</td>
                     </tr>
                   );

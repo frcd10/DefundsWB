@@ -5,6 +5,8 @@ import { Connection } from '@solana/web3.js';
 function validate(body: Record<string, unknown>) {
   const reqd = ['fundId', 'investorWallet', 'amount', 'signature'];
   for (const f of reqd) if (!body[f]) return `Missing required field: ${f}`;
+  const amt = Number(body.amount);
+  if (!Number.isFinite(amt) || amt <= 0) return 'Amount must be a positive number';
   return null;
 }
 
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
     const err = validate(body);
     if (err) return NextResponse.json({ success: false, error: err }, { status: 400 });
 
-    const { fundId, investorWallet, amount, signature } = body as { fundId: string; investorWallet: string; amount: number; signature: string };
+  const { fundId, investorWallet, amount, signature } = body as { fundId: string; investorWallet: string; amount: number; signature: string };
 
     const ok = await verify(signature);
     if (!ok) return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
     const currentNav = product.currentValue && product.totalShares && product.totalShares > 0
       ? product.currentValue / product.totalShares
       : 1.0;
-    const sharesToIssue = amount / currentNav;
+  const sharesToIssue = Math.max(0, amount / currentNav);
 
     const newTotals = {
       totalDeposits: (product.totalDeposits ?? 0) + amount,

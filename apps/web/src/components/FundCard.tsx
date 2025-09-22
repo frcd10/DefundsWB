@@ -204,6 +204,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
         onClose={() => setShowInvestModal(false)}
         fundId={f.id}
         fundName={f.name}
+        isRwa={f.type === 'Construction' || f.type === 'Advance Receivable'}
         onInvestmentComplete={handleInvestmentComplete}
       />
     </div>

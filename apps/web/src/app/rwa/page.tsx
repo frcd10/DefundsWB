@@ -157,7 +157,7 @@ export default function RWAPage() {
           <div className="grid md:grid-cols-3 gap-8">
             <ProjectType
               icon={<Receipt className="w-12 h-12 text-sol-accent" />}
-              title="Antecipate Recebiveis"
+              title="Antecipate Cash Flow"
               description="Get immediate cash flow by selling your future receivables at a discount. Perfect for businesses with confirmed incoming payments."
               details={[
                 "Invoice factoring",

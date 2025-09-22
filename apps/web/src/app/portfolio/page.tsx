@@ -34,7 +34,8 @@ interface RwaPosition {
   name: string;
   type: string;
   invested: number;
-  expectedReturn: number;
+  received: number;
+  ownership: number;
   userShares: number;
   totalShares: number;
   lastUpdated: string;
@@ -320,7 +321,7 @@ export default function PortfolioPage() {
         <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 overflow-hidden mt-10">
           <div className="p-6 border-b border-sol-700">
             <h2 className="text-xl font-bold text-sol-50">RWA Investments</h2>
-            <p className="text-xs text-sol-300 mt-1">Shows your total invested and expected return. No withdrawals here.</p>
+            <p className="text-xs text-sol-300 mt-1">Shows your ownership, total invested, and payments received.</p>
           </div>
 
           {portfolio.rwaPositions && portfolio.rwaPositions.length > 0 ? (
@@ -330,8 +331,9 @@ export default function PortfolioPage() {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Product</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Ownership</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Invested</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Expected Return</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Received</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-sol-700">
@@ -349,10 +351,16 @@ export default function PortfolioPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <p className="text-sm font-medium text-sol-50">{(p.ownership || 0).toFixed(2)}%</p>
+                          <p className="text-xs text-sol-300">{(p.userShares || 0).toFixed(2)} / {(p.totalShares || 0).toFixed(2)}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <p className="text-sm font-medium text-sol-50">{p.invested.toFixed(2)} SOL</p>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-green-400">{p.expectedReturn.toFixed(2)} SOL</p>
+                        <p className="text-sm font-medium text-green-400">{(p.received || 0).toFixed(2)} SOL</p>
                       </td>
                     </tr>
                   ))}

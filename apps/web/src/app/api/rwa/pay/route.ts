@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     if (!rwa) return NextResponse.json({ success: false, error: 'RWA not found or not owned by manager' }, { status: 404 });
 
     const investments: Investment[] = rwa.investments || [];
-  const totalShares: number = rwa.totalShares || investments.reduce((s, i) => s + (i.shares || 0), 0);
-    if (totalShares <= 0 || investments.length === 0) {
+    const effectiveTotalShares: number = investments.reduce((s, i) => s + Math.max(0, i.shares || 0), 0);
+    if (effectiveTotalShares <= 0 || investments.length === 0) {
       return NextResponse.json({ success: false, error: 'No investors to pay' }, { status: 400 });
     }
 
@@ -56,12 +56,16 @@ export async function POST(req: NextRequest) {
         } as unknown as Record<string, unknown>
       );
 
-      return NextResponse.json({ success: true, data: { payments } });
+      return NextResponse.json({ success: true, data: { payments: payments.map((p) => ({ ...p, timestamp: now })) } });
     }
 
   // Proportional distribution amounts in SOL; returned for client-side wallet signing
     const planned = investments
-      .map((inv) => ({ wallet: inv.walletAddress, amountSol: (addValue * (inv.shares || 0)) / totalShares }))
+      .map((inv) => {
+        const shares = Math.max(0, inv.shares || 0);
+        const amountSol = effectiveTotalShares > 0 ? (addValue * shares) / effectiveTotalShares : 0;
+        return { wallet: inv.walletAddress, amountSol };
+      })
       .filter((t) => t.amountSol > 0);
   // Just return the plan to be signed client-side
   return NextResponse.json({ success: true, data: { plan: planned } });

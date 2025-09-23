@@ -41,7 +41,7 @@ const ERROR_TEST_PERCENTAGE = 120; // Test percentage > 100% for error handling
 // =============================================================================
 // PROGRAM CONFIGURATION
 // =============================================================================
-const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || 'tNo3sxFi51AhRzQ3zuSfQVBusNpPRyNrec5LA4xdDom');
+const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || '');
 
 // USDC Mint addresses (different on mainnet vs devnet)
 const USDC_MINT_MAINNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');

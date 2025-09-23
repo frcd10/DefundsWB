@@ -3,8 +3,8 @@ import { Program, AnchorProvider, Idl, BN } from '@coral-xyz/anchor';
 import { WalletContextState } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createSyncNativeInstruction } from '@solana/spl-token';
 
-// Program IDL - simplified for key operations
-const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || 'tNo3sxFi51AhRzQ3zuSfQVBusNpPRyNrec5LA4xdDom');
+// Program ID - from env (must be provided)
+const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || '');
 
 // We'll load the full IDL at runtime from /public/managed_funds.json.
 let cachedIdl: Idl | null = null;

@@ -8,7 +8,7 @@ pub use instructions::*;
 pub use state::*;
 pub use errors::*;
 
-declare_id!("tNo3sxFi51AhRzQ3zuSfQVBusNpPRyNrec5LA4xdDom");
+declare_id!("3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt");
 
 #[program]
 pub mod managed_funds {
@@ -77,5 +77,29 @@ pub mod managed_funds {
     /// Finalize withdrawal and distribute SOL
     pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
         instructions::finalize_withdrawal(ctx)
+    }
+
+    /// Pay RWA investors with a single CPI fan-out from manager signer
+    pub fn pay_rwa_investors<'info>(
+        ctx: Context<'_, '_, '_, 'info, PayRwaInvestors<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        require!(!amounts.is_empty(), errors::FundError::InvalidInput);
+        require!(ctx.remaining_accounts.len() == amounts.len(), errors::FundError::InvalidInput);
+
+        for (i, recipient_ai) in ctx.remaining_accounts.iter().enumerate() {
+            let amount = amounts[i];
+            if amount == 0 { continue; }
+
+            let from_ai = ctx.accounts.manager.to_account_info();
+            let to_ai = recipient_ai.clone();
+            let program_ai = ctx.accounts.system_program.to_account_info();
+
+            let cpi_accounts = anchor_lang::system_program::Transfer { from: from_ai, to: to_ai };
+            let cpi_ctx = anchor_lang::prelude::CpiContext::new(program_ai, cpi_accounts);
+            anchor_lang::system_program::transfer(cpi_ctx, amount)?;
+        }
+
+        Ok(())
     }
 }

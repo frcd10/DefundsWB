@@ -1,8 +1,17 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { AnchorProvider, Program, Idl, BN } from '@coral-xyz/anchor';
 import type { WalletContextState } from '@solana/wallet-adapter-react';
 
 export type Recipient = { wallet: string; amountSol: number };
 export type PaymentRecord = { signature: string; totalValue: number; recipients: Recipient[] };
+
+async function getProgram(connection: Connection, wallet: WalletContextState): Promise<Program> {
+  const res = await fetch('/managed_funds.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('IDL missing at /managed_funds.json');
+  const idl = (await res.json()) as Idl;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new Program(idl as any, new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' }));
+}
 
 export async function sendBatchedSolPayments(
   wallet: WalletContextState,
@@ -11,6 +20,7 @@ export async function sendBatchedSolPayments(
 ): Promise<PaymentRecord[]> {
   if (!wallet.publicKey || !wallet.signTransaction) throw new Error('Wallet not connected');
   const connection = new Connection(rpcUrl, 'confirmed');
+  const program = await getProgram(connection, wallet);
 
   const batches: Recipient[][] = [];
   for (let i = 0; i < recipients.length; i += 20) batches.push(recipients.slice(i, i + 20));
@@ -18,7 +28,9 @@ export async function sendBatchedSolPayments(
   const records: PaymentRecord[] = [];
   for (const batch of batches) {
     // Validate recipients and compute lamports; drop any sub-lamport dust
-    const transfers = batch.map((r) => {
+  const toAccounts: PublicKey[] = [];
+  const amountsLamports: number[] = [];
+    for (const r of batch) {
       let to: PublicKey;
       try {
         to = new PublicKey(r.wallet);
@@ -26,23 +38,27 @@ export async function sendBatchedSolPayments(
         throw new Error(`Invalid recipient address: ${r.wallet}`);
       }
       const lamports = Math.floor(r.amountSol * LAMPORTS_PER_SOL);
-      return { to, lamports };
-    }).filter(t => t.lamports >= 1);
-
-    if (transfers.length === 0) continue; // nothing meaningful to send in this batch
-
-
-    const tx = new Transaction();
-    for (const t of transfers) {
-      tx.add(
-        SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: t.to,
-          lamports: t.lamports,
-        })
-      );
+      if (lamports < 1) continue;
+      toAccounts.push(to);
+      amountsLamports.push(lamports);
     }
-    // Prefer wallet.sendTransaction to avoid stale blockhash issues
+
+    if (amountsLamports.length === 0) continue; // nothing meaningful to send in this batch
+
+    // Anchor expects Vec<u64> as BN[]; convert to BN to avoid toArrayLike errors
+    const amounts = amountsLamports.map((n) => new BN(n.toString()));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ix = await (program as any).methods
+      .payRwaInvestors(amounts)
+      .accounts({
+        manager: wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts(toAccounts.map((pubkey) => ({ pubkey, isWritable: true, isSigner: false })))
+      .instruction();
+
+    const tx = new Transaction().add(ix);
     tx.feePayer = wallet.publicKey;
     const sig = await wallet.sendTransaction(tx, connection, { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
     // Robust confirmation: try standard confirm, then fallback to polling if expired
@@ -69,7 +85,7 @@ export async function sendBatchedSolPayments(
       }
     }
   // Build exact amounts from sent lamports for accurate recording
-  const recipientsOut: Recipient[] = transfers.map((t) => ({ wallet: t.to.toBase58(), amountSol: t.lamports / LAMPORTS_PER_SOL }));
+  const recipientsOut: Recipient[] = toAccounts.map((t, i) => ({ wallet: t.toBase58(), amountSol: amountsLamports[i] / LAMPORTS_PER_SOL }));
   const totalSol = recipientsOut.reduce((s, r) => s + r.amountSol, 0);
   records.push({ signature: sig, totalValue: totalSol, recipients: recipientsOut });
   }

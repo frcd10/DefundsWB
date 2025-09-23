@@ -3,7 +3,7 @@ import getClientPromise from '@/lib/mongodb';
 import { Connection } from '@solana/web3.js';
 
 type Investment = { walletAddress: string; shares: number };
-type RwaDoc = { fundId: string; manager: string; totalShares?: number; investments?: Investment[] };
+type RwaDoc = { fundId: string; manager: string; totalShares?: number; investments?: Investment[]; performanceFee?: number };
 
 // Execute real devnet SOL transfers proportionally, batching up to 20 recipients per transaction.
 export async function POST(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const client = await getClientPromise();
     const db = client.db('Defunds');
-  const rwa = (await db.collection('Rwa').findOne({ fundId, manager })) as RwaDoc | null;
+    const rwa = (await db.collection('Rwa').findOne({ fundId, manager })) as RwaDoc | null;
     if (!rwa) return NextResponse.json({ success: false, error: 'RWA not found or not owned by manager' }, { status: 404 });
 
     const investments: Investment[] = rwa.investments || [];
@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
         if (!tx) return NextResponse.json({ success: false, error: `Signature not found: ${p.signature}` }, { status: 400 });
       }
 
+      // Recompute fees for audit trail
+      const perfFeePct = Math.max(0, Math.min(100, Number(rwa.performanceFee ?? 0)));
+      const platformFee = addValue * 0.01;
+      const afterPlatform = Math.max(0, addValue - platformFee);
+      const performanceFee = afterPlatform * (perfFeePct / 100);
+      const treasuryPerformanceShare = performanceFee * 0.20;
+      const managerPerformanceShare = performanceFee - treasuryPerformanceShare;
+      const treasuryAmount = platformFee + treasuryPerformanceShare;
+      const investorsPool = Math.max(0, afterPlatform - performanceFee);
+
       await db.collection('Rwa').updateOne(
         { fundId },
         {
@@ -50,7 +60,13 @@ export async function POST(req: NextRequest) {
           $set: { updatedAt: now },
           $push: {
             payments: {
-              $each: payments.map((p) => ({ timestamp: now, totalValue: p.totalValue, signature: p.signature, recipients: p.recipients })),
+              $each: payments.map((p) => ({
+                timestamp: now,
+                totalValue: p.totalValue,
+                signature: p.signature,
+                recipients: p.recipients,
+                feeBreakdown: { addValue, platformFee, afterPlatform, performanceFee, investorsPool, treasuryPerformanceShare, managerPerformanceShare, treasuryAmount, perfFeePct },
+              })),
             },
           },
         } as unknown as Record<string, unknown>
@@ -59,16 +75,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: { payments: payments.map((p) => ({ ...p, timestamp: now })) } });
     }
 
-  // Proportional distribution amounts in SOL; returned for client-side wallet signing
-    const planned = investments
+    // ───────────────────────────────────────────────────────────────
+    // Fees & distributions
+    // 1) Platform fee: 1% of total payout goes to treasury
+    // 2) Performance fee: % of remaining after platform fee; treasury receives 20% of that fee
+    // Investors receive the rest; manager keeps 80% of performance fee (no transfer needed)
+    // ───────────────────────────────────────────────────────────────
+    const treasuryWallet = process.env.TREASURY_WALLET || process.env.NEXT_PUBLIC_TREASURY_WALLET || '8NCLTHTiHJsgDoKyydY8vQfyi8RPDU4P59pCUHQGrBFm';
+    const perfFeePct = Math.max(0, Math.min(100, Number(rwa.performanceFee ?? 0))); // percent (not bps)
+
+  const platformFee = addValue * 0.01; // 1%
+  const afterPlatform = Math.max(0, addValue - platformFee);
+  const performanceFee = afterPlatform * (perfFeePct / 100);
+  const treasuryPerformanceShare = performanceFee * 0.20; // 20% of performance fee to treasury
+  const managerPerformanceShare = performanceFee - treasuryPerformanceShare; // 80%
+  const treasuryAmount = platformFee + treasuryPerformanceShare;
+  const investorsPool = Math.max(0, afterPlatform - performanceFee);
+
+    // Proportional distribution to investors from investorsPool
+    const investorTransfers = investments
       .map((inv) => {
         const shares = Math.max(0, inv.shares || 0);
-        const amountSol = effectiveTotalShares > 0 ? (addValue * shares) / effectiveTotalShares : 0;
+        const amountSol = effectiveTotalShares > 0 ? (investorsPool * shares) / effectiveTotalShares : 0;
         return { wallet: inv.walletAddress, amountSol };
       })
       .filter((t) => t.amountSol > 0);
-  // Just return the plan to be signed client-side
-  return NextResponse.json({ success: true, data: { plan: planned } });
+
+    // Add treasury recipient (platform 1% + 20% of performance fee)
+    const planned = [
+      ...investorTransfers,
+      // Manager receives 80% of performance fee explicitly for full-audit trail
+      ...(managerPerformanceShare > 0 ? [{ wallet: manager, amountSol: managerPerformanceShare }] : []),
+      { wallet: treasuryWallet, amountSol: treasuryAmount },
+    ];
+
+    // Return the plan to be signed client-side with fee breakdown for transparency
+  return NextResponse.json({ success: true, data: { plan: planned, fees: { addValue, platformFee, afterPlatform, performanceFee, investorsPool, treasuryPerformanceShare, managerPerformanceShare, treasuryAmount, perfFeePct, treasuryWallet } } });
   } catch (e) {
     console.error('rwa/pay error', e);
     return NextResponse.json({ success: false, error: 'server error' }, { status: 500 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 
 // Validation function
 function validateCreateFundRequest(body: Record<string, unknown>) {
@@ -72,17 +72,29 @@ export async function POST(req: NextRequest) {
       initialDeposit = 0
     } = body;
 
-    // Verify the transaction on Solana
+    // Verify the transaction on Solana (idempotent path supported)
     console.log('Verifying transaction:', signature);
-    const verified = await verifyTransaction(signature);
+    let verified: boolean;
+    if (signature === 'already-processed') {
+      try {
+        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+        const connection = new Connection(rpcUrl, 'confirmed');
+        const info = await connection.getAccountInfo(new PublicKey(fundId));
+        verified = info !== null;
+        if (!verified) {
+          return NextResponse.json({ success: false, error: 'Fund not found on-chain yet. Please retry shortly.' }, { status: 409 });
+        }
+      } catch (e) {
+        console.error('Idempotent verification failed:', e);
+        return NextResponse.json({ success: false, error: 'Failed to verify fund account' }, { status: 500 });
+      }
+    } else {
+      verified = await verifyTransaction(signature);
+    }
     console.log('Transaction verified:', verified);
-    
     if (!verified) {
       console.log('Transaction verification failed');
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid transaction signature',
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
     }
 
     // Store fund in MongoDB
@@ -103,8 +115,9 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('Creating fund data...');
+    const docId = signature === 'already-processed' ? fundId : signature;
     const fundData = {
-      _id: signature, // Use transaction signature as the MongoDB _id
+      _id: docId, // Use tx signature normally; use fundId on idempotent path
       fundId,
       manager,
       name,
@@ -164,12 +177,12 @@ export async function POST(req: NextRequest) {
 
     console.log('Inserting fund into database...');
     await collection.insertOne(fundData);
-    console.log('Fund created successfully with signature as ID:', signature);
+    console.log('Fund created successfully with id:', docId);
 
     return NextResponse.json({
       success: true,
       data: {
-        id: signature, // Return the transaction signature as the ID
+        id: docId,
         ...fundData
       },
     }, { status: 201 });

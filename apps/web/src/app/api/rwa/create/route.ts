@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 
 function validateCreateRwaRequest(body: Record<string, unknown>) {
   const required = ['fundId', 'manager', 'name', 'signature'];
@@ -41,7 +41,24 @@ export async function POST(req: NextRequest) {
       initialDeposit = 0,
     } = body;
 
-    const ok = await verifyTransaction(signature);
+    // Accept idempotent client path: if signature is a placeholder from an "already processed" tx,
+    // confirm that the fund account now exists on-chain and proceed.
+    let ok: boolean;
+    if (signature === 'already-processed') {
+      try {
+        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+        const connection = new Connection(rpcUrl, 'confirmed');
+        const info = await connection.getAccountInfo(new PublicKey(fundId));
+        ok = info !== null;
+        if (!ok) {
+          return NextResponse.json({ success: false, error: 'Fund not found on-chain yet. Please retry in a few seconds.' }, { status: 409 });
+        }
+      } catch {
+        return NextResponse.json({ success: false, error: 'Failed to verify fund account for idempotent creation' }, { status: 500 });
+      }
+    } else {
+      ok = await verifyTransaction(signature);
+    }
     if (!ok) return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
 
     const client = await getClientPromise();
@@ -52,8 +69,9 @@ export async function POST(req: NextRequest) {
     if (exists) return NextResponse.json({ success: false, error: 'Product already exists' }, { status: 409 });
 
     const now = new Date();
+    const docId = signature === 'already-processed' ? fundId : signature;
     const doc = {
-      _id: signature,
+      _id: docId,
       fundId,
       manager,
       name,
@@ -84,8 +102,8 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    await collection.insertOne(doc as unknown as Record<string, unknown>);
-    return NextResponse.json({ success: true, data: { id: signature, ...doc } }, { status: 201 });
+  await collection.insertOne(doc as unknown as Record<string, unknown>);
+  return NextResponse.json({ success: true, data: { id: docId, ...doc } }, { status: 201 });
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to create RWA product' }, { status: 500 });
   }

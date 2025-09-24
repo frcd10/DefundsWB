@@ -99,7 +99,7 @@ export class SolanaFundService {
       // Load program from full IDL
       const program = await this.getProgram(wallet);
 
-      // Sanitize name/description to fit on-chain struct space
+  // Sanitize name/description to fit on-chain struct space
       const name = params.name.slice(0, 32);
       const description = params.description.slice(0, 100);
 
@@ -127,8 +127,75 @@ export class SolanaFundService {
       console.log('Vault PDA:', vaultPda.toString());
       console.log('Shares Mint PDA:', sharesMintPda.toString());
 
+      // Idempotency: if fund already exists, don't try to initialize again
+      const [fundInfo, vaultInfo, sharesInfo] = await Promise.all([
+        this.connection.getAccountInfo(fundPda),
+        this.connection.getAccountInfo(vaultPda),
+        this.connection.getAccountInfo(sharesMintPda),
+      ]);
+
       // If initial deposit is requested, compose a single transaction that:
       // 1) initializes the fund, 2) wraps SOL into investor WSOL ATA, 3) calls deposit
+      if (fundInfo) {
+        // Fund already initialized. If an initial deposit was requested, proceed with deposit-only.
+        if (params.initialDeposit && params.initialDeposit > 0) {
+          const amountLamports = Math.floor(params.initialDeposit * LAMPORTS_PER_SOL);
+          const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, wallet.publicKey);
+          const tx = new Transaction();
+
+          // Ensure ATA exists and wrap SOL
+          const ataInfo = await this.connection.getAccountInfo(investorWsolAta);
+          if (!ataInfo) {
+            tx.add(
+              createAssociatedTokenAccountInstruction(
+                wallet.publicKey,
+                investorWsolAta,
+                wallet.publicKey,
+                NATIVE_MINT
+              )
+            );
+          }
+          tx.add(SystemProgram.transfer({ fromPubkey: wallet.publicKey, toPubkey: investorWsolAta, lamports: amountLamports }));
+          tx.add(createSyncNativeInstruction(investorWsolAta));
+
+          const [investorPositionPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from('position'), wallet.publicKey.toBuffer(), fundPda.toBuffer()],
+            program.programId
+          );
+          const investorSharesAta = await getAssociatedTokenAddress(sharesMintPda, wallet.publicKey);
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const depositIx = await (program as any).methods
+            .deposit(new BN(amountLamports))
+            .accounts({
+              fund: fundPda,
+              vault: vaultPda,
+              sharesMint: sharesMintPda,
+              investorPosition: investorPositionPda,
+              investorTokenAccount: investorWsolAta,
+              investorSharesAccount: investorSharesAta,
+              investor: wallet.publicKey,
+              systemProgram: SystemProgram.programId,
+              tokenProgram: TOKEN_PROGRAM_ID,
+              associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+              rent: SYSVAR_RENT_PUBKEY,
+            })
+            .instruction();
+
+          tx.add(depositIx);
+
+          const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+          tx.recentBlockhash = blockhash;
+          tx.feePayer = wallet.publicKey;
+          const signed = await wallet.signTransaction(tx);
+          const sig = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
+          await this.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+          console.log('deposit-only (existing fund) signature:', sig);
+          return { fundId: fundPda.toString(), signature: sig };
+        }
+        throw new Error('A fund with this name already exists for your wallet. Choose a different name or make a deposit.');
+      }
+
       if (params.initialDeposit && params.initialDeposit > 0) {
         // Build initialize_fund ix
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -146,7 +213,7 @@ export class SolanaFundService {
           })
           .instruction();
 
-        const amountLamports = Math.floor(params.initialDeposit * LAMPORTS_PER_SOL);
+  const amountLamports = Math.floor(params.initialDeposit * LAMPORTS_PER_SOL);
 
         // Prepare investor WSOL ATA and wrap SOL
         const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, wallet.publicKey);
@@ -206,7 +273,7 @@ export class SolanaFundService {
         // wrap SOL steps already added above
         tx.add(depositIx);
 
-        const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+  const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
         tx.recentBlockhash = blockhash;
         tx.feePayer = wallet.publicKey;
 
@@ -247,6 +314,29 @@ export class SolanaFundService {
       
       // Enhanced error handling
       if (error instanceof Error) {
+        // Transform common simulation errors into actionable messages
+        if (error.message.includes('already been processed')) {
+          // Idempotency: probe if the fund account now exists; if yes, treat as success
+          try {
+            const program = await this.getProgram(wallet);
+            const name = params.name.slice(0, 32);
+            const [fundPda] = PublicKey.findProgramAddressSync(
+              [Buffer.from('fund'), wallet.publicKey.toBuffer(), Buffer.from(name)],
+              program.programId
+            );
+            const fundInfo = await this.connection.getAccountInfo(fundPda);
+            if (fundInfo) {
+              console.warn('Tx already processed; fund account exists. Returning success.');
+              return { fundId: fundPda.toString(), signature: 'already-processed' };
+            }
+          } catch (probeErr) {
+            console.warn('Idempotency probe failed after already-processed error:', probeErr);
+          }
+          throw new Error('This transaction was already processed. Please wait a moment and check if the fund was created, or try again with a fresh name.');
+        }
+        if (error.message.includes('already in use')) {
+          throw new Error('Fund or related accounts already exist. Pick a different fund name or proceed with a deposit.');
+        }
         if (error.message.includes('Blockhash not found')) {
           throw new Error('Transaction expired. Please try again with a fresh transaction.');
         }
@@ -363,19 +453,44 @@ export class SolanaFundService {
       tx.feePayer = wallet.publicKey;
 
       const signed = await wallet.signTransaction(tx);
-      const signature = await this.connection.sendRawTransaction(signed.serialize(), {
-        skipPreflight: false,
-        preflightCommitment: 'processed',
-        maxRetries: 3,
-      });
-      await this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-      console.log('deposit signature:', signature);
-      return signature;
+      let signature: string | null = null;
+      try {
+        signature = await this.connection.sendRawTransaction(signed.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: 'processed',
+          maxRetries: 3,
+        });
+        await this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+        console.log('deposit signature:', signature);
+        return signature;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // Handle idempotent/duplicate submission by regenerating a fresh blockhash and retrying once
+        if (msg.includes('already been processed')) {
+          console.warn('Deposit tx reported as already processed during simulation; retrying with a fresh blockhash...');
+          const fresh = await this.connection.getLatestBlockhash('finalized');
+          tx.recentBlockhash = fresh.blockhash;
+          tx.feePayer = wallet.publicKey;
+          const reSigned = await wallet.signTransaction(tx);
+          const retrySig = await this.connection.sendRawTransaction(reSigned.serialize(), {
+            skipPreflight: true,
+            preflightCommitment: 'processed',
+            maxRetries: 3,
+          });
+          await this.connection.confirmTransaction({ signature: retrySig, blockhash: fresh.blockhash, lastValidBlockHeight: fresh.lastValidBlockHeight }, 'confirmed');
+          console.log('deposit signature (retry):', retrySig);
+          return retrySig;
+        }
+        throw e;
+      }
     } catch (error) {
       console.error('Error making real deposit to program vault:', error);
       
       // Enhanced error handling
       if (error instanceof Error) {
+        if (error.message.includes('already been processed')) {
+          throw new Error('Transaction was just processed or duplicated. Please try again; we will automatically retry with a fresh blockhash if needed.');
+        }
         if (error.message.includes('Blockhash not found')) {
           throw new Error('Transaction expired. Please try again.');
         }

@@ -102,4 +102,17 @@ pub mod managed_funds {
 
         Ok(())
     }
+
+    /// Distribute SOL from vault to investors by share percentage, taking platform and performance fees.
+    pub fn pay_fund_investors<'info>(
+        ctx: Context<'_, '_, 'info, 'info, PayFundInvestors<'info>>,
+        total_amount: u64,
+    ) -> Result<()> {
+        instructions::pay_fund_investors(ctx, total_amount)
+    }
+
+    /// Investor withdraws full participation (SOL-only devnet path), taking platform and performance fees.
+    pub fn investor_fund_withdrawal(ctx: Context<InvestorFundWithdrawal>) -> Result<()> {
+        instructions::investor_fund_withdrawal(ctx)
+    }
 }

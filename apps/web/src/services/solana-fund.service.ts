@@ -503,6 +503,76 @@ export class SolanaFundService {
     }
   }
 
+  // Manager pays fund investors from SOL vault, applying platform/performance fees on-chain
+  async payFundInvestors(wallet: WalletContextState, fundId: string, totalAmountSol: number, investorWallets: string[]): Promise<string> {
+    if (!wallet.publicKey || !wallet.signTransaction) {
+      throw new Error('Wallet not connected');
+    }
+
+    const program = await this.getProgram(wallet);
+
+    // Derive required PDAs
+    const fundPda = new PublicKey(fundId);
+    const [vaultSolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol'), fundPda.toBuffer()],
+      program.programId
+    );
+
+    // Build remaining accounts: pairs of [InvestorPosition PDA, Investor system account]
+    const remainingAccounts: { pubkey: PublicKey; isWritable: boolean; isSigner: boolean }[] = [];
+    for (const w of investorWallets) {
+      const investorPk = new PublicKey(w);
+      const [positionPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('position'), investorPk.toBuffer(), fundPda.toBuffer()],
+        program.programId
+      );
+      remainingAccounts.push({ pubkey: positionPda, isWritable: false, isSigner: false });
+      remainingAccounts.push({ pubkey: investorPk, isWritable: true, isSigner: false });
+    }
+
+    const totalLamports = Math.floor(totalAmountSol * LAMPORTS_PER_SOL);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ix = await (program as any).methods
+      .payFundInvestors(new BN(totalLamports))
+      .accounts({
+        manager: wallet.publicKey,
+        fund: fundPda,
+        vaultSolAccount: vaultSolPda,
+        treasury: new PublicKey(process.env.NEXT_PUBLIC_TREASURY_WALLET || process.env.TREASURY_WALLET || '8NCLTHTiHJsgDoKyydY8vQfyi8RPDU4P59pCUHQGrBFm'),
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts(remainingAccounts)
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = wallet.publicKey;
+    const signed = await wallet.signTransaction(tx);
+
+    try {
+      const sig = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
+      await this.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+      return sig;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('InstructionFallbackNotFound') || msg.includes('0x65')) {
+        throw new Error('Program on devnet is missing pay_fund_investors. Please upgrade the managed_funds program at 3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt and sync the IDL.');
+      }
+      if (msg.includes('already been processed')) {
+        const fresh = await this.connection.getLatestBlockhash('finalized');
+        tx.recentBlockhash = fresh.blockhash;
+        tx.feePayer = wallet.publicKey;
+        const reSigned = await wallet.signTransaction(tx);
+        const retrySig = await this.connection.sendRawTransaction(reSigned.serialize(), { skipPreflight: true, preflightCommitment: 'processed', maxRetries: 3 });
+        await this.connection.confirmTransaction({ signature: retrySig, blockhash: fresh.blockhash, lastValidBlockHeight: fresh.lastValidBlockHeight }, 'confirmed');
+        return retrySig;
+      }
+      throw e;
+    }
+  }
+
   async getFund(fundId: string): Promise<SolanaFund | null> {
     try {
       // For now, return mock data since we need the wallet to access the program

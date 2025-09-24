@@ -6,6 +6,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SwapPanel } from '../../components/trader/SwapPanel';
 import { RwaPayoutPanel } from '../../components/trader/RwaPayoutPanel';
+import { FundPayoutPanel } from '../../components/trader/FundPayoutPanel';
 
 export default function TraderPage() {
   const wallet = useWallet();
@@ -92,6 +93,7 @@ export default function TraderPage() {
             <TabsList className="bg-sol-900/50 border border-sol-700 rounded-xl p-1">
               <TabsTrigger value="swap" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">Swap</TabsTrigger>
               <TabsTrigger value="rwa" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">RWA Payout</TabsTrigger>
+              <TabsTrigger value="funds" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">Funds Payout</TabsTrigger>
             </TabsList>
 
             <TabsContent value="swap" className="mt-4">
@@ -103,6 +105,12 @@ export default function TraderPage() {
             <TabsContent value="rwa" className="mt-4">
               <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-6">
                 <RwaPayoutPanel rwas={rwas} managerWallet={wallet.publicKey!.toString()} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="funds" className="mt-4">
+              <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-6">
+                <FundPayoutPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
               </div>
             </TabsContent>
           </Tabs>

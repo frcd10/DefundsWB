@@ -61,6 +61,25 @@ pub fn pay_fund_investors<'info>(
         .checked_sub(performance_fee)
         .ok_or(FundError::MathOverflow)?;
 
+    // Ensure the SOL vault PDA account exists (system-owned, zero data) — create on first use
+    let fund_key = fund.key();
+    let bump_seed = [ctx.bumps.vault_sol_account];
+    let fund_seeds: [&[u8]; 3] = [b"vault_sol".as_ref(), fund_key.as_ref(), &bump_seed];
+    if ctx.accounts.vault_sol_account.lamports() == 0 {
+        let cpi_accounts = anchor_lang::system_program::CreateAccount {
+            from: ctx.accounts.manager.to_account_info(),
+            to: ctx.accounts.vault_sol_account.to_account_info(),
+        };
+        let signer = &[&fund_seeds[..]];
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.system_program.to_account_info(),
+            cpi_accounts,
+            signer,
+        );
+        // Zero space system-owned account is valid; rent-exemption for 0 space is 0 lamports
+        anchor_lang::system_program::create_account(cpi_ctx, 0, 0, &anchor_lang::system_program::ID)?;
+    }
+
     // Top-up vault from manager by the total_amount so distribution is from the vault
     {
         let cpi_accounts = anchor_lang::system_program::Transfer {
@@ -95,10 +114,6 @@ pub fn pay_fund_investors<'info>(
     require!(batch_total_shares > 0, FundError::InvalidShares);
 
     // Helper to perform SOL transfer from vault PDA using seeds
-    // Stable signer seeds
-    let fund_key = fund.key();
-    let bump_seed = [ctx.bumps.vault_sol_account];
-    let fund_seeds: [&[u8]; 3] = [b"vault_sol".as_ref(), fund_key.as_ref(), &bump_seed];
 
     // 1) Pay treasury: base fee + 20% of performance fee
     let treasury_total = base_fee

@@ -34,6 +34,7 @@ export function WithdrawFromFundModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawPercentage, setWithdrawPercentage] = useState('100');
+  const [submitted, setSubmitted] = useState(false);
 
   const withdrawAmount = (currentValue * parseFloat(withdrawPercentage || '0')) / 100;
 
@@ -61,6 +62,8 @@ export function WithdrawFromFundModal({
     }
 
     setIsLoading(true);
+  if (submitted) return; // guard double submit
+  setSubmitted(true);
     setError(null);
 
     try {
@@ -112,6 +115,7 @@ export function WithdrawFromFundModal({
       setError(error instanceof Error ? error.message : 'Failed to withdraw from fund');
     } finally {
       setIsLoading(false);
+      setSubmitted(false);
     }
   };
 

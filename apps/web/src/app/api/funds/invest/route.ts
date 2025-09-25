@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Update fund in MongoDB
+  // Update fund in MongoDB
     console.log('Connecting to MongoDB...');
     const client = await getClientPromise();
     const db = client.db('Defunds');
@@ -93,6 +93,13 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'Fund not found',
       }, { status: 404 });
+    }
+
+    // Idempotency: if we've already recorded this signature, return success
+    const existingWithSig = await collection.findOne({ fundId, 'investments.transactionSignature': signature });
+    if (existingWithSig) {
+      console.log('Duplicate investment submission detected; returning idempotent success');
+      return NextResponse.json({ success: true, data: { fundId, investorWallet, amount, signature, idempotent: true } }, { status: 200 });
     }
 
     console.log('Updating fund with new investment...');

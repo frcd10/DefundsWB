@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
     const db = client.db('Defunds');
     const col = db.collection('Rwa');
 
+    // Idempotency: if signature already recorded, return success
+    const dup = await col.findOne({ fundId, 'investments.transactionSignature': signature } as any);
+    if (dup) return NextResponse.json({ success: true, data: { fundId, amount, signature, idempotent: true } }, { status: 200 });
+
     const product = await col.findOne<{
       totalDeposits?: number;
       totalShares?: number;

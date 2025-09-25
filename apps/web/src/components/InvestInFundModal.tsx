@@ -30,6 +30,7 @@ export function InvestInFundModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState('0.1');
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +53,9 @@ export function InvestInFundModal({
       return;
     }
 
-    setIsLoading(true);
+  if (submitted) return; // guard double submit
+  setSubmitted(true);
+  setIsLoading(true);
     setError(null);
 
     try {
@@ -105,6 +108,7 @@ export function InvestInFundModal({
       setError(error instanceof Error ? error.message : 'Failed to invest in fund');
     } finally {
       setIsLoading(false);
+      setSubmitted(false);
     }
   };
 

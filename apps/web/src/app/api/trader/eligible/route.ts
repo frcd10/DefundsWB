@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       positions: 1,
       solBalance: 1,
       investments: 1,
+      payments: 1,
     }).toArray();
     const rwas = await db.collection('Rwa').find({ manager: wallet }).project({
       _id: 1,
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
       payments: 1,
     }).toArray();
 
-    const eligible = (funds.length + rwas.length) > 0;
-    return NextResponse.json({ success: true, data: { eligible, funds, rwas } });
+  const eligible = (funds.length + rwas.length) > 0;
+  const treasury = process.env.TREASURY_WALLET || null;
+  return NextResponse.json({ success: true, data: { eligible, funds, rwas, treasury } });
   } catch {
     return NextResponse.json({ success: false, error: 'server error' }, { status: 500 });
   }

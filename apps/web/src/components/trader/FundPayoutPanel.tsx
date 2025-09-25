@@ -27,14 +27,39 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
   const [message, setMessage] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [localPayments, setLocalPayments] = useState<FundDoc['payments']>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [selectedLocal, setSelectedLocal] = useState<Record<string, unknown> | null>(null);
+  const [treasury, setTreasury] = useState<string | null>(null);
 
   const selected = useMemo(() => funds.find(f => f.fundId === selectedId), [funds, selectedId]);
 
   useEffect(() => {
-    setLocalPayments((selected?.payments as FundDoc['payments']) || []);
+    // Prefer refreshed local copy if present, otherwise fall back to selected from props
+    const basePayments = (selectedLocal?.payments as FundDoc['payments'])
+      || (selected?.payments as FundDoc['payments'])
+      || [];
+    setLocalPayments(basePayments);
+    setSelectedLocal(selected as Record<string, unknown> | null);
   }, [selectedId, selected?.payments]);
 
+  // On first render, fetch treasury if not present
+  useEffect(() => {
+    const fetchTreasury = async () => {
+      try {
+        if (!wallet.publicKey) return;
+        const refRes = await fetch(`/api/trader/eligible?wallet=${wallet.publicKey.toString()}`, { cache: 'no-store' });
+        const refJson = await refRes.json();
+        if (refJson?.success && typeof refJson.data?.treasury === 'string') {
+          setTreasury(refJson.data.treasury);
+        }
+      } catch {}
+    };
+    if (!treasury) fetchTreasury();
+  }, [treasury, wallet.publicKey]);
+
   const handlePayout = async () => {
+    if (submitted) return; // guard double submit
+    setSubmitted(true);
     setLoading(true);
     setError(null);
     setMessage(null);
@@ -48,13 +73,18 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
       if (investorWallets.length === 0) throw new Error('No investors to pay');
 
       // Execute on-chain payout via program
-      const signature = await solanaFundService.payFundInvestors(wallet, selected.fundId as string, value, investorWallets);
+  const signature = await solanaFundService.payFundInvestors(wallet, selected.fundId as string, value, investorWallets, treasury || undefined);
 
-      // Compute recipients locally for history (pro-rata by shares) using NET investor pool after fees
-      // On-chain: base 1% from total, then performance fee on remaining; treasury gets 20% of perf, manager 80%; investors get the remainder.
+      // Compute recipients locally for history (mirrors on-chain):
+      // base 1% platform fee; performance fee (bps) on remaining; split perf 20% treasury / 80% manager; investors receive the remaining pool pro-rata.
       const perfRaw = Number((selected as any).performanceFee ?? 0); // may be in % or bps
       const perfBps = perfRaw > 100 ? perfRaw : Math.round(perfRaw * 100);
-      const investorPoolSol = value * 0.99 * (1 - Math.max(0, Math.min(10000, perfBps)) / 10000);
+      const platformFeeSol = value * 0.01;
+      const afterPlatform = Math.max(0, value - platformFeeSol);
+      const perfFeeSol = afterPlatform * (Math.max(0, Math.min(10000, perfBps)) / 10000);
+      const treasuryFeeSol = perfFeeSol * 0.20;
+      const managerFeeSol = perfFeeSol * 0.80;
+      const investorPoolSol = Math.max(0, afterPlatform - perfFeeSol);
       const computedTotal = (selected.investments as any[])?.reduce((s, i) => s + Math.max(0, i.shares || 0), 0) || 0;
       const totalShares = Math.max(0, (selected.totalShares as number) ?? computedTotal);
       const recipients = (selected.investments as Array<{ walletAddress: string; shares: number }>)
@@ -63,6 +93,11 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
           return { wallet: inv.walletAddress, amountSol: investorPoolSol * portion };
         })
         .filter(r => r.amountSol > 0);
+
+  // Append fee recipients for history (treasury + manager)
+  const treasuryWallet = treasury || '';
+      if (treasuryWallet) recipients.push({ wallet: treasuryWallet, amountSol: treasuryFeeSol });
+      if (managerWallet) recipients.push({ wallet: managerWallet, amountSol: managerFeeSol });
 
       // Save to server for history
       const save = await fetch('/api/funds/pay', {
@@ -79,10 +114,29 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
         ...(prev || []),
         { timestamp: nowIso, signature, totalValue: value, recipients },
       ]));
+
+      // Re-fetch the latest fund data so balances reflect the payout without a page reload
+      try {
+        const refRes = await fetch(`/api/trader/eligible?wallet=${wallet.publicKey!.toString()}`, { cache: 'no-store' });
+        const refJson = await refRes.json();
+        if (refJson?.success && Array.isArray(refJson.data?.funds)) {
+          const updated = refJson.data.funds.find((f: any) => f.fundId === selected.fundId);
+          if (updated) {
+            setSelectedLocal(updated);
+            setLocalPayments((updated.payments as FundDoc['payments']) || []);
+          }
+          if (typeof refJson.data?.treasury === 'string') {
+            setTreasury(refJson.data.treasury);
+          }
+        }
+      } catch (e) {
+        console.warn('Post-payout refresh failed:', e);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Payout failed');
     } finally {
       setLoading(false);
+      setSubmitted(false);
     }
   };
 
@@ -135,7 +189,8 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
             <h3 className="text-lg font-bold text-sol-50">Investors</h3>
             <div className="flex items-center gap-3">
               <Button onClick={() => setShowHistory(true)} className="rounded-xl bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80">Payments History</Button>
-              <span className="text-xs text-sol-300">Total Shares: {Math.max(0, (selected.totalShares as number) || 0)}</span>
+              <span className="text-xs text-sol-300">Fund SOL Balance: {Number(((selectedLocal as any)?.solBalance ?? 0)).toFixed(6)} SOL</span>
+              <span className="text-xs text-sol-300">Total Shares: {Math.max(0, ((selectedLocal as any)?.totalShares as number) || (selected.totalShares as number) || 0)}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -148,9 +203,10 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
                 </tr>
               </thead>
               <tbody className="divide-y divide-sol-700">
-                {(selected.investments || []).map((inv: any) => {
+                {(((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []).map((inv: any) => {
                   const shares = Math.max(0, inv.shares || 0);
-                  const total = Math.max(0, (selected.investments || []).reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
+                  const invs = (((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []);
+                  const total = Math.max(0, invs.reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
                   const pct = total > 0 ? Math.min(100, (100 * shares) / total) : 0;
                   return (
                     <tr key={inv.walletAddress} className="hover:bg-sol-800/40">

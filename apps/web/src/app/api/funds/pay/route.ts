@@ -28,12 +28,18 @@ export async function POST(req: NextRequest) {
     const fund = await db.collection('Funds').findOne({ fundId, manager });
     if (!fund) return NextResponse.json({ success: false, error: 'Fund not found or not owned by manager' }, { status: 404 });
 
+    // Idempotency: if we already recorded this payout signature, return success
+    const dup = await db.collection('Funds').findOne({ fundId, 'payments.signature': signature });
+    if (dup) {
+      return NextResponse.json({ success: true, data: { signature, amount, recipients, idempotent: true } });
+    }
+
     const now = new Date();
     await db.collection('Funds').updateOne(
       { fundId },
       {
         $set: { updatedAt: now },
-        $inc: { totalDeposits: -amount },
+        $inc: { totalDeposits: -amount, solBalance: -amount, currentValue: -amount },
         $push: {
           payments: {
             timestamp: now,

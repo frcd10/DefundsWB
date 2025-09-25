@@ -1,4 +1,5 @@
 import { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { Program, AnchorProvider, Idl, BN } from '@coral-xyz/anchor';
 import { WalletContextState } from '@solana/wallet-adapter-react';
 import { TOKEN_PROGRAM_ID, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createSyncNativeInstruction } from '@solana/spl-token';
@@ -52,6 +53,8 @@ export interface SolanaFund {
 export class SolanaFundService {
   private connection: Connection;
   private program: Program | null = null;
+  // Prevent duplicate concurrent submissions (dev double-render, double clicks, etc.)
+  private inflight = new Set<string>();
 
   constructor() {
     const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
@@ -304,7 +307,9 @@ export class SolanaFundService {
       const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
-      const signed = await wallet.signTransaction(tx);
+  const signed = await wallet.signTransaction(tx);
+  // Precompute the wire signature to return if RPC reports 'already been processed'
+  const wireSignature = bs58.encode(signed.signatures[0].signature as Uint8Array);
       const sig = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
       await this.connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
       console.log('initialize_fund signature:', sig);
@@ -377,6 +382,11 @@ export class SolanaFundService {
     }
 
     try {
+      const opKey = `deposit:${fundId}`;
+      if (this.inflight.has(opKey)) {
+        throw new Error('A deposit is already in progress for this fund. Please wait.');
+      }
+      this.inflight.add(opKey);
       console.log('Making REAL deposit of', amount, 'SOL to fund:', fundId);
       console.log('From wallet:', wallet.publicKey.toString());
 
@@ -453,6 +463,9 @@ export class SolanaFundService {
       tx.feePayer = wallet.publicKey;
 
       const signed = await wallet.signTransaction(tx);
+      // Precompute the wire signature from the signed transaction so if the RPC
+      // reports 'already been processed', we can safely return it without resending.
+      const wireSignature = bs58.encode(signed.signatures[0].signature as Uint8Array);
       let signature: string | null = null;
       try {
         signature = await this.connection.sendRawTransaction(signed.serialize(), {
@@ -465,21 +478,10 @@ export class SolanaFundService {
         return signature;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        // Handle idempotent/duplicate submission by regenerating a fresh blockhash and retrying once
+        // If RPC says the tx has already been processed, do NOT resend; return the original signature.
         if (msg.includes('already been processed')) {
-          console.warn('Deposit tx reported as already processed during simulation; retrying with a fresh blockhash...');
-          const fresh = await this.connection.getLatestBlockhash('finalized');
-          tx.recentBlockhash = fresh.blockhash;
-          tx.feePayer = wallet.publicKey;
-          const reSigned = await wallet.signTransaction(tx);
-          const retrySig = await this.connection.sendRawTransaction(reSigned.serialize(), {
-            skipPreflight: true,
-            preflightCommitment: 'processed',
-            maxRetries: 3,
-          });
-          await this.connection.confirmTransaction({ signature: retrySig, blockhash: fresh.blockhash, lastValidBlockHeight: fresh.lastValidBlockHeight }, 'confirmed');
-          console.log('deposit signature (retry):', retrySig);
-          return retrySig;
+          console.warn('Deposit was already processed; returning original signature to avoid duplication.');
+          return wireSignature;
         }
         throw e;
       }
@@ -501,13 +503,29 @@ export class SolanaFundService {
       
       throw error;
     }
+    finally {
+      const opKey = `deposit:${fundId}`;
+      this.inflight.delete(opKey);
+    }
   }
 
   // Manager pays fund investors from SOL vault, applying platform/performance fees on-chain
-  async payFundInvestors(wallet: WalletContextState, fundId: string, totalAmountSol: number, investorWallets: string[]): Promise<string> {
+  async payFundInvestors(
+    wallet: WalletContextState,
+    fundId: string,
+    totalAmountSol: number,
+    investorWallets: string[],
+    treasuryWallet?: string
+  ): Promise<string> {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error('Wallet not connected');
     }
+
+    const opKey = `payout:${fundId}`;
+    if (this.inflight.has(opKey)) {
+      throw new Error('A payout is already in progress for this fund. Please wait.');
+    }
+    this.inflight.add(opKey);
 
     const program = await this.getProgram(wallet);
 
@@ -535,12 +553,11 @@ export class SolanaFundService {
     // Pre-create any missing ATAs (investors, treasury, manager) so the CPI token::transfer succeeds
     const preIxs: Transaction['instructions'] = [];
 
-    // Resolve treasury
-    const treasuryPk = new PublicKey(
-      process.env.NEXT_PUBLIC_TREASURY_WALLET ||
-        process.env.TREASURY_WALLET ||
-        '8NCLTHTiHJsgDoKyydY8vQfyi8RPDU4P59pCUHQGrBFm'
-    );
+    // Resolve treasury (must be provided by caller to avoid env mismatches on the client)
+    if (!treasuryWallet) {
+      throw new Error('Treasury wallet not provided. Please refresh the Trader page to load server-configured treasury.');
+    }
+    const treasuryPk = new PublicKey(treasuryWallet);
 
     // Gather investor triples
     for (const w of investorWallets) {
@@ -622,14 +639,17 @@ export class SolanaFundService {
       .remainingAccounts(remainingAccounts)
       .instruction();
 
-    const tx = new Transaction();
+  const tx = new Transaction();
     // Prepend ATA creations, then the program instruction
     for (const i of preIxs) tx.add(i);
     tx.add(ix);
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
-    const signed = await wallet.signTransaction(tx);
+  const signed = await wallet.signTransaction(tx);
+  // Precompute the wire signature so if RPC responds with 'already been processed',
+  // we can return the same signature without resending a fresh tx (which would duplicate payouts).
+  const wireSignature = bs58.encode(signed.signatures[0].signature as Uint8Array);
 
     try {
       const sig = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
@@ -640,16 +660,15 @@ export class SolanaFundService {
       if (msg.includes('InstructionFallbackNotFound') || msg.includes('0x65')) {
         throw new Error('Program on devnet is missing pay_fund_investors. Please upgrade the managed_funds program at 3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt and sync the IDL.');
       }
+      // If RPC says the transaction has already been processed, do NOT resend with a new blockhash.
+      // Return the original signature to avoid duplicate on-chain payouts.
       if (msg.includes('already been processed')) {
-        const fresh = await this.connection.getLatestBlockhash('finalized');
-        tx.recentBlockhash = fresh.blockhash;
-        tx.feePayer = wallet.publicKey;
-        const reSigned = await wallet.signTransaction(tx);
-        const retrySig = await this.connection.sendRawTransaction(reSigned.serialize(), { skipPreflight: true, preflightCommitment: 'processed', maxRetries: 3 });
-        await this.connection.confirmTransaction({ signature: retrySig, blockhash: fresh.blockhash, lastValidBlockHeight: fresh.lastValidBlockHeight }, 'confirmed');
-        return retrySig;
+        return wireSignature;
       }
       throw e;
+    }
+    finally {
+      this.inflight.delete(opKey);
     }
   }
 

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       { fundId },
       {
         $set: { updatedAt: now },
+        $inc: { totalDeposits: -amount },
         $push: {
           payments: {
             timestamp: now,

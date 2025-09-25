@@ -517,18 +517,90 @@ export class SolanaFundService {
       [Buffer.from('vault_sol'), fundPda.toBuffer()],
       program.programId
     );
+    const [vaultPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault'), fundPda.toBuffer()],
+      program.programId
+    );
+    // Temp WSOL account PDA used inside the instruction to unwrap WSOL -> SOL into vault_sol
+    const [tempWsolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol_temp'), fundPda.toBuffer()],
+      program.programId
+    );
 
-    // Build remaining accounts: pairs of [InvestorPosition PDA, Investor system account]
+    // Build remaining accounts for WSOL fallback and SOL path:
+    // - For each investor: [InvestorPosition PDA (ro), Investor system account (w), Investor WSOL ATA (w)]
+    // - Append fee ATAs at the end: [Treasury WSOL ATA (w), Manager WSOL ATA (w)]
     const remainingAccounts: { pubkey: PublicKey; isWritable: boolean; isSigner: boolean }[] = [];
+
+    // Pre-create any missing ATAs (investors, treasury, manager) so the CPI token::transfer succeeds
+    const preIxs: Transaction['instructions'] = [];
+
+    // Resolve treasury
+    const treasuryPk = new PublicKey(
+      process.env.NEXT_PUBLIC_TREASURY_WALLET ||
+        process.env.TREASURY_WALLET ||
+        '8NCLTHTiHJsgDoKyydY8vQfyi8RPDU4P59pCUHQGrBFm'
+    );
+
+    // Gather investor triples
     for (const w of investorWallets) {
       const investorPk = new PublicKey(w);
       const [positionPda] = PublicKey.findProgramAddressSync(
         [Buffer.from('position'), investorPk.toBuffer(), fundPda.toBuffer()],
         program.programId
       );
+
+      // Investor WSOL ATA
+      const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, investorPk);
+      const investorAtaInfo = await this.connection.getAccountInfo(investorWsolAta);
+      if (!investorAtaInfo) {
+        preIxs.push(
+          createAssociatedTokenAccountInstruction(
+            wallet.publicKey, // payer
+            investorWsolAta,
+            investorPk, // owner
+            NATIVE_MINT
+          )
+        );
+      }
+
+      // Push triple: position (ro), investor system (w), investor WSOL ATA (w)
       remainingAccounts.push({ pubkey: positionPda, isWritable: false, isSigner: false });
       remainingAccounts.push({ pubkey: investorPk, isWritable: true, isSigner: false });
+      remainingAccounts.push({ pubkey: investorWsolAta, isWritable: true, isSigner: false });
     }
+
+    // Fee recipient WSOL ATAs (append at the end)
+    const treasuryWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, treasuryPk);
+    const managerWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, wallet.publicKey);
+
+    const [treasuryAtaInfo, managerAtaInfo] = await Promise.all([
+      this.connection.getAccountInfo(treasuryWsolAta),
+      this.connection.getAccountInfo(managerWsolAta),
+    ]);
+    if (!treasuryAtaInfo) {
+      preIxs.push(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey,
+          treasuryWsolAta,
+          treasuryPk,
+          NATIVE_MINT
+        )
+      );
+    }
+    if (!managerAtaInfo) {
+      preIxs.push(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey,
+          managerWsolAta,
+          wallet.publicKey,
+          NATIVE_MINT
+        )
+      );
+    }
+
+    remainingAccounts.push({ pubkey: treasuryWsolAta, isWritable: true, isSigner: false });
+    remainingAccounts.push({ pubkey: managerWsolAta, isWritable: true, isSigner: false });
 
     const totalLamports = Math.floor(totalAmountSol * LAMPORTS_PER_SOL);
 
@@ -539,13 +611,21 @@ export class SolanaFundService {
         manager: wallet.publicKey,
         fund: fundPda,
         vaultSolAccount: vaultSolPda,
-        treasury: new PublicKey(process.env.NEXT_PUBLIC_TREASURY_WALLET || process.env.TREASURY_WALLET || '8NCLTHTiHJsgDoKyydY8vQfyi8RPDU4P59pCUHQGrBFm'),
+        vault: vaultPda,
+        baseMint: NATIVE_MINT,
+        tempWsolAccount: tempWsolPda,
+        treasury: treasuryPk,
+        tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
+        rent: SYSVAR_RENT_PUBKEY,
       })
       .remainingAccounts(remainingAccounts)
       .instruction();
 
-    const tx = new Transaction().add(ix);
+    const tx = new Transaction();
+    // Prepend ATA creations, then the program instruction
+    for (const i of preIxs) tx.add(i);
+    tx.add(ix);
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
@@ -571,6 +651,33 @@ export class SolanaFundService {
       }
       throw e;
     }
+  }
+
+  // Devnet-only helper: airdrop SOL into the fund's SOL vault PDA to allow payouts during testing
+  async devnetTopUpVaultSol(fundId: string, amountSol = 1): Promise<string> {
+    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || '';
+    if (!rpcUrl.includes('devnet')) {
+      throw new Error('Airdrop is only available on devnet');
+    }
+
+    if (amountSol <= 0) throw new Error('Amount must be positive');
+
+    // Derive vault SOL PDA using the IDL-loaded program ID
+    const idl = await loadIdl();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const programId = new PublicKey(((idl as any).address ?? (idl as any).metadata?.address) || PROGRAM_ID);
+    const fundPda = new PublicKey(fundId);
+    const [vaultSolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol'), fundPda.toBuffer()],
+      programId
+    );
+
+    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
+    const sig = await this.connection.requestAirdrop(vaultSolPda, lamports);
+    // Confirm airdrop
+    const latest = await this.connection.getLatestBlockhash('finalized');
+    await this.connection.confirmTransaction({ signature: sig, ...latest }, 'confirmed');
+    return sig;
   }
 
   async getFund(fundId: string): Promise<SolanaFund | null> {

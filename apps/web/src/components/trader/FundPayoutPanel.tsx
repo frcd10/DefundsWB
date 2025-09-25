@@ -22,6 +22,7 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
   const [selectedId, setSelectedId] = useState<string>((funds[0]?.fundId as string) || '');
   const [payoutValue, setPayoutValue] = useState<string>('0');
   const [loading, setLoading] = useState(false);
+  const [toppingUp, setToppingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -49,13 +50,19 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
       // Execute on-chain payout via program
       const signature = await solanaFundService.payFundInvestors(wallet, selected.fundId as string, value, investorWallets);
 
-      // Compute recipients locally for history (pro-rata by shares)
-  const computedTotal = (selected.investments as any[])?.reduce((s, i) => s + Math.max(0, i.shares || 0), 0) || 0;
-  const totalShares = Math.max(0, (selected.totalShares as number) ?? computedTotal);
-      const recipients = (selected.investments as Array<{ walletAddress: string; shares: number }>).map((inv) => ({
-        wallet: inv.walletAddress,
-        amountSol: totalShares > 0 ? (value * Math.max(0, inv.shares || 0)) / totalShares : 0,
-      })).filter(r => r.amountSol > 0);
+      // Compute recipients locally for history (pro-rata by shares) using NET investor pool after fees
+      // On-chain: base 1% from total, then performance fee on remaining; treasury gets 20% of perf, manager 80%; investors get the remainder.
+      const perfRaw = Number((selected as any).performanceFee ?? 0); // may be in % or bps
+      const perfBps = perfRaw > 100 ? perfRaw : Math.round(perfRaw * 100);
+      const investorPoolSol = value * 0.99 * (1 - Math.max(0, Math.min(10000, perfBps)) / 10000);
+      const computedTotal = (selected.investments as any[])?.reduce((s, i) => s + Math.max(0, i.shares || 0), 0) || 0;
+      const totalShares = Math.max(0, (selected.totalShares as number) ?? computedTotal);
+      const recipients = (selected.investments as Array<{ walletAddress: string; shares: number }>)
+        .map((inv) => {
+          const portion = totalShares > 0 ? (Math.max(0, inv.shares || 0) / totalShares) : 0;
+          return { wallet: inv.walletAddress, amountSol: investorPoolSol * portion };
+        })
+        .filter(r => r.amountSol > 0);
 
       // Save to server for history
       const save = await fetch('/api/funds/pay', {
@@ -79,6 +86,21 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
     }
   };
 
+  const handleDevnetTopUp = async () => {
+    setError(null);
+    setMessage(null);
+    try {
+      if (!selected?.fundId) throw new Error('Select a fund');
+      setToppingUp(true);
+      const sig = await solanaFundService.devnetTopUpVaultSol(selected.fundId as string, 0.5);
+      setMessage(`Devnet airdrop sent to vault. Signature: ${sig}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Top up failed');
+    } finally {
+      setToppingUp(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-4 items-end">
@@ -94,9 +116,12 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
           <label className="text-sm text-sol-200">Payout Amount (SOL)</label>
           <Input value={payoutValue} onChange={(e) => setPayoutValue(e.target.value)} className="bg-sol-800 border-sol-700 text-white" />
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end gap-2">
           <Button onClick={handlePayout} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:brightness-110 transition">
             {loading ? 'Processing…' : 'Pay Investors'}
+          </Button>
+          <Button onClick={handleDevnetTopUp} disabled={toppingUp} className="rounded-xl bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80 whitespace-nowrap">
+            {toppingUp ? 'Airdropping…' : 'Devnet top-up'}
           </Button>
         </div>
       </div>

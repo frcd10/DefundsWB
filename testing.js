@@ -1,4 +1,4 @@
-const { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction } = require('@solana/web3.js');
+const { Connection, PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL, Transaction, SYSVAR_RENT_PUBKEY } = require('@solana/web3.js');
 const { AnchorProvider, Wallet, Program, BN } = require('@coral-xyz/anchor');
 const { TOKEN_PROGRAM_ID, NATIVE_MINT, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createSyncNativeInstruction } = require('@solana/spl-token');
 const { JupiterService } = require('./jupiter-integration.js');
@@ -25,12 +25,20 @@ const MAINNET_RPC = 'https://api.mainnet-beta.solana.com';
 // =============================================================================
 // TEST CONFIGURATION - SET TO FALSE FOR COMPLETED STEPS
 // =============================================================================
-const TEST_STEP_1_CREATE_FUND = false;    // ✅ COMPLETED
-const TEST_STEP_2_DEPOSIT = false;        // ✅ COMPLETED  
+const TEST_STEP_1_CREATE_FUND = false;    // already created
+const TEST_STEP_2_DEPOSIT = false;        // already deposited
 const TEST_STEP_3_TRADE = false;          // ✅ COMPLETED (Real Jupiter)
 const TEST_STEP_4_WITHDRAW = false;       // ✅ COMPLETED (Percentage withdrawal)
 const TEST_STEP_5_FINAL_CHECK = false;    // ✅ COMPLETED
 const TEST_STEP_6_ERROR_TEST = true;      // 🔄 TESTING ERROR HANDLING
+
+// =============================================================================
+// DEVNET VAULT SOL TOP-UP (OPTIONAL)
+// =============================================================================
+// When true, the script will airdrop SOL to the SOL vault PDA to unblock
+// pay_fund_investors testing on devnet. This is only for local testing.
+const TEST_DEVNET_TOP_UP_VAULT_SOL = false; // set to true to airdrop to SOL vault PDA
+const TOP_UP_SOL_AMOUNT = 0.05; // SOL to airdrop to the SOL vault PDA
 
 // =============================================================================
 // WITHDRAWAL CONFIGURATION
@@ -41,7 +49,16 @@ const ERROR_TEST_PERCENTAGE = 120; // Test percentage > 100% for error handling
 // =============================================================================
 // PROGRAM CONFIGURATION
 // =============================================================================
-const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || '');
+// Use env if provided, otherwise fall back to the deployed program ID to avoid Non-base58 errors
+const DEFAULT_PROGRAM_ID_STR = '3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt';
+const ENV_PROGRAM_ID_STR = (process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || '').trim();
+let PROGRAM_ID;
+try {
+  PROGRAM_ID = new PublicKey(ENV_PROGRAM_ID_STR && ENV_PROGRAM_ID_STR.length > 0 ? ENV_PROGRAM_ID_STR : DEFAULT_PROGRAM_ID_STR);
+} catch (e) {
+  console.warn(`⚠️ Invalid PROGRAM ID in env ('${ENV_PROGRAM_ID_STR}'): ${e.message}. Falling back to default.`);
+  PROGRAM_ID = new PublicKey(DEFAULT_PROGRAM_ID_STR);
+}
 
 // USDC Mint addresses (different on mainnet vs devnet)
 const USDC_MINT_MAINNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -166,6 +183,12 @@ async function comprehensiveFundTest() {
       program.programId
     );
     
+    // SOL vault PDA used as the source of payouts in pay_fund_investors
+    const [vaultSolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol'), fundPda.toBuffer()],
+      program.programId
+    );
+
     const [sharesMintPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('shares'), fundPda.toBuffer()],
       program.programId
@@ -179,8 +202,32 @@ async function comprehensiveFundTest() {
     console.log(`\n📋 Fund Infrastructure (PDAs):`);
     console.log(`   Fund PDA: ${fundPda.toString()}`);
     console.log(`   Vault PDA: ${vaultPda.toString()}`);
+    console.log(`   Vault SOL PDA: ${vaultSolPda.toString()}`);
     console.log(`   Shares Mint PDA: ${sharesMintPda.toString()}`);
     console.log(`   Investor Position PDA: ${investorPositionPda.toString()}`);
+
+    // Quick visibility into balances: WSOL in SPL vault vs SOL in SOL vault PDA
+    try {
+      const wsolVaultBalance = await devnetConnection.getTokenAccountBalance(vaultPda);
+      console.log(`\n🔎 Vault WSOL (SPL) Balance: ${wsolVaultBalance.value.uiAmountString} WSOL`);
+    } catch (e) {
+      console.log(`\n🔎 Vault WSOL (SPL) Balance: (no token account yet or not initialized)`);
+    }
+    const solVaultLamports = await devnetConnection.getBalance(vaultSolPda);
+    console.log(`🔎 Vault SOL (PDA) Balance: ${(solVaultLamports / LAMPORTS_PER_SOL).toFixed(9)} SOL (${solVaultLamports} lamports)`);
+
+    // Optional: Devnet-only top-up to SOL vault PDA to unblock payouts
+    if (TEST_DEVNET_TOP_UP_VAULT_SOL) {
+      try {
+        console.log(`\n🪂 Requesting airdrop of ${TOP_UP_SOL_AMOUNT} SOL to Vault SOL PDA (devnet testing)...`);
+        const sig = await devnetConnection.requestAirdrop(vaultSolPda, Math.floor(TOP_UP_SOL_AMOUNT * LAMPORTS_PER_SOL));
+        await confirmTransaction(devnetConnection, sig);
+        const newSolVaultLamports = await devnetConnection.getBalance(vaultSolPda);
+        console.log(`✅ Airdrop complete. New Vault SOL (PDA) Balance: ${(newSolVaultLamports / LAMPORTS_PER_SOL).toFixed(9)} SOL`);
+      } catch (airdropErr) {
+        console.log(`❌ Airdrop to SOL vault PDA failed: ${airdropErr.message}`);
+      }
+    }
     
     // =============================================================================
     // STEP 1: FUND CREATION (CONDITIONAL)
@@ -233,6 +280,22 @@ async function comprehensiveFundTest() {
       const depositAmount = new BN(FUND_CREATION_AMOUNT * LAMPORTS_PER_SOL);
       const investorTokenAccount = await getAssociatedTokenAddress(NATIVE_MINT, MANAGER_KEYPAIR.publicKey);
       const investorSharesAccount = await getAssociatedTokenAddress(sharesMintPda, MANAGER_KEYPAIR.publicKey);
+
+      // Ensure manager has enough SOL on devnet to cover deposit + fees + (optional) ATA rent
+      const currentMgrLamports = await devnetConnection.getBalance(MANAGER_KEYPAIR.publicKey);
+      const investorTokenAccountInfoPre = await devnetConnection.getAccountInfo(investorTokenAccount);
+      const needsAta = !investorTokenAccountInfoPre;
+      const ataRent = needsAta ? await devnetConnection.getMinimumBalanceForRentExemption(165) : 0; // token account size
+      const feeBuffer = Math.floor(0.002 * LAMPORTS_PER_SOL); // ~0.002 SOL buffer for tx fees
+      const requiredLamports = depositAmount.toNumber() + ataRent + feeBuffer;
+      if (currentMgrLamports < requiredLamports) {
+        const shortfall = requiredLamports - currentMgrLamports;
+        const request = Math.ceil(shortfall / LAMPORTS_PER_SOL) + 1; // round up to full SOL +1 for safety
+        console.log(`\n🪂 Requesting devnet airdrop of ${request} SOL to manager to fund deposit...`);
+        const sig = await devnetConnection.requestAirdrop(MANAGER_KEYPAIR.publicKey, request * LAMPORTS_PER_SOL);
+        await confirmTransaction(devnetConnection, sig);
+        await checkWalletBalance(devnetConnection, MANAGER_KEYPAIR.publicKey, 'Manager (Devnet after airdrop)');
+      }
       
       // Prepare wrapped SOL
       const depositTx = new Transaction();
@@ -743,6 +806,138 @@ async function comprehensiveFundTest() {
       console.log(`   Ready to test when enabled`);
     }
     
+    // =============================================================================
+    // STEP 7: PAY FUND INVESTORS (SMOKE TEST - UNWRAP WSOL→SOL)
+    // =============================================================================
+    const TEST_STEP_7_PAY_FUND_INVESTORS = true; // enable to test payout path
+    if (TEST_STEP_7_PAY_FUND_INVESTORS) {
+      console.log(`\n💸 STEP 7: PAY FUND INVESTORS (WSOL→SOL unwrap path)...`);
+      try {
+        // Preconditions: fund must exist and WSOL vault must have funds
+        try {
+          await program.account.fund.fetch(fundPda);
+        } catch (e) {
+          console.log(`⏭️  Skipping payout: Fund account not initialized on devnet (create fund first).`);
+          throw new Error('skip-step-7');
+        }
+
+        let wsolUiAmount = 0;
+        try {
+          const wsolVaultBalanceInfo = await devnetConnection.getTokenAccountBalance(vaultPda);
+          wsolUiAmount = parseFloat(wsolVaultBalanceInfo.value.uiAmountString || '0');
+        } catch (_) {
+          // ignore
+        }
+        if (!wsolUiAmount || wsolUiAmount <= 0) {
+          console.log(`⏭️  Skipping payout: Vault WSOL (SPL) has zero balance or not initialized.`);
+          throw new Error('skip-step-7');
+        }
+
+        // Derive temp WSOL account PDA (created/closed inside ix)
+        const [tempWsolPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from('vault_sol_temp'), fundPda.toBuffer()],
+          program.programId
+        );
+
+        // For smoke test, use manager as sole investor recipient
+        // Ensure WSOL ATAs exist for manager (as investor), treasury, and manager (fees)
+        const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, MANAGER_KEYPAIR.publicKey);
+        const treasuryWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, MANAGER_KEYPAIR.publicKey);
+        const managerWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, MANAGER_KEYPAIR.publicKey);
+
+        // Create ATA if not exists
+        const ataInfos = await devnetConnection.getMultipleAccountsInfo([investorWsolAta, treasuryWsolAta, managerWsolAta]);
+        const createAtaIx = [];
+        if (!ataInfos[0]) createAtaIx.push(createAssociatedTokenAccountInstruction(
+          MANAGER_KEYPAIR.publicKey, investorWsolAta, MANAGER_KEYPAIR.publicKey, NATIVE_MINT
+        ));
+        if (!ataInfos[1]) createAtaIx.push(createAssociatedTokenAccountInstruction(
+          MANAGER_KEYPAIR.publicKey, treasuryWsolAta, MANAGER_KEYPAIR.publicKey, NATIVE_MINT
+        ));
+        if (!ataInfos[2]) createAtaIx.push(createAssociatedTokenAccountInstruction(
+          MANAGER_KEYPAIR.publicKey, managerWsolAta, MANAGER_KEYPAIR.publicKey, NATIVE_MINT
+        ));
+        if (createAtaIx.length > 0) {
+          const ataTx = new Transaction().add(...createAtaIx);
+          const sig = await devnetConnection.sendTransaction(ataTx, [MANAGER_KEYPAIR]);
+          await confirmTransaction(devnetConnection, sig);
+        }
+
+        // Remaining accounts layout for WSOL fallback:
+        // Triples per investor: [InvestorPosition, Investor System Account, Investor WSOL ATA]
+        // Followed by two accounts: [Treasury WSOL ATA, Manager WSOL ATA]
+        const remainingAccounts = [
+          { pubkey: investorPositionPda, isWritable: true, isSigner: false },
+          { pubkey: MANAGER_KEYPAIR.publicKey, isWritable: true, isSigner: false },
+          { pubkey: investorWsolAta, isWritable: true, isSigner: false },
+          { pubkey: treasuryWsolAta, isWritable: true, isSigner: false },
+          { pubkey: managerWsolAta, isWritable: true, isSigner: false },
+        ];
+
+        // Small payout amount to exercise unwrap path; adjust as needed
+        const payoutSol = 0.01;
+        const totalAmountLamports = new BN(Math.floor(payoutSol * LAMPORTS_PER_SOL));
+
+        console.log(`📋 Payout Plan:`);
+        console.log(`   Total Amount: ${payoutSol} SOL (${totalAmountLamports.toString()} lamports)`);
+        console.log(`   From SPL WSOL vault -> temp -> unwrap -> SOL vault PDA -> investors`);
+
+        // Build instruction first to inspect account order
+        const ix = await program.methods
+          .payFundInvestors(totalAmountLamports)
+          .accounts({
+            manager: MANAGER_KEYPAIR.publicKey,
+            fund: fundPda,
+            vault: vaultPda,
+            vaultSolAccount: vaultSolPda,
+            baseMint: NATIVE_MINT,
+            tempWsolAccount: tempWsolPda,
+            treasury: MANAGER_KEYPAIR.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+            rent: SYSVAR_RENT_PUBKEY,
+          })
+          .remainingAccounts(remainingAccounts)
+          .instruction();
+
+        console.log("\n🧭 pay_fund_investors accounts order (debug):");
+        ix.keys.forEach((meta, idx) => {
+          console.log(`  [${idx}] ${meta.pubkey.toString()}  writable=${meta.isWritable} signer=${meta.isSigner}`);
+        });
+
+        // Send transaction manually
+        const tx = new Transaction().add(ix);
+        const txSig = await devnetConnection.sendTransaction(tx, [MANAGER_KEYPAIR]);
+
+        await confirmTransaction(devnetConnection, txSig);
+
+        logTransaction('Pay Fund Investors (WSOL→SOL unwrap)', txSig, {
+          'Total Amount (SOL)': payoutSol,
+          'Investor Count': 1,
+          'Investors': [MANAGER_KEYPAIR.publicKey.toString()].join(','),
+          'Network': 'Devnet'
+        });
+
+        // Show updated SOL vault and manager balances
+        const postSolVault = await devnetConnection.getBalance(vaultSolPda);
+        console.log(`🔎 Post-payout Vault SOL (PDA): ${(postSolVault / LAMPORTS_PER_SOL).toFixed(9)} SOL`);
+        await checkWalletBalance(devnetConnection, MANAGER_KEYPAIR.publicKey, 'Manager (Devnet) after payout');
+
+      } catch (payoutErr) {
+        if (payoutErr.message === 'skip-step-7') {
+          // already logged a skip reason above
+        } else {
+          console.error(`❌ Pay Fund Investors failed: ${payoutErr.message}`);
+        }
+        if (payoutErr.logs) {
+          console.log('Program Logs:');
+          payoutErr.logs.forEach((l, i) => console.log(`  ${i + 1}: ${l}`));
+        }
+      }
+    } else {
+      console.log(`\n⏸️  STEP 7: PAY FUND INVESTORS SKIPPED`);
+    }
+
     console.log(`\n🎉 FINAL COMPREHENSIVE TEST STATUS:`);
     console.log(`   ✅ Step 1: Fund Creation - COMPLETED`);
     console.log(`   ✅ Step 2: Deposit - COMPLETED`);

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, CloseAccount, InitializeAccount, spl_token};
-use anchor_lang::solana_program::program_pack::Pack; // For spl_token::state::Account::LEN
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+// Removed unused CloseAccount, InitializeAccount, spl_token, and Pack import
 use crate::state::*;
 use crate::errors::*;
 
@@ -98,7 +98,6 @@ pub fn pay_fund_investors<'info>(
             from: ctx.accounts.manager.to_account_info(),
             to: ctx.accounts.vault_sol_account.to_account_info(),
         };
-        let signer = &[&fund_seeds[..]];
         let signer_arr: [&[&[u8]]; 1] = [&fund_seeds[..]];
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.system_program.to_account_info(),

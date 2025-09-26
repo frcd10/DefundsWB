@@ -9,6 +9,7 @@ pub mod finalize_withdrawal;
 pub mod pay_rwa_investors;
 pub mod pay_fund_investors;
 pub mod investor_fund_withdrawal;
+pub mod debug_vault;
 
 pub use initialize_fund::*;
 pub use deposit::*;
@@ -18,8 +19,7 @@ pub use update_fund::*;
 pub use initiate_withdrawal::*;
 pub use liquidate_positions::*;
 pub use finalize_withdrawal::*;
-pub use liquidate_positions::*;
-pub use finalize_withdrawal::*;
 pub use pay_rwa_investors::*;
 pub use pay_fund_investors::*;
 pub use investor_fund_withdrawal::*;
+pub use debug_vault::*;

@@ -4,9 +4,8 @@ pub mod instructions;
 pub mod state;
 pub mod errors;
 
+// Re-export instructions module contents for client code; required for Anchor codegen to locate context structs.
 pub use instructions::*;
-pub use state::*;
-pub use errors::*;
 
 declare_id!("3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt");
 
@@ -109,6 +108,11 @@ pub mod managed_funds {
         total_amount: u64,
     ) -> Result<()> {
         instructions::pay_fund_investors(ctx, total_amount)
+    }
+
+    /// Debug vault state (manager only). Prints owner, size, token fields if possible.
+    pub fn debug_vault(ctx: Context<DebugVault>) -> Result<()> {
+        instructions::debug_vault(ctx)
     }
 
     /// Investor withdraws full participation (SOL-only devnet path), taking platform and performance fees.

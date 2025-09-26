@@ -12,7 +12,7 @@ managed_funds = "3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://devnet.helius-rpc.com/?api-key=19e2e36f-3222-481a-af0d-4271e77bb9b2"
+cluster = "${ANCHOR_PROVIDER_URL}"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

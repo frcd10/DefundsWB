@@ -130,16 +130,14 @@ Thumbs.db
 # vercel
 .vercel
 
-# Anchor
-.anchor
+###### Anchor / Solana build artifacts (keep source committed) ######
+.anchor/
 target/
 test-ledger/
-
-# IDL files
 *.so
-
-# Solana
 .config/
+**/*-keypair.json
+**/id.json
 
 # IDE
 .vscode/

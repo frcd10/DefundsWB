@@ -50,8 +50,6 @@ This is a monorepo containing:
 ### Phase 1: Core Infrastructure Setup ✅
 
 1. **Repository Structure**
-   - [x] Monorepo setup with workspaces
-   - [x] Frontend (Next.js) in `apps/web`
    - [x] Backend (TypeScript) in `apps/backend`
    - [x] Solana program (Anchor) in `programs/managed-funds`
    - [x] Shared types in `packages/shared`

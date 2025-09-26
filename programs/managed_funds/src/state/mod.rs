@@ -1,5 +1,3 @@
-use anchor_lang::prelude::*;
-
 pub mod fund;
 pub mod investor;
 pub mod trade;

@@ -56,6 +56,102 @@ export class SolanaFundService {
   // Prevent duplicate concurrent submissions (dev double-render, double clicks, etc.)
   private inflight = new Set<string>();
 
+  /**
+   * Validate that a provided fundId corresponds to an on-chain Fund account whose
+   * vault token account exists and is owned by the SPL Token program. Returns
+   * derived PDAs and the fetched fund object (raw) for reuse.
+   * Throws with descriptive messages if something is inconsistent so the UI can
+   * surface a clear actionable error instead of Anchor 3007 (AccountOwnedByWrongProgram).
+   */
+  private async validateFundForPayout(program: Program, fundId: string) {
+    const fundPk = new PublicKey(fundId);
+    // Fetch raw account first (fast existence / owner check)
+    const rawInfo = await this.connection.getAccountInfo(fundPk);
+    if (!rawInfo) {
+      throw new Error(`Fund account ${fundPk.toBase58()} does not exist on-chain (re-create the fund).`);
+    }
+    if (!rawInfo.owner.equals(program.programId)) {
+      throw new Error(`Fund ${fundPk.toBase58()} is not owned by current program ${program.programId.toBase58()} (stale or wrong ID).`);
+    }
+
+    // Try to decode with Anchor (will throw if discriminator mismatch)
+    let decoded: any;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      decoded = await (program.account as any).fund.fetch(fundPk);
+    } catch (e) {
+      throw new Error(`Unable to decode Fund account ${fundPk.toBase58()}: ${(e as Error).message}`);
+    }
+
+    // Support both snake_case and camelCase fields just in case
+    const storedVault: PublicKey | undefined = decoded.vault || decoded.vaultPubkey;
+    const baseMint: PublicKey | undefined = decoded.baseMint || decoded.base_mint;
+    const managerPk: PublicKey | undefined = decoded.manager;
+    if (!storedVault || !baseMint || !managerPk) {
+      throw new Error('Decoded fund is missing expected fields (vault/base_mint/manager). Check IDL alignment.');
+    }
+
+    // Re-derive vault PDA deterministically
+    const [derivedVault] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault'), fundPk.toBuffer()],
+      program.programId
+    );
+    if (!storedVault.equals(derivedVault)) {
+      console.error('[payout-debug] Stored vault != derived vault', {
+        stored: storedVault.toBase58(),
+        derived: derivedVault.toBase58(),
+        fund: fundPk.toBase58()
+      });
+      throw new Error('On-chain fund vault does not match derived PDA (possible seed / program mismatch).');
+    }
+
+    const vaultInfo = await this.connection.getAccountInfo(storedVault);
+    if (!vaultInfo) {
+      throw new Error('Fund vault token account is missing (initialization incomplete or corrupted).');
+    }
+    const TOKEN_PROGRAM_ID_STR = TOKEN_PROGRAM_ID.toBase58();
+    if (!vaultInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+      console.error('[payout-debug] Vault owner mismatch', {
+        vault: storedVault.toBase58(),
+        owner: vaultInfo.owner.toBase58(),
+        expected: TOKEN_PROGRAM_ID_STR
+      });
+      throw new Error(`Fund vault exists but is not an SPL Token account (owner=${vaultInfo.owner.toBase58()}).`);
+    }
+    if (vaultInfo.data.length !== 165) {
+      console.warn('[payout-debug] Vault length unexpected', { len: vaultInfo.data.length });
+    }
+
+    // Derive SOL vault & temp WSOL PDA (even if they may be created lazily)
+    const [vaultSolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol'), fundPk.toBuffer()],
+      program.programId
+    );
+    const [tempWsolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('vault_sol_temp'), fundPk.toBuffer()],
+      program.programId
+    );
+
+    console.log('[payout-debug] Fund validation OK', {
+      fund: fundPk.toBase58(),
+      manager: managerPk.toBase58(),
+      vault: storedVault.toBase58(),
+      baseMint: baseMint.toBase58(),
+      vaultSolPda: vaultSolPda.toBase58(),
+      tempWsolPda: tempWsolPda.toBase58()
+    });
+
+    return {
+      fundPk,
+      managerPk,
+      vault: storedVault as PublicKey,
+      baseMint: baseMint as PublicKey,
+      vaultSolPda,
+      tempWsolPda,
+      decoded
+    };
+  }
+
   constructor() {
     const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     this.connection = new Connection(rpcUrl, 'confirmed');
@@ -528,22 +624,19 @@ export class SolanaFundService {
     this.inflight.add(opKey);
 
     const program = await this.getProgram(wallet);
+    // Validate fund & gather canonical PDAs from chain
+    const {
+      fundPk: fundPda,
+      managerPk,
+      vault: vaultPda,
+      baseMint,
+      vaultSolPda,
+      tempWsolPda
+    } = await this.validateFundForPayout(program, fundId);
 
-    // Derive required PDAs
-    const fundPda = new PublicKey(fundId);
-    const [vaultSolPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('vault_sol'), fundPda.toBuffer()],
-      program.programId
-    );
-    const [vaultPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('vault'), fundPda.toBuffer()],
-      program.programId
-    );
-    // Temp WSOL account PDA used inside the instruction to unwrap WSOL -> SOL into vault_sol
-    const [tempWsolPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from('vault_sol_temp'), fundPda.toBuffer()],
-      program.programId
-    );
+    if (!managerPk.equals(wallet.publicKey)) {
+      throw new Error('Wallet is not the manager of this fund; only manager can initiate payout.');
+    }
 
     // Build remaining accounts for WSOL fallback and SOL path:
     // - For each investor: [InvestorPosition PDA (ro), Investor system account (w), Investor WSOL ATA (w)]
@@ -620,29 +713,76 @@ export class SolanaFundService {
     remainingAccounts.push({ pubkey: managerWsolAta, isWritable: true, isSigner: false });
 
     const totalLamports = Math.floor(totalAmountSol * LAMPORTS_PER_SOL);
+    if (totalLamports <= 0) {
+      throw new Error('Total payout amount must be > 0');
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ix = await (program as any).methods
-      .payFundInvestors(new BN(totalLamports))
-      .accounts({
-        manager: wallet.publicKey,
-        fund: fundPda,
-        vaultSolAccount: vaultSolPda,
-        vault: vaultPda,
-        baseMint: NATIVE_MINT,
-        tempWsolAccount: tempWsolPda,
-        treasury: treasuryPk,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: SystemProgram.programId,
-        rent: SYSVAR_RENT_PUBKEY,
-      })
-      .remainingAccounts(remainingAccounts)
-      .instruction();
+    // Expected raw order (IDL / Rust declaration) for PayFundInvestors:
+    // 0 manager, 1 fund, 2 vault_sol_account, 3 vault, 4 system_program, 5 base_mint,
+    // 6 temp_wsol_account, 7 treasury, 8 token_program, 9 rent
+    console.log('[payout-expected-order]', {
+      manager: wallet.publicKey.toBase58(),
+      fund: fundPda.toBase58(),
+      vault_sol_account: vaultSolPda.toBase58(),
+      vault: vaultPda.toBase58(),
+      system_program: SystemProgram.programId.toBase58(),
+      base_mint: baseMint.toBase58(),
+      temp_wsol_account: tempWsolPda.toBase58(),
+      treasury: treasuryPk.toBase58(),
+      token_program: TOKEN_PROGRAM_ID.toBase58(),
+      rent: SYSVAR_RENT_PUBKEY.toBase58(),
+    });
+
+    // Manual instruction build (bypasses Anchor account name resolution which was mis-ordering accounts)
+    const discriminator = Uint8Array.from([106, 88, 202, 106, 90, 54, 97, 75]);
+    const amountBytes = new BN(totalLamports).toArray('le', 8);
+    const data = Buffer.concat([Buffer.from(discriminator), Buffer.from(amountBytes)]);
+    const manualBaseKeys = [
+      { pubkey: wallet.publicKey, isSigner: true, isWritable: true }, // manager
+      { pubkey: fundPda, isSigner: false, isWritable: true },         // fund
+      { pubkey: vaultSolPda, isSigner: false, isWritable: true },     // vault_sol_account
+      { pubkey: vaultPda, isSigner: false, isWritable: true },        // vault (SPL token vault)
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
+      { pubkey: baseMint, isSigner: false, isWritable: false },       // base_mint
+      { pubkey: tempWsolPda, isSigner: false, isWritable: true },     // temp_wsol_account
+      { pubkey: treasuryPk, isSigner: false, isWritable: true },      // treasury
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
+      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }, // rent
+    ];
+    const manualKeys = [
+      ...manualBaseKeys,
+      ...remainingAccounts.map(a => ({ pubkey: a.pubkey, isSigner: a.isSigner, isWritable: a.isWritable })),
+    ];
+    console.log('[payout-manual-keys]', manualKeys.map((k, i) => ({ idx: i, pubkey: k.pubkey.toBase58(), isWritable: k.isWritable, isSigner: k.isSigner })));
+    const { TransactionInstruction } = await import('@solana/web3.js');
+    const finalIx = new TransactionInstruction({
+      programId: program.programId,
+      keys: manualKeys.map(k => ({ pubkey: k.pubkey, isSigner: k.isSigner, isWritable: k.isWritable })),
+      data,
+    });
 
   const tx = new Transaction();
+    // Pre-flight: re-fetch vault to ensure still SPL token owned
+    try {
+      const preflightVault = await this.connection.getAccountInfo(vaultPda);
+      console.log('[payout-preflight] vault', vaultPda.toBase58(), {
+        owner: preflightVault?.owner.toBase58(),
+        dataLen: preflightVault?.data.length,
+        exists: !!preflightVault,
+      });
+      if (!preflightVault) {
+        throw new Error('Vault token account missing just before payout. Abort.');
+      }
+      if (!preflightVault.owner.equals(TOKEN_PROGRAM_ID)) {
+        throw new Error(`Vault owner mismatch pre-flight (owner=${preflightVault.owner.toBase58()})`);
+      }
+    } catch (vfErr) {
+      this.inflight.delete(opKey);
+      throw vfErr;
+    }
     // Prepend ATA creations, then the program instruction
-    for (const i of preIxs) tx.add(i);
-    tx.add(ix);
+  for (const i of preIxs) tx.add(i);
+  tx.add(finalIx); // anchor or fallback
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
@@ -670,6 +810,50 @@ export class SolanaFundService {
     finally {
       this.inflight.delete(opKey);
     }
+  }
+
+  /**
+   * Invoke on-chain debug_vault instruction to print raw vault account info.
+   * Use before attempting payout when debugging ownership mismatches.
+   */
+  async debugVault(wallet: WalletContextState, fundId: string): Promise<string> {
+    if (!wallet.publicKey || !wallet.signTransaction) {
+      throw new Error('Wallet not connected');
+    }
+    const program = await this.getProgram(wallet);
+    const fundPk = new PublicKey(fundId);
+
+    // Fetch and decode the fund to get stored base mint & sanity check
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const decoded: any = await (program.account as any).fund.fetch(fundPk);
+    const baseMint: PublicKey = decoded.baseMint || decoded.base_mint;
+    const [vaultPda] = PublicKey.findProgramAddressSync([
+      Buffer.from('vault'),
+      fundPk.toBuffer(),
+    ], program.programId);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ix = await (program as any).methods
+      .debugVault()
+      .accounts({
+        manager: wallet.publicKey,
+        fund: fundPk,
+        vault: vaultPda,
+        baseMint,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: SYSVAR_RENT_PUBKEY,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('finalized');
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = wallet.publicKey;
+    const signed = await wallet.signTransaction(tx);
+    const signature = await this.connection.sendRawTransaction(signed.serialize(), { skipPreflight: false });
+    await this.connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+    return signature;
   }
 
   // Devnet-only helper: airdrop SOL into the fund's SOL vault PDA to allow payouts during testing

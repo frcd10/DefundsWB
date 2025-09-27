@@ -6,7 +6,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { solanaFundService, CreateFundParams } from '@/services/solana-fund.service';
+import { solanaFundServiceModular as solanaFundService, CreateFundParams } from '@/services/solanaFund';
 import { FundType } from '@/types/fund';
 
 interface CreateRealFundModalProps {
@@ -227,11 +227,22 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
               <div>
                 <label className="block text-sm font-medium mb-1 text-sol-100">Initial Deposit (SOL)</label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={formData.initialDeposit}
-                  onChange={(e) => setFormData(prev => ({ ...prev, initialDeposit: parseNumberInput(e.target.value) }))}
+                  type="text"
+                  inputMode="decimal"
+                  value={String(formData.initialDeposit)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '.');
+                    // Allow empty / interim values
+                    if (raw === '' || raw === '.' || raw === '0.' ) {
+                      setFormData(prev => ({ ...prev, initialDeposit: 0 }));
+                      return;
+                    }
+                    const num = Number(raw);
+                    if (Number.isFinite(num)) {
+                      setFormData(prev => ({ ...prev, initialDeposit: num }));
+                    }
+                  }}
+                  placeholder="0.1"
                   className="input w-full"
                 />
                 <p className="text-xs text-sol-300 mt-1">

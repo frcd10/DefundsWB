@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { FundType } from '@/types/fund';
-import { solanaFundService, CreateFundParams } from '@/services/solana-fund.service';
+import { solanaFundServiceModular as solanaFundService, CreateFundParams } from '@/services/solanaFund';
 
 interface CreateRwaProductModalProps {
   isOpen: boolean;
@@ -126,7 +126,19 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-sol-100">Initial Deposit (SOL)</label>
-                <Input type="number" min="0" step="0.1" value={form.initialDeposit} onChange={(e) => setForm({ ...form, initialDeposit: Number(e.target.value) })} className="input w-full" />
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={String(form.initialDeposit)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '.');
+                    if (raw === '' || raw === '.' || raw === '0.') { setForm({ ...form, initialDeposit: 0 }); return; }
+                    const n = Number(raw);
+                    if (Number.isFinite(n)) setForm({ ...form, initialDeposit: n });
+                  }}
+                  placeholder="0.5"
+                  className="input w-full"
+                />
               </div>
               <div className="flex items-center space-x-2">
                 <input type="checkbox" id="rwapublic" checked={form.isPublic} onChange={(e) => setForm({ ...form, isPublic: e.target.checked })} className="h-4 w-4 accent-sol-accent" />

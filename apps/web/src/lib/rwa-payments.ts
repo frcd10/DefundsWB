@@ -1,8 +1,9 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { AnchorProvider, Program, Idl, BN } from '@coral-xyz/anchor';
 import type { WalletContextState } from '@solana/wallet-adapter-react';
+import { normalizeAmount, assertValidAmount } from '@/services/solanaFund/utils/amount';
 
-export type Recipient = { wallet: string; amountSol: number };
+export type Recipient = { wallet: string; amountSol: number | string };
 export type PaymentRecord = { signature: string; totalValue: number; recipients: Recipient[] };
 
 async function getProgram(connection: Connection, wallet: WalletContextState): Promise<Program> {
@@ -37,7 +38,9 @@ export async function sendBatchedSolPayments(
       } catch {
         throw new Error(`Invalid recipient address: ${r.wallet}`);
       }
-      const lamports = Math.floor(r.amountSol * LAMPORTS_PER_SOL);
+      const amt = normalizeAmount(r.amountSol as any);
+      assertValidAmount(amt, 'recipient amount');
+      const lamports = Math.floor(amt * LAMPORTS_PER_SOL);
       if (lamports < 1) continue;
       toAccounts.push(to);
       amountsLamports.push(lamports);
@@ -86,7 +89,7 @@ export async function sendBatchedSolPayments(
     }
   // Build exact amounts from sent lamports for accurate recording
   const recipientsOut: Recipient[] = toAccounts.map((t, i) => ({ wallet: t.toBase58(), amountSol: amountsLamports[i] / LAMPORTS_PER_SOL }));
-  const totalSol = recipientsOut.reduce((s, r) => s + r.amountSol, 0);
+  const totalSol = recipientsOut.reduce((s, r) => s + (typeof r.amountSol === 'number' ? r.amountSol : normalizeAmount(r.amountSol)), 0);
   records.push({ signature: sig, totalValue: totalSol, recipients: recipientsOut });
   }
   return records;

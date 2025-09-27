@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { solanaFundService } from '@/services/solana-fund.service';
+import { solanaFundServiceModular as solanaFundService } from '@/services/solanaFund';
 import { SolscanLink } from '@/components/SolscanLink';
 
 type FundDoc = {
@@ -22,7 +22,6 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
   const [selectedId, setSelectedId] = useState<string>((funds[0]?.fundId as string) || '');
   const [payoutValue, setPayoutValue] = useState<string>('0');
   const [loading, setLoading] = useState(false);
-  const [toppingUp, setToppingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -65,7 +64,7 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
     setMessage(null);
     try {
       if (!wallet.connected || !wallet.publicKey) throw new Error('Connect wallet');
-      const value = parseFloat(payoutValue || '0');
+  const value = parseFloat(payoutValue.replace(/,/g, '.') || '0');
       if (!selected || !selected.fundId) throw new Error('Select a fund');
       if (!Number.isFinite(value) || value <= 0) throw new Error('Enter a positive payout');
 
@@ -140,20 +139,6 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
     }
   };
 
-  const handleDevnetTopUp = async () => {
-    setError(null);
-    setMessage(null);
-    try {
-      if (!selected?.fundId) throw new Error('Select a fund');
-      setToppingUp(true);
-      const sig = await solanaFundService.devnetTopUpVaultSol(selected.fundId as string, 0.5);
-      setMessage(`Devnet airdrop sent to vault. Signature: ${sig}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Top up failed');
-    } finally {
-      setToppingUp(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -168,14 +153,19 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
         </div>
         <div>
           <label className="text-sm text-sol-200">Payout Amount (SOL)</label>
-          <Input value={payoutValue} onChange={(e) => setPayoutValue(e.target.value)} className="bg-sol-800 border-sol-700 text-white" />
+          <Input
+            value={payoutValue}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/,/g, '.');
+              if (/^\d*(?:\.\d*)?$/.test(raw) || raw === '') setPayoutValue(raw);
+            }}
+            placeholder="0.5"
+            className="bg-sol-800 border-sol-700 text-white"
+          />
         </div>
         <div className="flex items-end gap-2">
           <Button onClick={handlePayout} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:brightness-110 transition">
             {loading ? 'Processing…' : 'Pay Investors'}
-          </Button>
-          <Button onClick={handleDevnetTopUp} disabled={toppingUp} className="rounded-xl bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80 whitespace-nowrap">
-            {toppingUp ? 'Airdropping…' : 'Devnet top-up'}
           </Button>
         </div>
       </div>

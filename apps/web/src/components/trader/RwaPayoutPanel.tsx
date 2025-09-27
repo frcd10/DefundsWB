@@ -39,7 +39,7 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
     setError(null);
     setMessage(null);
     try {
-      const value = parseFloat(addValue || '0');
+  const value = parseFloat(addValue.replace(/,/g, '.') || '0');
       const res = await fetch('/api/rwa/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,11 +53,11 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
         const nowIso = new Date().toISOString();
         setLocalPayments((prev) => ([
           ...(prev || []),
-          ...((data.data.payments as Array<{ timestamp?: string | Date; totalValue: number; signature: string; recipients: Array<{ wallet: string; amountSol: number }> }>)).map((p) => ({
+          ...((data.data.payments as Array<{ timestamp?: string | Date; totalValue: number; signature: string; recipients: Array<{ wallet: string; amountSol: number | string }> }>)).map((p) => ({
             timestamp: p.timestamp ?? nowIso,
             signature: p.signature,
             totalValue: p.totalValue,
-            recipients: p.recipients,
+            recipients: p.recipients.map(r => ({ wallet: r.wallet, amountSol: typeof r.amountSol === 'number' ? r.amountSol : parseFloat(r.amountSol.toString()) }))
           }))
         ]));
       } else if (data.data?.plan) {
@@ -76,7 +76,12 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
         const nowIso = new Date().toISOString();
         setLocalPayments((prev) => ([
           ...(prev || []),
-          ...payments.map((p) => ({ timestamp: nowIso, signature: p.signature, totalValue: p.totalValue, recipients: p.recipients }))
+          ...payments.map((p) => ({
+            timestamp: nowIso,
+            signature: p.signature,
+            totalValue: p.totalValue,
+            recipients: p.recipients.map(r => ({ wallet: r.wallet, amountSol: typeof r.amountSol === 'number' ? r.amountSol : parseFloat(r.amountSol.toString()) }))
+          }))
         ]));
       } else {
         setMessage('Payout processed');
@@ -101,7 +106,15 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
         </div>
         <div>
           <label className="text-sm text-sol-200">Add Value (SOL)</label>
-          <Input value={addValue} onChange={(e) => setAddValue(e.target.value)} className="bg-sol-800 border-sol-700 text-white" />
+          <Input
+            value={addValue}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/,/g, '.');
+              if (/^\d*(?:\.\d*)?$/.test(raw) || raw === '') setAddValue(raw);
+            }}
+            placeholder="0.5"
+            className="bg-sol-800 border-sol-700 text-white"
+          />
         </div>
         <div className="flex items-end">
           <Button

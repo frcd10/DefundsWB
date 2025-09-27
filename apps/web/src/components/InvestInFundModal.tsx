@@ -6,7 +6,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { solanaFundService } from '@/services/solana-fund.service';
+import { solanaFundServiceModular as solanaFundService } from '@/services/solanaFund';
 
 interface InvestInFundModalProps {
   isOpen: boolean;
@@ -47,7 +47,8 @@ export function InvestInFundModal({
       return;
     }
 
-    const investmentAmount = parseFloat(amount);
+  const normalized = amount.replace(/,/g, '.');
+  const investmentAmount = parseFloat(normalized);
     if (isNaN(investmentAmount) || investmentAmount <= 0) {
       setError('Please enter a valid investment amount');
       return;
@@ -148,13 +149,17 @@ export function InvestInFundModal({
                 Investment Amount (SOL)
               </label>
               <Input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/,/g, '.');
+                  // allow interim
+                  if (/^\d*(?:\.\d*)?$/.test(raw) || raw === '') {
+                    setAmount(raw);
+                  }
+                }}
                 placeholder="0.1"
-                min="0.001"
-                step="0.001"
-                required
                 className="bg-gray-800 border-gray-600 text-white"
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -177,7 +182,7 @@ export function InvestInFundModal({
                 </div>
                 <div className="flex justify-between">
                   <span>Amount:</span>
-                  <span>{amount} SOL</span>
+                  <span>{amount.replace(/,/g, '.')} SOL</span>
                 </div>
               </div>
             </div>

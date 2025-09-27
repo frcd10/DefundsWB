@@ -5,7 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { solanaFundService } from '@/services/solana-fund.service';
+import { solanaFundServiceModular as solanaFundService } from '@/services/solanaFund';
 
 interface WithdrawFromFundModalProps {
   isOpen: boolean;

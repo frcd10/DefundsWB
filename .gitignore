@@ -130,14 +130,17 @@ Thumbs.db
 # vercel
 .vercel
 
-###### Anchor / Solana build artifacts (keep source committed) ######
+###### Anchor / Solana build artifacts ######
+# Keep .anchor (local state), test-ledger, shared objects, and keypairs ignored
 .anchor/
-target/
 test-ledger/
 *.so
 .config/
 **/*-keypair.json
 **/id.json
+# Allow committing target/ (IDL + layout) so frontend can fetch managed_funds.json
+# If target grows too large, consider narrowing to /target/idl and /target/types.
+# (Remove the next line if previously cached by git: git rm -r --cached target)
 
 # IDE
 .vscode/

@@ -1,0 +1,14 @@
+/Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/deps/serde-3591f122dab6dedc.d: /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/lib.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/integer128.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/mod.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/de.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/ser.rs /Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/build/serde-10772e7a13254c83/out/private.rs
+
+/Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/deps/libserde-3591f122dab6dedc.rlib: /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/lib.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/integer128.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/mod.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/de.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/ser.rs /Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/build/serde-10772e7a13254c83/out/private.rs
+
+/Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/deps/libserde-3591f122dab6dedc.rmeta: /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/lib.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/integer128.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/mod.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/de.rs /Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/ser.rs /Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/build/serde-10772e7a13254c83/out/private.rs
+
+/Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/lib.rs:
+/Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/integer128.rs:
+/Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/mod.rs:
+/Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/de.rs:
+/Users/felipe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.226/src/private/ser.rs:
+/Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/build/serde-10772e7a13254c83/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/felipe/Developer/DefundsWB/programs/managed_funds/target/debug/build/serde-10772e7a13254c83/out

@@ -12,7 +12,8 @@ managed_funds = "3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "${ANCHOR_PROVIDER_URL}"
+# Public devnet RPC (no API key). Override at runtime with ANCHOR_PROVIDER_URL if needed.
+cluster = "https://api.devnet.solana.com"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

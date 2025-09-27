@@ -95,8 +95,7 @@ dist/
 
 # Gatsby files
 .cache/
-public
-!apps/web/public/managed_funds.json
+# Ignore contents of any public dir, but allow specific managed_funds.json in web app
 
 # Vuepress build output
 .vuepress/dist

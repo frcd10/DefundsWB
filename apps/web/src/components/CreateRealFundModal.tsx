@@ -44,12 +44,21 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
     isPublic: true,
     initialDeposit: 1.0
   });
+  // Keep a raw string so user can type interim states like "0." or ".1"
+  const [initialDepositInput, setInitialDepositInput] = useState('1.0');
 
-  const parseNumberInput = (value: string): number => {
-    // Accept both "," and "." as decimal separators
-    const normalized = value.replace(',', '.');
+  // Reusable parser allowing "," or "." and tolerant of transient states ("", ".", "0.")
+  const DECIMAL_REGEX = /^\d*(?:[.,]?\d*)?$/; // allows '', '0', '0.', '.5', '12.34'
+  const commitInitialDepositFromString = (raw: string) => {
+    const normalized = raw.replace(/,/g, '.');
+    if (normalized === '' || normalized === '.' || normalized === '0.') {
+      setFormData(prev => ({ ...prev, initialDeposit: 0 }));
+      return;
+    }
     const n = Number(normalized);
-    return Number.isFinite(n) ? n : 0;
+    if (Number.isFinite(n)) {
+      setFormData(prev => ({ ...prev, initialDeposit: n }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -229,20 +238,18 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                 <Input
                   type="text"
                   inputMode="decimal"
-                  value={String(formData.initialDeposit)}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '.');
-                    // Allow empty / interim values
-                    if (raw === '' || raw === '.' || raw === '0.' ) {
-                      setFormData(prev => ({ ...prev, initialDeposit: 0 }));
-                      return;
-                    }
-                    const num = Number(raw);
-                    if (Number.isFinite(num)) {
-                      setFormData(prev => ({ ...prev, initialDeposit: num }));
-                    }
-                  }}
+                  value={initialDepositInput}
                   placeholder="0.1"
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!DECIMAL_REGEX.test(raw)) return; // ignore invalid chars
+                    setInitialDepositInput(raw);
+                    commitInitialDepositFromString(raw);
+                  }}
+                  onBlur={() => {
+                    // Normalize display on blur
+                    setInitialDepositInput(String(formData.initialDeposit));
+                  }}
                   className="input w-full"
                 />
                 <p className="text-xs text-sol-300 mt-1">

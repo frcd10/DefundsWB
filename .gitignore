@@ -96,6 +96,7 @@ dist/
 # Gatsby files
 .cache/
 public
+!apps/web/public/managed_funds.json
 
 # Vuepress build output
 .vuepress/dist

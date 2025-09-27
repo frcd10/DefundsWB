@@ -10,6 +10,7 @@
     "programs/*"
   ],
   "scripts": {
+    "prebuild": "node scripts/sync-idl.js",
     "dev": "turbo run dev",
     "dev:web": "cd apps/web && npm run dev",
     "build": "turbo run build",
@@ -17,11 +18,12 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
+    "sync:idl": "node scripts/sync-idl.js",
     "anchor": "anchor",
-    "anchor:build": "anchor build",
+    "anchor:build": "anchor build && node scripts/sync-idl.js",
     "anchor:test": "anchor test",
-    "anchor:deploy": "anchor deploy"
-    ,"validate:payout": "ts-node scripts/validatePayout.ts"
+    "anchor:deploy": "anchor deploy && node scripts/sync-idl.js",
+    "validate:payout": "ts-node scripts/validatePayout.ts"
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",

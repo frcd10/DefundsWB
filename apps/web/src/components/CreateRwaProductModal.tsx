@@ -30,6 +30,17 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
     isPublic: true,
     initialDeposit: 0.5,
   });
+  const [initialDepositInput, setInitialDepositInput] = useState('0.5');
+  const DECIMAL_REGEX = /^\d*(?:[.,]?\d*)?$/;
+  const commitInitialDepositFromString = (raw: string) => {
+    const normalized = raw.replace(/,/g, '.');
+    if (normalized === '' || normalized === '.' || normalized === '0.') {
+      setForm({ ...form, initialDeposit: 0 });
+      return;
+    }
+    const n = Number(normalized);
+    if (Number.isFinite(n)) setForm({ ...form, initialDeposit: n });
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,14 +140,15 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
                 <Input
                   type="text"
                   inputMode="decimal"
-                  value={String(form.initialDeposit)}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '.');
-                    if (raw === '' || raw === '.' || raw === '0.') { setForm({ ...form, initialDeposit: 0 }); return; }
-                    const n = Number(raw);
-                    if (Number.isFinite(n)) setForm({ ...form, initialDeposit: n });
-                  }}
+                  value={initialDepositInput}
                   placeholder="0.5"
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!DECIMAL_REGEX.test(raw)) return;
+                    setInitialDepositInput(raw);
+                    commitInitialDepositFromString(raw);
+                  }}
+                  onBlur={() => setInitialDepositInput(String(form.initialDeposit))}
                   className="input w-full"
                 />
               </div>

@@ -144,15 +144,15 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
     <div className="space-y-6">
       <div className="grid md:grid-cols-3 gap-4 items-end">
         <div>
-          <label className="text-sm text-sol-200">Fund</label>
-          <select className="w-full bg-sol-800 border border-sol-700 rounded px-3 py-2 text-white" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+          <label className="text-sm text-white/70">Fund</label>
+          <select className="input w-full appearance-none pr-8" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
             {funds.map((f, idx) => (
               <option key={(f._id as string) || `fund-${idx}`} value={f.fundId as string}>{(f.name as string) || f.fundId as string}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="text-sm text-sol-200">Payout Amount (SOL)</label>
+          <label className="text-sm text-white/70">Payout Amount (SOL)</label>
           <Input
             value={payoutValue}
             onChange={(e) => {
@@ -160,11 +160,11 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
               if (/^\d*(?:\.\d*)?$/.test(raw) || raw === '') setPayoutValue(raw);
             }}
             placeholder="0.5"
-            className="bg-sol-800 border-sol-700 text-white"
+            className="input w-full"
           />
         </div>
         <div className="flex items-end gap-2">
-          <Button onClick={handlePayout} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:brightness-110 transition">
+          <Button onClick={handlePayout} disabled={loading} className="w-full rounded-full bg-brand-yellow text-brand-black font-semibold hover:brightness-110 transition">
             {loading ? 'Processing…' : 'Pay Investors'}
           </Button>
         </div>
@@ -174,35 +174,35 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
       {message && <div className="text-green-400 text-sm">{message}</div>}
 
       {selected && (
-        <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 overflow-hidden">
-          <div className="p-4 border-b border-sol-700 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-sol-50">Investors</h3>
+        <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">Investors</h3>
             <div className="flex items-center gap-3">
-              <Button onClick={() => setShowHistory(true)} className="rounded-xl bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80">Payments History</Button>
-              <span className="text-xs text-sol-300">Fund SOL Balance: {Number(((selectedLocal as any)?.solBalance ?? 0)).toFixed(6)} SOL</span>
-              <span className="text-xs text-sol-300">Total Shares: {Math.max(0, ((selectedLocal as any)?.totalShares as number) || (selected.totalShares as number) || 0)}</span>
+              <Button onClick={() => setShowHistory(true)} className="rounded-full bg-white/10 hover:bg-white/15 text-white/70 border border-white/10">Payments History</Button>
+              <span className="text-xs text-white/50">Fund SOL Balance: {Number(((selectedLocal as any)?.solBalance ?? 0)).toFixed(6)} SOL</span>
+              <span className="text-xs text-white/50">Total Shares: {Math.max(0, ((selectedLocal as any)?.totalShares as number) || (selected.totalShares as number) || 0)}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-sol-800/60">
+              <thead className="bg-brand-surface">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Wallet</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Shares</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Ownership</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Wallet</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Shares</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Ownership</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-sol-700">
+              <tbody className="divide-y divide-white/5">
                 {(((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []).map((inv: any) => {
                   const shares = Math.max(0, inv.shares || 0);
                   const invs = (((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []);
                   const total = Math.max(0, invs.reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
                   const pct = total > 0 ? Math.min(100, (100 * shares) / total) : 0;
                   return (
-                    <tr key={inv.walletAddress} className="hover:bg-sol-800/40">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{inv.walletAddress.slice(0, 4)}...{inv.walletAddress.slice(-4)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{shares.toFixed(4)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-sol-50">{pct.toFixed(2)}%</td>
+                    <tr key={inv.walletAddress} className="hover:bg-brand-yellow/5 transition">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{inv.walletAddress.slice(0, 4)}...{inv.walletAddress.slice(-4)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{shares.toFixed(4)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{pct.toFixed(2)}%</td>
                     </tr>
                   );
                 })}
@@ -215,21 +215,21 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
       {showHistory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowHistory(false)} />
-          <div className="relative z-10 w-[95vw] max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl border border-sol-700 bg-sol-800/70 backdrop-blur-md shadow-xl">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-sol-700">
-              <h3 className="text-lg font-bold text-sol-50">Payments History</h3>
-              <Button onClick={() => setShowHistory(false)} className="rounded-full bg-sol-900/60 border border-sol-700 text-sol-200 hover:bg-sol-900/80 px-3 py-1 text-sm">Close</Button>
+          <div className="relative z-10 w-[95vw] max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/10 bg-brand-surface/95 backdrop-blur-md shadow-xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white">Payments History</h3>
+              <Button onClick={() => setShowHistory(false)} className="rounded-full bg-white/10 hover:bg-white/15 text-white/70 border border-white/10 px-3 py-1 text-sm">Close</Button>
             </div>
             <div className="p-5 overflow-auto max-h-[70vh] space-y-5">
               {(!localPayments || localPayments.length === 0) && (
-                <div className="text-sm text-sol-300">No payments yet.</div>
+                <div className="text-sm text-white/50">No payments yet.</div>
               )}
               {(localPayments || []).slice().reverse().map((p, idx) => (
-                <div key={idx} className="rounded-xl border border-sol-700 bg-sol-900/40">
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-sol-700">
-                    <div className="text-sm text-sol-200">
-                      <div>Date: <span className="text-sol-50">{new Date(p.timestamp as string).toLocaleString()}</span></div>
-                      <div>Total: <span className="text-green-400">{p.totalValue.toFixed(4)} SOL</span></div>
+                <div key={idx} className="rounded-xl border border-white/10 bg-white/5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+                    <div className="text-sm text-white/60">
+                      <div>Date: <span className="text-white">{new Date(p.timestamp as string).toLocaleString()}</span></div>
+                      <div>Total: <span className="text-emerald-400">{p.totalValue.toFixed(4)} SOL</span></div>
                     </div>
                     <div className="text-sm">
                       <SolscanLink signature={p.signature} cluster="devnet" />
@@ -237,21 +237,21 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-sol-800/50">
+                      <thead className="bg-brand-surface">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Wallet</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">% of payout</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-sol-300 uppercase tracking-wider">Amount (SOL)</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-white/60 tracking-wide">Wallet</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-white/60 tracking-wide">% of payout</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-white/60 tracking-wide">Amount (SOL)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-sol-700">
+                      <tbody className="divide-y divide-white/5">
                         {p.recipients.map((r) => {
                           const pct = p.totalValue > 0 ? (r.amountSol / p.totalValue) * 100 : 0;
                           return (
-                            <tr key={`${p.signature}-${r.wallet}`} className="hover:bg-sol-800/40">
-                              <td className="px-4 py-2 text-sm text-sol-50">{r.wallet.slice(0, 4)}...{r.wallet.slice(-4)}</td>
-                              <td className="px-4 py-2 text-sm text-sol-50">{pct.toFixed(2)}%</td>
-                              <td className="px-4 py-2 text-sm text-green-400">{r.amountSol.toFixed(6)}</td>
+                            <tr key={`${p.signature}-${r.wallet}`} className="hover:bg-brand-yellow/5 transition">
+                              <td className="px-4 py-2 text-sm text-white">{r.wallet.slice(0, 4)}...{r.wallet.slice(-4)}</td>
+                              <td className="px-4 py-2 text-sm text-white">{pct.toFixed(2)}%</td>
+                              <td className="px-4 py-2 text-sm text-emerald-400">{r.amountSol.toFixed(6)}</td>
                             </tr>
                           );
                         })}

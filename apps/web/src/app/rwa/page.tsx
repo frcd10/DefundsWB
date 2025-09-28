@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TrendingUp, Users, AlertTriangle, Shield, Eye, Building, Briefcase, Receipt } from 'lucide-react';
+import { TrendingUp, Users, AlertTriangle, Shield, Eye, Building, Briefcase, Receipt, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import WaitlistModal from '@/components/WaitlistModal';
 import FundCard from '@/components/FundCard';
 import { FundCardData, FundType } from '@/types/fund';
+import { formatSol } from '@/lib/formatters';
+import { InvestInFundModal } from '@/components/InvestInFundModal';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { CreateRwaProductModal } from '@/components/CreateRwaProductModal';
 
 export default function RWAPage() {
@@ -14,67 +17,49 @@ export default function RWAPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   return (
-    <main className="min-h-screen bg-sol-900 text-sol-50">
+    <main className="min-h-screen bg-brand-black text-white">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 px-4 pt-16 sm:pt-28 pb-12 sm:pb-20">
+      <section className="px-4 pt-28 sm:pt-32 pb-16">
         <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-6xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
-            Real World Assets
-            <span className="text-sol-accent block">On-Chain Meets Off-Chain</span>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
+            Real World <span className="text-brand-yellow">Assets</span>
           </h1>
-          <p className="text-lg sm:text-xl text-sol-200 mb-6 sm:mb-8 max-w-4xl mx-auto leading-relaxed">
-            Bridge the gap between traditional finance and DeFi. Invest in real-world projects 
-            with transparent profiles, verified track records, and clear funding purposes.
+          <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto">
+            Bridge traditional finance and DeFi. Discover on-chain access to real-world projects with transparent profiles and codified flows.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 sm:mb-12">
-            <Button
-              size="lg"
-              className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
-                         px-8 py-3 font-semibold text-sol-900 shadow-lg text-lg
-                         transition hover:scale-105"
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button
+              className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black hover:brightness-110 transition min-w-[220px]"
               onClick={() => {
                 const el = document.getElementById('rwa-products');
                 el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
-              📊 View Active Projects
-            </Button>
-            <Button
-              size="lg"
-              className="w-64 rounded-xl !bg-sol-accent text-sol-900 font-semibold shadow-lg text-lg transition hover:scale-105"
+              📊 View RWA Products
+            </button>
+            <button
+              className="inline-flex items-center justify-center rounded-full border border-brand-yellow/80 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black transition min-w-[220px]"
               onClick={() => setShowCreate(true)}
             >
-              ➕ Create RWA Product
-            </Button>
+              ➕ Create Product
+            </button>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <Eye className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">Full Transparency</h3>
-              <p className="text-sol-200 text-sm">Public profiles with complete funding history</p>
-            </div>
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <Users className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">Invest in People</h3>
-              <p className="text-sol-200 text-sm">Back individuals with proven track records</p>
-            </div>
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <TrendingUp className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">Real Returns</h3>
-              <p className="text-sol-200 text-sm">Competitive APY on verified projects</p>
-            </div>
+          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {[['Full Transparency','Public profiles with complete funding history', Eye], ['Invest in People','Back individuals with proven track records', Users], ['Real Returns','Competitive APY on verified projects', TrendingUp]].map(([t,b,Icon]) => (
+              <div key={t as string} className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10 text-left">
+                {Icon && <Icon className="w-7 h-7 text-brand-yellow mb-4" />}
+                <h3 className="font-semibold text-white mb-2">{t as string}</h3>
+                <p className="text-sm text-white/70 leading-relaxed">{b as string}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* How RWA Works Section */}
-      <section className="py-20 px-4">
+  <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-extrabold text-center mb-16">
-            How <span className="text-sol-accent">RWA</span> Works
-          </h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-14">How <span className="text-brand-yellow">RWA</span> Works</h2>
           
           <div className="grid lg:grid-cols-2 gap-12">
             <div className="space-y-8">
@@ -83,8 +68,8 @@ export default function RWAPage() {
                   <Shield className="w-8 h-8 text-sol-accent" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-sol-accent">On-Chain Transparency</h3>
-                  <p className="text-sol-200 leading-relaxed">
+                  <h3 className="text-lg font-semibold mb-2 text-brand-yellow">On-Chain Transparency</h3>
+                  <p className="text-white/70 leading-relaxed text-sm">
                     All funding commitments, user profiles, and project histories are recorded on-chain. 
                     Smart contracts ensure transparent tracking of investments and returns.
                   </p>
@@ -96,8 +81,8 @@ export default function RWAPage() {
                   <AlertTriangle className="w-8 h-8 text-yellow-400" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-yellow-400">Off-Chain Execution</h3>
-                  <p className="text-sol-200 leading-relaxed">
+                  <h3 className="text-lg font-semibold mb-2 text-brand-yellow">Off-Chain Execution</h3>
+                  <p className="text-white/70 leading-relaxed text-sm">
                     Once funded, money moves off-chain for real-world use. While we can&apos;t track 
                     exact usage, operators build reputation through successful project completion.
                   </p>
@@ -109,8 +94,8 @@ export default function RWAPage() {
                   <Users className="w-8 h-8 text-sol-accent" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-sol-accent">Reputation-Based System</h3>
-                  <p className="text-sol-200 leading-relaxed">
+                  <h3 className="text-lg font-semibold mb-2 text-brand-yellow">Reputation-Based System</h3>
+                  <p className="text-white/70 leading-relaxed text-sm">
                     Operators with successful project histories earn higher trust scores and 
                     access to larger funding rounds with better rates.
                   </p>
@@ -118,27 +103,27 @@ export default function RWAPage() {
               </div>
             </div>
             
-            <div className="bg-sol-800/60 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold mb-6 text-center">Investment Process</h3>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+              <h3 className="text-xl font-semibold mb-6 text-center text-white">Investment Process</h3>
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-sol-700/50 rounded-lg">
-                  <span className="bg-sol-accent text-sol-900 px-2 py-1 rounded-full text-sm font-bold">1</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-surface/70 rounded-lg border border-white/10">
+                  <span className="bg-brand-yellow text-brand-black px-2 py-1 rounded-full text-xs font-semibold">1</span>
                   <span>Operator creates public profile with project details</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-sol-700/50 rounded-lg">
-                  <span className="bg-sol-accent text-sol-900 px-2 py-1 rounded-full text-sm font-bold">2</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-surface/70 rounded-lg border border-white/10">
+                  <span className="bg-brand-yellow text-brand-black px-2 py-1 rounded-full text-xs font-semibold">2</span>
                   <span>Investors review history and fund the project</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-sol-700/50 rounded-lg">
-                  <span className="bg-sol-accent text-sol-900 px-2 py-1 rounded-full text-sm font-bold">3</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-surface/70 rounded-lg border border-white/10">
+                  <span className="bg-brand-yellow text-brand-black px-2 py-1 rounded-full text-xs font-semibold">3</span>
                   <span>Funds move off-chain for real-world execution</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-sol-700/50 rounded-lg">
-                  <span className="bg-sol-accent text-sol-900 px-2 py-1 rounded-full text-sm font-bold">4</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-surface/70 rounded-lg border border-white/10">
+                  <span className="bg-brand-yellow text-brand-black px-2 py-1 rounded-full text-xs font-semibold">4</span>
                   <span>Returns paid back with APY to investors</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-sol-700/50 rounded-lg">
-                  <span className="bg-sol-accent text-sol-900 px-2 py-1 rounded-full text-sm font-bold">5</span>
+                <div className="flex items-center gap-3 p-3 bg-brand-surface/70 rounded-lg border border-white/10">
+                  <span className="bg-brand-yellow text-brand-black px-2 py-1 rounded-full text-xs font-semibold">5</span>
                   <span>Success builds operator&apos;s reputation score</span>
                 </div>
               </div>
@@ -148,11 +133,9 @@ export default function RWAPage() {
       </section>
 
       {/* Project Types Section */}
-      <section className="py-20 px-4 bg-sol-800/30">
+  <section className="py-20 px-4 bg-brand-surface/20">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-extrabold text-center mb-16">
-            Supported <span className="text-sol-accent">Project Types</span>
-          </h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-14">Supported <span className="text-brand-yellow">Project Types</span></h2>
           
           <div className="grid md:grid-cols-3 gap-8">
             <ProjectType
@@ -195,39 +178,39 @@ export default function RWAPage() {
       </section>
 
       {/* Risk Warning Section */}
-      <section className="py-20 px-4">
+  <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-gradient-to-r from-yellow-900/30 to-red-900/30 border-2 border-yellow-400/50 rounded-2xl p-8">
+          <div className="bg-brand-surface/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
             <div className="flex items-center gap-4 mb-6">
-              <AlertTriangle className="w-8 h-8 text-yellow-400" />
-              <h2 className="text-2xl font-bold text-yellow-400">Important Risk Disclosure</h2>
+              <AlertTriangle className="w-8 h-8 text-brand-yellow" />
+              <h2 className="text-xl font-semibold text-brand-yellow">Important Risk Disclosure</h2>
             </div>
             
-            <div className="space-y-4 text-sol-200">
-              <p className="text-lg font-semibold">
+            <div className="space-y-4 text-white/70 text-sm">
+              <p className="text-sm font-semibold text-white/80">
                 RWA investments carry additional risks compared to traditional DeFi:
               </p>
               
               <ul className="space-y-2 pl-6">
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-400 mt-1">•</span>
-                  <span><strong>Off-chain execution:</strong> Once funds leave the platform, we cannot track their exact usage</span>
+                  <span className="text-brand-yellow mt-1">•</span>
+                  <span className="text-white/70"><strong className="text-white">Off-chain execution:</strong> Once funds leave the platform, we cannot track their exact usage</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-400 mt-1">•</span>
-                  <span><strong>Operator dependency:</strong> Success depends entirely on the operator&apos;s competence and honesty</span>
+                  <span className="text-brand-yellow mt-1">•</span>
+                  <span className="text-white/70"><strong className="text-white">Operator dependency:</strong> Success depends entirely on the operator&apos;s competence and honesty</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-400 mt-1">•</span>
-                  <span><strong>Real-world risks:</strong> Projects face regulatory, market, and execution challenges</span>
+                  <span className="text-brand-yellow mt-1">•</span>
+                  <span className="text-white/70"><strong className="text-white">Real-world risks:</strong> Projects face regulatory, market, and execution challenges</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-400 mt-1">•</span>
-                  <span><strong>Limited recourse:</strong> Recovery options may be limited if projects fail</span>
+                  <span className="text-brand-yellow mt-1">•</span>
+                  <span className="text-white/70"><strong className="text-white">Limited recourse:</strong> Recovery options may be limited if projects fail</span>
                 </li>
               </ul>
               
-              <p className="text-lg font-semibold border-t border-sol-600 pt-4 mt-6">
+              <p className="text-sm font-medium border-t border-white/10 pt-4 mt-6 text-white/80">
                 Only invest what you can afford to lose. Do your own research on operators and projects.
               </p>
             </div>
@@ -235,26 +218,15 @@ export default function RWAPage() {
         </div>
       </section>
 
-      {/* RWA Products Section */}
-      <section id="rwa-products" className="py-20 px-4">
+    {/* RWA Products Section */}
+  <section id="rwa-products" className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-extrabold text-center mb-10">
-            RWA <span className="text-sol-accent">Products</span>
-          </h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-10">RWA <span className="text-brand-yellow">Products</span></h2>
 
           {/* Filters (same theme as Funds, but with Operator + limited Type) */}
           <RWAFilterBar onChange={(f) => setRwaFilters(f)} />
-
-          {/* Cards grid (reuse FundCard for consistent theme) */}
-      {filteredRwa.length === 0 ? (
-            <p className="text-sol-50 text-center py-8">No products match your filters.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        {filteredRwa.map((f: FundCardData) => (
-                <FundCard f={f} key={f.id} />
-              ))}
-            </div>
-          )}
+      {/* Table listing mirroring Funds table */}
+      <RwaTable items={filteredRwa} />
         </div>
       </section>
 
@@ -270,6 +242,186 @@ export default function RWAPage() {
 }
 
 // Helper Components
+/* ------------------------------------------------------------------
+   RwaTable – institutional list with expandable detail rows (RWA)
+------------------------------------------------------------------- */
+function RwaTable({ items }: { items: FundCardData[] }) {
+  const [sort, setSort] = useState<{ key: keyof FundCardData; dir: 'asc' | 'desc' }>({ key: 'tvl', dir: 'desc' });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
+  const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
+
+  const sorted = useMemo(() => {
+    const arr = [...items];
+    arr.sort((a, b) => {
+      const { key, dir } = sort;
+      const av = (a as any)[key];
+      const bv = (b as any)[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return dir === 'asc' ? -1 : 1;
+      if (bv == null) return dir === 'asc' ? 1 : -1;
+      if (typeof av === 'number' && typeof bv === 'number') return dir === 'asc' ? av - bv : bv - av;
+      const as = String(av).toLowerCase();
+      const bs = String(bv).toLowerCase();
+      if (as < bs) return dir === 'asc' ? -1 : 1;
+      if (as > bs) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [items, sort]);
+
+  const toggle = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const headerCell = (label: string, key: keyof FundCardData) => {
+    const active = sort.key === key;
+    return (
+      <th
+        onClick={() => setSort(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' ? 'asc' : 'desc' })}
+        className={`px-4 py-3 text-left text-xs font-semibold tracking-wide cursor-pointer select-none whitespace-nowrap ${active ? 'text-white' : 'text-white/70'} hover:text-white transition`}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (sort.dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+        </span>
+      </th>
+    );
+  };
+
+  if (items.length === 0) return <p className="text-white/70 text-center py-8">No products match your filters.</p>;
+
+  return (
+    <div className="border border-white/10 rounded-2xl overflow-hidden bg-brand-surface/70 backdrop-blur-sm">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-brand-surface text-white/90">
+            <th className="w-10"></th>
+            {headerCell('Product', 'name')}
+            {headerCell('Type', 'type')}
+            {headerCell('TVL (SOL)', 'tvl')}
+            {headerCell('Perf Fee %', 'perfFee')}
+            {headerCell('Investors', 'investorCount')}
+            <th className="px-4 py-3 text-right text-xs font-semibold text-white/70">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5 bg-brand-surface">
+          {sorted.map(f => {
+            const isOpen = expanded.has(f.id);
+            const performanceData = (f.performance || []).map((p, idx, arr) => {
+              if ('pnl' in p && (p as any).pnl !== undefined) return p as any;
+              const base = arr[0]?.nav || 10;
+              const pnl = p.nav - base;
+              return { ...p, pnl, pnlPercentage: ((p.nav - base) / base) * 100 };
+            });
+            return (
+              <>
+                <tr
+                  key={f.id}
+                  className="group transition bg-brand-surface hover:bg-brand-yellow/5 hover:shadow-[0_0_0_1px_rgba(255,219,41,0.25)] hover:-translate-y-[1px] duration-200 ease-out"
+                >
+                  <td className="px-2 py-3 align-top">
+                    <button
+                      onClick={() => toggle(f.id)}
+                      className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 group-hover:bg-brand-yellow/10 group-hover:border-brand-yellow/30 group-hover:text-white"
+                      aria-label={isOpen ? 'Collapse' : 'Expand'}
+                    >
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">{f.name}</td>
+                  <td className="px-4 py-3 align-top text-white/70 whitespace-nowrap">{f.type}</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{formatSol(f.tvl)}</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.perfFee}%</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.investorCount}</td>
+                  <td className="px-4 py-3 align-top text-right">
+                    <button
+                      onClick={() => setInvestTarget(f)}
+                      className="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black text-xs font-semibold px-4 py-2 hover:brightness-110 transition"
+                    >
+                      Invest
+                    </button>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="bg-brand-surface" key={f.id + '-detail'}>
+                    <td colSpan={7} className="px-6 pb-8 pt-4">
+                      <div className="grid lg:grid-cols-3 gap-8">
+                        <div className="space-y-6 lg:col-span-1">
+                          <div>
+                            <h4 className="text-sm font-semibold text-white mb-1">Description</h4>
+                            <p className="text-xs text-white/70 leading-relaxed">{f.description || '—'}</p>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-white mb-2">Stats</h4>
+                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/70">
+                              <li>Trades: <span className="text-white">{f.stats.total}</span></li>
+                              <li>Win/Loss: <span className="text-white">{f.stats.wins}/{f.stats.losses}</span></li>
+                              <li className="col-span-2">Avg Win: <span className="text-white">{f.stats.avgWinPct}% ({f.stats.avgWinSol} SOL)</span></li>
+                              <li className="col-span-2">Avg Loss: <span className="text-white">{f.stats.avgLossPct}% ({f.stats.avgLossSol} SOL)</span></li>
+                              <li className="col-span-2">Drawdown: <span className="text-white">{f.stats.drawdownPct}% ({f.stats.drawdownSol} SOL)</span></li>
+                            </ul>
+                          </div>
+                          {f.inviteOnly && (
+                            <div className="space-y-2">
+                              <input
+                                value={inviteCodes[f.id] || ''}
+                                onChange={(e) => setInviteCodes(prev => ({ ...prev, [f.id]: e.target.value }))}
+                                placeholder="Invite code"
+                                className="input w-full text-xs"
+                              />
+                              <p className="text-[10px] text-white/50">This product requires an invite code to invest.</p>
+                            </div>
+                          )}
+                          <div>
+                            <button
+                              onClick={() => setInvestTarget(f)}
+                              className="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black text-xs font-semibold px-5 py-2 hover:brightness-110 transition"
+                            >Invest Now</button>
+                          </div>
+                        </div>
+                        <div className="lg:col-span-2">
+                          <h4 className="text-sm font-semibold text-white mb-3">P&L Performance</h4>
+                          <div className="h-56 bg-brand-surface/90 border border-white/10 rounded-xl p-3">
+                            {performanceData.length > 1 ? (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={performanceData}>
+                                  <Line type="monotone" dataKey="pnl" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={false} />
+                                  <XAxis dataKey="date" hide />
+                                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(2)} SOL`, 'PnL']} labelFormatter={() => ''} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-xs text-white/50">Insufficient data</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+      {investTarget && (
+        <InvestInFundModal
+          isOpen={true}
+          onClose={() => setInvestTarget(null)}
+          fundId={investTarget.id}
+          fundName={investTarget.name}
+          isRwa={true}
+        />
+      )}
+    </div>
+  );
+}
 function ProjectType({ icon, title, description, details }: {
   icon: React.ReactNode;
   title: string;
@@ -277,19 +429,19 @@ function ProjectType({ icon, title, description, details }: {
   details: string[];
 }) {
   return (
-    <div className="bg-sol-800/60 rounded-2xl p-8 hover:bg-sol-700/60 transition-colors">
+    <div className="rounded-2xl p-8 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors">
       <div className="text-center mb-6">
         {icon}
       </div>
       
-      <h3 className="text-xl font-bold text-center mb-4 text-sol-accent">{title}</h3>
-      <p className="text-sol-200 text-center mb-6 leading-relaxed">{description}</p>
+  <h3 className="text-lg font-semibold text-center mb-4 text-brand-yellow">{title}</h3>
+  <p className="text-white/70 text-center mb-6 leading-relaxed text-sm">{description}</p>
       
       <ul className="space-y-2">
         {details.map((detail, index) => (
           <li key={index} className="flex items-start gap-3">
-            <span className="text-sol-accent font-bold">✓</span>
-            <span className="text-sol-200 text-sm">{detail}</span>
+            <span className="text-brand-yellow font-semibold">✓</span>
+            <span className="text-white/70 text-sm">{detail}</span>
           </li>
         ))}
       </ul>
@@ -318,10 +470,10 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-sol-800/40 p-4 rounded-xl mb-10">
+  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-brand-surface/50 backdrop-blur-sm p-4 rounded-xl mb-10 border border-white/10">
       {/* Operator ------------------------------------------------------ */}
       <div className="flex-1 min-w-[200px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Operator</label>
+  <label className="block text-white/80 text-sm mb-1">Operator</label>
         <input
           type="text"
           placeholder="search operator"
@@ -332,7 +484,7 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
 
       {/* Max perf-fee % ---------------------------------------------- */}
       <div className="flex-1 min-w-[120px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Max perf-fee %</label>
+  <label className="block text-white/80 text-sm mb-1">Max perf-fee %</label>
         <input
           type="number"
           className="input w-full sm:w-24"
@@ -342,7 +494,7 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
 
       {/* Max cap (SOL) ----------------------------------------------- */}
       <div className="flex-1 min-w-[140px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Max cap (SOL)</label>
+  <label className="block text-white/80 text-sm mb-1">Max cap (SOL)</label>
         <input
           type="number"
           className="input w-full sm:w-28"
@@ -352,7 +504,7 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
 
       {/* Type --------------------------------------------------------- */}
       <div className="flex-1 min-w-[160px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Type</label>
+  <label className="block text-white/80 text-sm mb-1">Type</label>
         <select
           className="input w-full"
           defaultValue=""

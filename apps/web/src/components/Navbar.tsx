@@ -141,7 +141,7 @@ export default function Navbar() {
           right: 0, 
           bottom: 0,
           zIndex: 9999,
-          backgroundColor: '#050021'
+          backgroundColor: 'var(--color-brand-darkNavy)'
         }}
       >
           {/* Close button */}

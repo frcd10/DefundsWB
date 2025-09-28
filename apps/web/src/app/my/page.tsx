@@ -58,20 +58,20 @@ export default function MyAreaPage() {
 
   if (!wallet.connected) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
+      <main className="min-h-screen bg-brand-black text-white">
         <section className="max-w-4xl mx-auto px-4 py-20 text-center">
           <h1 className="text-4xl font-extrabold mb-4">My Area</h1>
-          <p className="text-sol-200">Connect your wallet to manage your public profile.</p>
+          <p className="text-white/70">Connect your wallet to manage your public profile.</p>
         </section>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
+    <main className="min-h-screen bg-brand-black text-white">
       <section className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-extrabold text-sol-50 mb-6">My Area</h1>
-        <div className="rounded-2xl p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+        <h1 className="text-3xl font-extrabold mb-6">My Area</h1>
+        <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
           {notice && (
             <div className={`mb-4 px-3 py-2 rounded-lg text-sm ${notice.includes('Failed') ? 'bg-red-500/20 text-red-200 border border-red-500/40' : 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'}`}>
               {notice}
@@ -79,39 +79,39 @@ export default function MyAreaPage() {
           )}
           <div className="grid gap-4">
             <div>
-              <label className="block text-sm text-sol-200 mb-1">Display Name</label>
+              <label className="block text-sm text-white/70 mb-1">Display Name</label>
               <input className="input w-full" value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm text-sol-200 mb-1">Bio</label>
+              <label className="block text-sm text-white/70 mb-1">Bio</label>
               <textarea className="input w-full min-h-24" value={form.bio}
                 onChange={(e) => setForm({ ...form, bio: e.target.value })} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-sol-200 mb-1">Twitter</label>
+                <label className="block text-sm text-white/70 mb-1">Twitter</label>
                 <input className="input w-full" value={form.twitter}
                   onChange={(e) => setForm({ ...form, twitter: e.target.value })} />
               </div>
               <div>
-                <label className="block text-sm text-sol-200 mb-1">Discord</label>
+                <label className="block text-sm text-white/70 mb-1">Discord</label>
                 <input className="input w-full" value={form.discord}
                   onChange={(e) => setForm({ ...form, discord: e.target.value })} />
               </div>
               <div>
-                <label className="block text-sm text-sol-200 mb-1">Website</label>
+                <label className="block text-sm text-white/70 mb-1">Website</label>
                 <input className="input w-full" value={form.website}
                   onChange={(e) => setForm({ ...form, website: e.target.value })} />
               </div>
             </div>
             <div>
-              <label className="block text-sm text-sol-200 mb-1">Wallet</label>
+              <label className="block text-sm text-white/70 mb-1">Wallet</label>
               <input className="input w-full" value={form.wallet} disabled />
             </div>
             <div className="flex justify-end">
               <Button onClick={save} disabled={saving}
-                className="rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition">
+                className="rounded-full bg-brand-yellow text-brand-black font-semibold hover:brightness-110 transition px-6">
                 {saving ? 'Saving…' : 'Save Profile'}
               </Button>
             </div>

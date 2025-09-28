@@ -46,12 +46,12 @@ export default function TraderPage() {
 
   if (!wallet.connected) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-12">
-          <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700">
-            <div className="py-10 px-6 flex flex-col items-center gap-4">
-              <p className="text-sol-200">Connect your wallet to access the Trader Area.</p>
-              <WalletMultiButton className="!bg-sol-accent !text-sol-900 !rounded-full !px-4 !py-2 !h-auto !text-sm hover:!brightness-110" />
+      <div className="min-h-screen bg-brand-black text-white">
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+            <div className="py-12 px-6 flex flex-col items-center gap-4">
+              <p className="text-white/70">Connect your wallet to access the Trader Area.</p>
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !h-auto !text-sm hover:!brightness-110 !font-semibold" />
             </div>
           </div>
         </div>
@@ -61,9 +61,9 @@ export default function TraderPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-12">
-          <p className="text-sol-200">Loading...</p>
+      <div className="min-h-screen bg-brand-black text-white">
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <p className="text-white/70">Loading...</p>
         </div>
       </div>
     );
@@ -71,11 +71,11 @@ export default function TraderPage() {
 
   if (!eligible) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-        <div className="container mx-auto px-4 py-12">
-          <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700">
-            <div className="py-8 px-6">
-              <p className="text-sol-200">Trader area is gated. Create a Fund or an RWA product to access.</p>
+      <div className="min-h-screen bg-brand-black text-white">
+        <div className="max-w-5xl mx-auto px-4 py-16">
+          <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+            <div className="py-10 px-6">
+              <p className="text-white/70">Trader area is gated. Create a Fund or an RWA product to access.</p>
             </div>
           </div>
         </div>
@@ -84,32 +84,32 @@ export default function TraderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 text-white">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-extrabold mb-6 text-sol-50">Trader Area</h1>
+    <div className="min-h-screen bg-brand-black text-white">
+      <div className="max-w-5xl mx-auto px-4 py-12">
+        <h1 className="text-3xl font-extrabold mb-6">Trader Area</h1>
 
-        <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-4">
+        <div className="rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
           <Tabs defaultValue="swap">
-            <TabsList className="bg-sol-900/50 border border-sol-700 rounded-xl p-1">
-              <TabsTrigger value="swap" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">Swap</TabsTrigger>
-              <TabsTrigger value="rwa" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">RWA Payout</TabsTrigger>
-              <TabsTrigger value="funds" className="data-[state=active]:bg-sol-accent data-[state=active]:text-sol-900 rounded-lg px-4 py-2 text-sol-200">Funds Payout</TabsTrigger>
+            <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1">
+              <TabsTrigger value="swap" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Swap</TabsTrigger>
+              <TabsTrigger value="rwa" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">RWA Payout</TabsTrigger>
+              <TabsTrigger value="funds" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Funds Payout</TabsTrigger>
             </TabsList>
 
             <TabsContent value="swap" className="mt-4">
-              <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-6">
+              <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
                 <SwapPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
               </div>
             </TabsContent>
 
             <TabsContent value="rwa" className="mt-4">
-              <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-6">
+              <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
                 <RwaPayoutPanel rwas={rwas} managerWallet={wallet.publicKey!.toString()} />
               </div>
             </TabsContent>
 
             <TabsContent value="funds" className="mt-4">
-              <div className="rounded-2xl bg-sol-800/60 backdrop-blur border border-sol-700 p-6">
+              <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
                 <FundPayoutPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
               </div>
             </TabsContent>

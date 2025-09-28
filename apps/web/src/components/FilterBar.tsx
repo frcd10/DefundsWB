@@ -20,10 +20,10 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
   };
 
   return (
-    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-sol-800/40 p-4 rounded-xl mb-10">
+    <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-white/5 backdrop-blur-sm border border-white/10 p-4 rounded-2xl mb-10">
       {/* Search ---------------------------------------------------------- */}
       <div className="flex-1 min-w-[200px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Trader / Fund</label>
+  <label className="block text-white/70 text-sm mb-1">Trader / Fund</label>
         <input
           type="text"
           placeholder="search"
@@ -34,7 +34,7 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
 
       {/* Max perf-fee % -------------------------------------------------- */}
       <div className="flex-1 min-w-[120px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Max perf-fee %</label>
+  <label className="block text-white/70 text-sm mb-1">Max perf-fee %</label>
         <input
           type="number"
           className="input w-full sm:w-24"
@@ -46,7 +46,7 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
 
       {/* Max cap -------------------------------------------------------- */}
       <div className="flex-1 min-w-[140px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Max cap (SOL)</label>
+  <label className="block text-white/70 text-sm mb-1">Max cap (SOL)</label>
         <input
           type="number"
           className="input w-full sm:w-28"
@@ -56,7 +56,7 @@ export default function FilterBar({ onChange }: { onChange: (f: Filters) => void
 
       {/* Type selector --------------------------------------------------- */}
       <div className="flex-1 min-w-[160px] sm:min-w-0 sm:flex-none">
-        <label className="block text-sol-100 text-sm mb-1">Type</label>
+  <label className="block text-white/70 text-sm mb-1">Type</label>
         <select
           className="input w-full"
           defaultValue=""

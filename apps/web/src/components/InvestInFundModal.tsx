@@ -117,29 +117,29 @@ export function InvestInFundModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-gray-900 border-gray-700">
+  <DialogContent className="sm:max-w-[425px] bg-brand-black/90 backdrop-blur-sm border border-white/10">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-white">
             Invest in {fundName}
           </DialogTitle>
-          <DialogDescription className="text-gray-300">
+          <DialogDescription className="text-white/70">
             Add SOL to this fund and receive proportional shares
           </DialogDescription>
         </DialogHeader>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-700 text-red-400 px-4 py-3 rounded-lg">
+          <div className="bg-red-500/10 border border-red-500/40 text-red-300 px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         {!wallet.connected ? (
           <div className="space-y-4">
-            <p className="text-gray-300 text-center">
+            <p className="text-white/70 text-center">
               Connect your wallet to invest in this fund
             </p>
             <div className="flex justify-center">
-              <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700" />
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 hover:!brightness-110" />
             </div>
           </div>
         ) : (
@@ -160,16 +160,16 @@ export function InvestInFundModal({
                   }
                 }}
                 placeholder="0.1"
-                className="bg-gray-800 border-gray-600 text-white"
+                className="bg-white/5 border-white/15 text-white placeholder-white/30"
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-white/50 mt-1">
                 Minimum investment: 0.001 SOL
               </p>
             </div>
 
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10">
               <h4 className="text-sm font-medium text-white mb-2">Investment Details</h4>
-              <div className="space-y-1 text-xs text-gray-300">
+              <div className="space-y-1 text-xs text-white/70">
                 <div className="flex justify-between">
                   <span>Fund ID:</span>
                   <span className="font-mono text-xs">{fundId.slice(0, 8)}...{fundId.slice(-8)}</span>
@@ -192,14 +192,14 @@ export function InvestInFundModal({
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="flex-1 border-gray-600 text-white hover:bg-gray-800"
+                className="flex-1 border border-white/20 text-white hover:bg-white/10"
                 disabled={isLoading}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                className="flex-1 bg-brand-yellow hover:brightness-110 text-brand-black font-semibold"
                 disabled={isLoading}
               >
                 {isLoading ? 'Investing...' : 'Invest SOL'}

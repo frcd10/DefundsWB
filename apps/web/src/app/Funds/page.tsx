@@ -135,70 +135,67 @@ export default function Home() {
   const goto = (i: number) => setPage(i);
 
   return (
-    <main className="min-h-screen bg-sol-900 text-sol-50">
-      {/* Hero / Intro similar to RWA */}
-      <section className="max-w-6xl mx-auto px-4 pt-24 sm:pt-32 pb-12">
-        <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-4xl sm:text-6xl font-extrabold mb-4 drop-shadow-lg">
-            Funds <span className="text-sol-accent">Marketplace</span>
+    <main className="min-h-screen bg-brand-black text-white">
+      {/* Hero / Intro */}
+      <section className="max-w-6xl mx-auto px-4 pt-28 sm:pt-32 pb-16">
+        <div className="text-center max-w-5xl mx-auto">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
+            Explore <span className="text-brand-yellow">Funds</span>
           </h1>
-          <p className="text-lg sm:text-xl text-sol-200 mb-8 leading-relaxed">
-            Access actively managed token strategies. Delegate capital directly to on-chain
-            managers with transparent performance, fees, and 24/7 liquidity—no intermediaries.
+          <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto">
+            Access actively managed on-chain strategies. Delegate capital with transparent performance,
+            codified fees and 24/7 self-custodial liquidity. No intermediaries.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
-            <Button
-              size="lg"
-              className="w-64 rounded-xl !bg-sol-accent text-sol-900 font-semibold shadow-lg text-lg transition hover:scale-105"
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button
+              className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black hover:brightness-110 transition min-w-[220px]"
               onClick={() => {
                 const el = document.getElementById('funds-market');
                 el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
               📊 Browse Funds
-            </Button>
-            <Button
-              size="lg"
-              className="w-64 rounded-xl border border-sol-accent text-sol-accent font-semibold text-lg hover:bg-sol-accent/10 transition"
+            </button>
+            <button
+              className="inline-flex items-center justify-center rounded-full border border-brand-yellow/80 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black transition min-w-[220px]"
               onClick={() => setShowCreateReal(true)}
             >
               ➕ Create Fund
-            </Button>
+            </button>
           </div>
 
-          {/* 3-step banner from Products */}
           <div className="grid md:grid-cols-3 gap-6">
-            <IntroStep icon={<TrendingUp className="w-7 h-7 text-sol-accent" />} title="Pick a fund" body="Compare stats, risk and historical NAV. Choose a strategy that fits you." />
-            <IntroStep icon={<Zap className="w-7 h-7 text-sol-accent" />} title="Delegate capital" body="Deposit and mint vault shares instantly – assets stay in the program." />
-            <IntroStep icon={<Clock3 className="w-7 h-7 text-sol-accent" />} title="Withdraw anytime" body="Redeem shares 24/7; receive SOL back in seconds with transparent fees." />
+            <IntroStep icon={<TrendingUp className="w-7 h-7 text-brand-yellow" />} title="Pick a fund" body="Compare stats, risk and historical NAV. Choose a strategy that fits you." />
+            <IntroStep icon={<Zap className="w-7 h-7 text-brand-yellow" />} title="Delegate capital" body="Deposit and mint vault shares instantly – assets stay in the program." />
+            <IntroStep icon={<Clock3 className="w-7 h-7 text-brand-yellow" />} title="Withdraw anytime" body="Redeem shares 24/7; receive SOL back in seconds with transparent fees." />
           </div>
         </div>
       </section>
 
-      {/* Value Props Section migrated */}
-      <section className="max-w-6xl mx-auto px-4 pb-6" id="funds-market">
-        <h2 className="text-3xl font-bold mb-8">Why On-Chain Funds?</h2>
+      {/* Value Props */}
+      <section id="funds-market" className="max-w-6xl mx-auto px-4 pb-4">
+        <h2 className="text-3xl sm:text-4xl font-extrabold mb-10">Why On-Chain Funds?</h2>
         <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
-            ['Decentralized Access', 'Invest permissionlessly from your wallet—no broker forms.'],
-            ['Transparent Fees', 'Performance & management fees enforced by code.'],
-            ['Real-Time Accounting', 'NAV updates with every on-chain trade settlement.'],
-            ['Low Friction', 'Deposit or exit with no lock-ups or quarterly gates.'],
+            ['Decentralized Access', 'Invest permissionlessly from your wallet — no broker forms.'],
+            ['Transparent Fees', 'Performance & management fees enforced by open-source code.'],
+            ['Real-Time Accounting', 'NAV updates with each on-chain trade settlement.'],
+            ['Low Friction', 'Deposit or exit anytime. No quarterly gates or lock-ups.'],
             ['Flexible Allocation', 'Start small, scale anytime; no minimum tickets.'],
-            ['Privacy Preserving', 'No KYC for public funds; your address is your identity.'],
+            ['Privacy Preserving', 'For public funds your address is your identity.'],
           ].map(([t, b]) => (
-            <li key={t} className="bg-sol-800/60 rounded-2xl p-5">
-              <h3 className="font-semibold mb-1 text-sol-accent">{t}</h3>
-              <p className="text-sol-200 text-sm leading-relaxed">{b}</p>
+            <li key={t} className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
+              <h3 className="font-semibold mb-2 text-brand-yellow">{t}</h3>
+              <p className="text-sm leading-relaxed text-white/70">{b}</p>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-12" aria-label="Funds marketplace listing">
-        <header className="mb-8 text-center">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-2">All Funds</h2>
-          <p className="text-sol-200 text-sm">Filter and explore live strategies</p>
+      <section className="max-w-6xl mx-auto px-4 py-16" aria-label="Funds marketplace listing">
+        <header className="mb-10 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">All Funds</h2>
+          <p className="text-white/60 text-sm">Filter and explore live strategies</p>
         </header>
 
   {/* Filters */}
@@ -206,7 +203,7 @@ export default function Home() {
 
         {/* Cards grid */}
         {pageSlice.length === 0 ? (
-          <p className="text-sol-50 text-center py-8">No fund matches your filters.</p>
+          <p className="text-white/80 text-center py-8">No fund matches your filters.</p>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-10">
@@ -220,7 +217,7 @@ export default function Home() {
               <button
                 onClick={prev}
                 disabled={page === 0}
-                className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40 text-sm"
+                className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 disabled:opacity-30 text-sm hover:text-white hover:bg-white/10 transition"
               >
                 ‹ Prev
               </button>
@@ -246,30 +243,30 @@ export default function Home() {
                       <>
                         <button
                           onClick={() => goto(0)}
-                          className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
+                          className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
                         >
                           1
                         </button>
-                        {page > 2 && <span className="text-sol-100 text-sm">…</span>}
+                        {page > 2 && <span className="text-white/60 text-sm">…</span>}
                       </>
                     )}
                     {page > 0 && (
                       <button
                         onClick={() => goto(page - 1)}
-                        className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
                       >
                         {page}
                       </button>
                     )}
                     <button
-                      className="px-2 sm:px-3 py-1 rounded-lg bg-sol-accent text-sol-900 font-semibold text-sm"
+                      className="px-2 sm:px-3 py-1 rounded-lg bg-brand-yellow text-brand-black font-semibold text-sm"
                     >
                       {page + 1}
                     </button>
                     {page < totalPages - 1 && (
                       <button
                         onClick={() => goto(page + 1)}
-                        className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
                       >
                         {page + 2}
                       </button>
@@ -277,11 +274,11 @@ export default function Home() {
                     {page < totalPages - 2 && (
                       <>
                         {page < totalPages - 3 && (
-                          <span className="text-sol-100 text-sm">…</span>
+                          <span className="text-white/60 text-sm">…</span>
                         )}
                         <button
                           onClick={() => goto(totalPages - 1)}
-                          className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 text-sm"
+                          className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
                         >
                           {totalPages}
                         </button>
@@ -293,7 +290,7 @@ export default function Home() {
               <button
                 onClick={next}
                 disabled={page === totalPages - 1}
-                className="px-2 sm:px-3 py-1 rounded-lg bg-sol-800/60 text-sol-100 disabled:opacity-40 text-sm"
+                className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 disabled:opacity-30 text-sm hover:text-white hover:bg-white/10 transition"
               >
                 Next ›
               </button>
@@ -315,12 +312,12 @@ export default function Home() {
 /* Small card for top 3 intro steps */
 function IntroStep({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <article className="bg-sol-800/60 rounded-2xl p-6 flex flex-col gap-4 text-left">
+    <article className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10 flex flex-col gap-4 text-left">
       <header className="flex items-center gap-3">
         {icon}
         <h3 className="text-lg font-semibold text-white">{title}</h3>
       </header>
-      <p className="text-sol-200 text-sm leading-relaxed">{body}</p>
+      <p className="text-sm leading-relaxed text-white/70">{body}</p>
     </article>
   );
 }

@@ -3,10 +3,11 @@
 @tailwind utilities;
 
 .input {
-  @apply w-full bg-sol-800 bg-opacity-50
-         border border-sol-600 rounded-lg
-         px-3 py-2 text-sol-50 text-sm
-         outline-none focus:ring-2 focus:ring-sol-accent;
+  @apply w-full bg-white/5 backdrop-blur-sm
+         border border-white/15 rounded-xl
+         px-3 py-2 text-white text-sm
+         placeholder-white/30
+         outline-none focus:ring-2 focus:ring-brand-yellow focus:ring-opacity-40 focus:border-brand-yellow transition;
 }
 .error { @apply text-red-400 text-xs; }
 
@@ -185,4 +186,7 @@
 .bg-brand-surface { background-color: var(--color-brand-surface); }
 .bg-brand-black { background-color: var(--color-brand-black); }
 .text-brand-yellow { color: var(--color-brand-yellow); }
+
+/* Institutional surface + semantic text utilities */
+/* (Removed experimental utility classes pending Tailwind post-processing context) */
 

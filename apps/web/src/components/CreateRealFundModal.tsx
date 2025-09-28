@@ -155,12 +155,12 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[540px] bg-sol-800/90 border border-sol-700 text-sol-50 mt-16 sm:mt-24">
+  <DialogContent className="sm:max-w-[540px] bg-brand-black/90 backdrop-blur-sm border border-white/10 text-white mt-16 sm:mt-24">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-extrabold text-sol-50">
+          <DialogTitle className="text-2xl font-extrabold text-white">
             Create Real Fund on Solana
           </DialogTitle>
-          <DialogDescription className="text-sol-200">
+          <DialogDescription className="text-white/70">
             Create a real fund on Solana devnet. You&apos;ll need SOL in your wallet for transactions.
           </DialogDescription>
         </DialogHeader>
@@ -168,13 +168,13 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
         <div className="space-y-4">
           {!wallet.connected ? (
             <div className="text-center space-y-4">
-              <p className="text-sm text-sol-200">Connect your wallet to create a fund</p>
-              <WalletMultiButton className="!bg-gradient-to-r !from-sol-accent !to-cyan-400 !text-sol-900 !rounded-xl !font-semibold hover:!scale-105 !transition" />
+              <p className="text-sm text-white/70">Connect your wallet to create a fund</p>
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !font-semibold hover:!brightness-110 !transition" />
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Fund Name</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Fund Name</label>
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -185,7 +185,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Description</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Description</label>
                 <textarea
                   className="input w-full resize-none min-h-24"
                   rows={3}
@@ -197,7 +197,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Fund Type</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Fund Type</label>
                 <select
                   className="input w-full"
                   value={formData.fundType}
@@ -211,7 +211,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-sol-100">Performance Fee (%)</label>
+                  <label className="block text-sm font-medium mb-1 text-white/70">Performance Fee (%)</label>
                   <Input
                     type="number"
                     min="0"
@@ -222,7 +222,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-sol-100">Max Capacity (SOL)</label>
+                  <label className="block text-sm font-medium mb-1 text-white/70">Max Capacity (SOL)</label>
                   <Input
                     type="number"
                     min="0"
@@ -234,7 +234,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Initial Deposit (SOL)</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Initial Deposit (SOL)</label>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -252,10 +252,10 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   }}
                   className="input w-full"
                 />
-                <p className="text-xs text-sol-300 mt-1">
+                <p className="text-xs text-white/50 mt-1">
                   You&apos;ll own 100% of the fund initially. Others can invest later.
                 </p>
-                <p className="text-xs text-sol-300 mt-1">
+                <p className="text-xs text-white/50 mt-1">
                   Fund creation requires two signatures: 1) a small rent fee to create the fund accounts (~0.006–0.010 SOL), 2) your initial deposit (the SOL amount above).
                 </p>
               </div>
@@ -266,9 +266,9 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   id="isPublic"
                   checked={formData.isPublic}
                   onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                  className="h-4 w-4 accent-sol-accent"
+                  className="h-4 w-4 accent-brand-yellow"
                 />
-                <label htmlFor="isPublic" className="text-sm text-sol-100">Public fund (anyone can invest)</label>
+                <label htmlFor="isPublic" className="text-sm text-white/70">Public fund (anyone can invest)</label>
               </div>
 
               {error && (
@@ -283,14 +283,14 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   variant="outline"
                   onClick={onClose}
                   disabled={isLoading}
-                  className="flex-1 rounded-xl border-sol-600 text-sol-100"
+                  className="flex-1 rounded-full border border-white/20 text-white hover:bg-white/10"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition"
+                  className="flex-1 rounded-full bg-brand-yellow text-brand-black font-semibold hover:brightness-110 transition"
                 >
                   {isLoading ? 'Creating...' : 'Create Fund'}
                 </Button>

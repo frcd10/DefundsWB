@@ -54,28 +54,28 @@ export default function FundCard({ f }: { f: FundCardData }) {
   };
 
   return (
-    <div className="rounded-2xl p-4 sm:p-6 bg-sol-800/60 backdrop-blur border border-sol-700">
+    <div className="rounded-2xl p-4 sm:p-6 bg-white/5 backdrop-blur-sm border border-white/10">
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex justify-between items-start mb-1">
-        <h3 className="text-base sm:text-lg font-bold text-sol-50 leading-tight pr-2">{f.name}</h3>
-        <span className="px-2 py-1 rounded-lg bg-sol-accent text-sol-900 text-xs whitespace-nowrap">
+        <h3 className="text-base sm:text-lg font-bold text-white leading-tight pr-2">{f.name}</h3>
+        <span className="px-2 py-1 rounded-lg bg-brand-yellow text-brand-black text-xs font-semibold whitespace-nowrap">
           {f.type}
         </span>
       </div>
       {f.creatorWallet && (
-        <div className="mb-3 -mt-0.5 text-xs text-sol-300">
+        <div className="mb-3 -mt-0.5 text-xs text-white/60">
           Creator:&nbsp;
-          <Link href={`/profile/${f.creatorWallet}`} className="text-sol-accent hover:underline">
+          <Link href={`/profile/${f.creatorWallet}`} className="text-brand-yellow hover:underline">
             {f.handle || f.creatorWallet.slice(0, 6) + '...' + f.creatorWallet.slice(-4)}
           </Link>
         </div>
       )}
 
       {/* ── Description ────────────────────────────── */}
-      <p className="text-xs sm:text-sm text-sol-200 mb-3 line-clamp-2">{f.description}</p>
+  <p className="text-xs sm:text-sm text-white/70 mb-3 line-clamp-2">{f.description}</p>
 
       {/* ── Key metrics ────────────────────────────── */}
-      <div className="flex flex-wrap justify-between text-sol-100 text-xs sm:text-sm mb-4 gap-1">
+  <div className="flex flex-wrap justify-between text-white/70 text-xs sm:text-sm mb-4 gap-1">
         <span className="whitespace-nowrap">
           <b>{formatSol(f.tvl)}</b>&nbsp;SOL&nbsp;TVL
         </span>
@@ -100,7 +100,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
 
         <button
           onClick={invest}
-          className="w-full bg-sol-accent text-sol-900 font-bold py-2 rounded-xl hover:scale-105 transition text-sm"
+          className="w-full bg-brand-yellow text-brand-black font-semibold py-2.5 rounded-full hover:brightness-110 active:scale-[.99] transition text-sm"
         >
           Invest
         </button>
@@ -109,7 +109,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
       {/* ── Toggle details ─────────────────────────── */}
       <button
         onClick={() => setDetails(!details)}
-        className="mt-3 text-sol-200 text-xs hover:underline w-full text-left"
+        className="mt-3 text-white/60 hover:text-white hover:underline text-xs w-full text-left transition"
       >
         {details ? 'Hide info' : 'More info'}
       </button>
@@ -118,16 +118,17 @@ export default function FundCard({ f }: { f: FundCardData }) {
       {details && (
         <div className="mt-4">
           {/* PnL Performance graph */}
-          <h4 className="text-sol-50 text-sm font-semibold mb-2">P&L Performance</h4>
+          <h4 className="text-white text-sm font-semibold mb-2">P&L Performance</h4>
           <div className="h-32 sm:h-40 mb-3">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={performanceData}>
                 <Line
                   type="monotone"
                   dataKey="pnl"
-                  stroke="#44FFB3"
+                  stroke="var(--color-brand-yellow)"
                   strokeWidth={2}
                   dot={false}
+                  activeDot={{ r: 3, stroke: 'var(--color-brand-yellow)', strokeWidth: 2 }}
                 />
                 <XAxis dataKey="date" hide />
                 <YAxis hide domain={['dataMin', 'dataMax']} />
@@ -140,7 +141,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
           </div>
 
           {/* Stats grid */}
-          <ul className="text-sol-100 text-xs grid grid-cols-1 sm:grid-cols-2 gap-y-1 mt-3">
+          <ul className="text-white/70 text-xs grid grid-cols-1 sm:grid-cols-2 gap-y-1 mt-3">
             <li>
               Total trades&nbsp;<b>{f.stats.total}</b>
             </li>
@@ -168,8 +169,8 @@ export default function FundCard({ f }: { f: FundCardData }) {
           </ul>
 
           {/* Top edges */}
-          <h4 className="mt-3 text-sol-50 text-sm font-semibold">Top wins</h4>
-          <ul className="text-sol-100 text-xs space-y-0.5">
+          <h4 className="mt-3 text-white text-sm font-semibold">Top wins</h4>
+          <ul className="text-white/70 text-xs space-y-0.5">
             {f.stats.topWins.map((w) => (
               <li key={w.token} className="flex justify-between">
                 <span>{w.token}</span>
@@ -182,8 +183,8 @@ export default function FundCard({ f }: { f: FundCardData }) {
             ))}
           </ul>
 
-          <h4 className="mt-3 text-sol-50 text-sm font-semibold">Top losses</h4>
-          <ul className="text-sol-100 text-xs space-y-0.5">
+          <h4 className="mt-3 text-white text-sm font-semibold">Top losses</h4>
+          <ul className="text-white/70 text-xs space-y-0.5">
             {f.stats.topLosses.map((l) => (
               <li key={l.token} className="flex justify-between">
                 <span>{l.token}</span>

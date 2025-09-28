@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Clock3, Zap } from 'lucide-react';
+import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import FilterBar, { Filters } from '@/components/FilterBar';
-import FundCard from '@/components/FundCard';
+// import FundCard from '@/components/FundCard'; // legacy card view (no longer used)
 import { FundType, FundCardData } from '@/types/fund';
 // Removed mock create modal and mocks usage
 import { CreateRealFundModal } from '@/components/CreateRealFundModal';
 import { Button } from '@/components/ui/button';
+import { InvestInFundModal } from '@/components/InvestInFundModal';
+import { formatSol } from '@/lib/formatters';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 const PAGE_SIZE = 21;
 
@@ -49,6 +59,7 @@ export default function Home() {
   const [page, setPage] = useState(0);          // 0-based
   const [realFunds, setRealFunds] = useState<RealFund[]>([]);
   const [showCreateReal, setShowCreateReal] = useState(false);
+  const [selectedFundForInvest, setSelectedFundForInvest] = useState<FundCardData | null>(null);
 
   // Load real funds from backend
   const loadRealFunds = async () => {
@@ -123,8 +134,32 @@ export default function Home() {
   /* reset to first page when filters change */
   useEffect(() => setPage(0), [filters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredFunds.length / PAGE_SIZE));
-  const pageSlice = filteredFunds.slice(
+  /* Sorting --------------------------------------------------------- */
+  const [sort, setSort] = useState<{ key: keyof FundCardData; dir: 'asc' | 'desc' }>({ key: 'tvl', dir: 'desc' });
+
+  const sortedFunds = useMemo(() => {
+    const arr = [...filteredFunds];
+    arr.sort((a, b) => {
+      const { key, dir } = sort;
+      const av = (a as any)[key];
+      const bv = (b as any)[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return dir === 'asc' ? -1 : 1;
+      if (bv == null) return dir === 'asc' ? 1 : -1;
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return dir === 'asc' ? av - bv : bv - av;
+      }
+      const as = String(av).toLowerCase();
+      const bs = String(bv).toLowerCase();
+      if (as < bs) return dir === 'asc' ? -1 : 1;
+      if (as > bs) return dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filteredFunds, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedFunds.length / PAGE_SIZE));
+  const pageSlice = sortedFunds.slice(
     page * PAGE_SIZE,
     page * PAGE_SIZE + PAGE_SIZE,
   );
@@ -206,11 +241,17 @@ export default function Home() {
           <p className="text-white/80 text-center py-8">No fund matches your filters.</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-10">
-              {pageSlice.map((f) => (
-                <FundCard f={f} key={f.id} />
-              ))}
-            </div>
+            <FundsTable
+              funds={pageSlice}
+              sort={sort}
+              onSort={(k) =>
+                setSort((prev) =>
+                  prev.key === k
+                    ? { key: k, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                    : { key: k, dir: k === 'name' ? 'asc' : 'desc' }
+                )
+              }
+            />
 
             {/* Pagination controls */}
             <nav className="flex items-center justify-center gap-1 sm:gap-2 px-2">
@@ -228,10 +269,10 @@ export default function Home() {
                     <button
                       key={i}
                       onClick={() => goto(i)}
-                      className={`px-2 sm:px-3 py-1 rounded-lg text-sm ${
+                      className={`px-2 sm:px-3 py-1 rounded-lg text-sm transition ${
                         page === i
-                          ? 'bg-sol-accent text-sol-900 font-semibold'
-                          : 'bg-sol-800/60 text-sol-100'
+                          ? 'bg-brand-yellow text-brand-black font-semibold'
+                          : 'bg-brand-surface text-white/70 hover:text-white hover:bg-brand-surface/80'
                       }`}
                     >
                       {i + 1}
@@ -253,7 +294,7 @@ export default function Home() {
                     {page > 0 && (
                       <button
                         onClick={() => goto(page - 1)}
-                        className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-brand-surface text-white/70 text-sm hover:text-white hover:bg-brand-surface/80 transition"
                       >
                         {page}
                       </button>
@@ -266,7 +307,7 @@ export default function Home() {
                     {page < totalPages - 1 && (
                       <button
                         onClick={() => goto(page + 1)}
-                        className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-brand-surface text-white/70 text-sm hover:text-white hover:bg-brand-surface/80 transition"
                       >
                         {page + 2}
                       </button>
@@ -278,7 +319,7 @@ export default function Home() {
                         )}
                         <button
                           onClick={() => goto(totalPages - 1)}
-                          className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 text-sm hover:text-white hover:bg-white/10 transition"
+                          className="px-2 sm:px-3 py-1 rounded-lg bg-brand-surface text-white/70 text-sm hover:text-white hover:bg-brand-surface/80 transition"
                         >
                           {totalPages}
                         </button>
@@ -319,5 +360,200 @@ function IntroStep({ icon, title, body }: { icon: React.ReactNode; title: string
       </header>
       <p className="text-sm leading-relaxed text-white/70">{body}</p>
     </article>
+  );
+}
+
+/* ------------------------------------------------------------------
+   FundsTable – institutional list with expandable detail rows
+------------------------------------------------------------------- */
+function FundsTable({
+  funds,
+  sort,
+  onSort,
+}: {
+  funds: FundCardData[];
+  sort: { key: keyof FundCardData; dir: 'asc' | 'desc' };
+  onSort: (k: keyof FundCardData) => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
+  const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
+
+  const toggle = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const headerCell = (label: string, key: keyof FundCardData) => {
+    const active = sort.key === key;
+    return (
+      <th
+        onClick={() => onSort(key)}
+        className={`px-4 py-3 text-left text-xs font-semibold tracking-wide cursor-pointer select-none whitespace-nowrap ${active ? 'text-white' : 'text-white/70'} hover:text-white transition`}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {active && (sort.dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+        </span>
+      </th>
+    );
+  };
+
+  return (
+  <div className="border border-white/10 rounded-2xl overflow-hidden bg-brand-surface/70 backdrop-blur-sm">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+      <tr className="bg-brand-surface text-white/90">
+            <th className="w-10"></th>
+            {headerCell('Fund', 'name')}
+            {headerCell('Type', 'type')}
+            {headerCell('TVL (SOL)', 'tvl')}
+            {headerCell('Perf Fee %', 'perfFee')}
+            {headerCell('Investors', 'investorCount')}
+            <th className="px-4 py-3 text-right text-xs font-semibold text-white/70">Actions</th>
+          </tr>
+        </thead>
+  <tbody className="divide-y divide-white/5 bg-brand-surface">
+          {funds.map((f) => {
+            const isOpen = expanded.has(f.id);
+            const performanceData = (f.performance || []).map((p, idx, arr) => {
+              if ('pnl' in p && p.pnl !== undefined) return p as any;
+              const base = arr[0]?.nav || 10;
+              const pnl = p.nav - base;
+              return { ...p, pnl, pnlPercentage: ((p.nav - base) / base) * 100 };
+            });
+            return (
+              <>
+                <tr
+                  key={f.id}
+                  className="group transition bg-brand-surface hover:bg-brand-yellow/5 hover:shadow-[0_0_0_1px_rgba(255,219,41,0.25)] hover:-translate-y-[1px] duration-200 ease-out"
+                >
+                  <td className="px-2 py-3 align-top">
+                    <button
+                      onClick={() => toggle(f.id)}
+                      className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 group-hover:bg-brand-yellow/10 group-hover:border-brand-yellow/30 group-hover:text-white"
+                      aria-label={isOpen ? 'Collapse' : 'Expand'}
+                    >
+                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">{f.name}</td>
+                  <td className="px-4 py-3 align-top text-white/70 whitespace-nowrap">{f.type}</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{formatSol(f.tvl)}</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.perfFee}%</td>
+                  <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.investorCount}</td>
+                  <td className="px-4 py-3 align-top text-right">
+                    <button
+                      onClick={() => setInvestTarget(f)}
+                      className="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black text-xs font-semibold px-4 py-2 hover:brightness-110 transition"
+                    >
+                      Invest
+                    </button>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="bg-brand-surface" key={f.id + '-detail'}>
+                    <td colSpan={7} className="px-6 pb-8 pt-4">
+                      <div className="grid lg:grid-cols-3 gap-8">
+                        {/* Meta / Stats */}
+                        <div className="space-y-6 lg:col-span-1">
+                          <div>
+                            <h4 className="text-sm font-semibold text-white mb-1">Description</h4>
+                            <p className="text-xs text-white/70 leading-relaxed">
+                              {f.description || '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-white mb-2">Stats</h4>
+                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/70">
+                              <li>Trades: <span className="text-white">{f.stats.total}</span></li>
+                              <li>Win/Loss: <span className="text-white">{f.stats.wins}/{f.stats.losses}</span></li>
+                              <li className="col-span-2">Avg Win: <span className="text-white">{f.stats.avgWinPct}% ({f.stats.avgWinSol} SOL)</span></li>
+                              <li className="col-span-2">Avg Loss: <span className="text-white">{f.stats.avgLossPct}% ({f.stats.avgLossSol} SOL)</span></li>
+                              <li className="col-span-2">Drawdown: <span className="text-white">{f.stats.drawdownPct}% ({f.stats.drawdownSol} SOL)</span></li>
+                            </ul>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <h5 className="text-xs font-semibold text-white mb-1">Top Wins</h5>
+                              <ul className="text-[11px] text-white/70 space-y-0.5">
+                                {f.stats.topWins.slice(0, 5).map(w => (
+                                  <li key={w.token} className="flex justify-between"><span>{w.token}</span><span>{w.pct}%</span></li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div>
+                              <h5 className="text-xs font-semibold text-white mb-1">Top Losses</h5>
+                              <ul className="text-[11px] text-white/70 space-y-0.5">
+                                {f.stats.topLosses.slice(0, 5).map(l => (
+                                  <li key={l.token} className="flex justify-between"><span>{l.token}</span><span>{l.pct}%</span></li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                          {f.inviteOnly && (
+                            <div className="space-y-2">
+                              <input
+                                value={inviteCodes[f.id] || ''}
+                                onChange={(e) => setInviteCodes(prev => ({ ...prev, [f.id]: e.target.value }))}
+                                placeholder="Invite code"
+                                className="input w-full text-xs"
+                              />
+                              <p className="text-[10px] text-white/50">This fund requires an invite code to invest.</p>
+                            </div>
+                          )}
+                          <div>
+                            <button
+                              onClick={() => setInvestTarget(f)}
+                              className="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black text-xs font-semibold px-5 py-2 hover:brightness-110 transition"
+                            >Invest Now</button>
+                          </div>
+                        </div>
+                        {/* Chart */}
+                        <div className="lg:col-span-2">
+                          <h4 className="text-sm font-semibold text-white mb-3">P&L Performance</h4>
+                          <div className="h-56 bg-brand-surface/90 border border-white/10 rounded-xl p-3">
+                            {performanceData.length > 1 ? (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={performanceData}>
+                                  <Line type="monotone" dataKey="pnl" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={false} />
+                                  <XAxis dataKey="date" hide />
+                                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(2)} SOL`, 'PnL']} labelFormatter={() => ''} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-xs text-white/50">Insufficient data</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            );
+          })}
+          {funds.length === 0 && (
+            <tr>
+              <td colSpan={7} className="px-6 py-12 text-center text-sm text-white/60">No fund matches your filters.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {/* Local invest modal */}
+      {investTarget && (
+        <InvestInFundModal
+          isOpen={true}
+          onClose={() => setInvestTarget(null)}
+          fundId={investTarget.id}
+          fundName={investTarget.name}
+          isRwa={false}
+        />
+      )}
+    </div>
   );
 }

@@ -34,7 +34,7 @@ export default function Landing() {
         </p>
 
         {/* Primary CTAs */}
-        <div className="mt-4 flex flex-col sm:flex-row items-center gap-4">
+  <div className="mt-4 flex flex-col sm:flex-row items-center gap-4">
           <Link
             href="/Funds"
             className="cta-primary inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black hover:brightness-110 transition min-w-[220px]"
@@ -48,6 +48,7 @@ export default function Landing() {
             Explore RWA
           </Link>
         </div>
+  {/* safelist: bg-brand-yellow text-brand-black */}
       </section>
     </>
   );

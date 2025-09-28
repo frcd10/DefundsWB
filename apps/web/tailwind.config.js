@@ -5,6 +5,11 @@ module.exports = {
   theme: {
   	extend: {
   		colors: {
+				brand: {
+					black: 'var(--color-brand-black)',
+					surface: 'var(--color-brand-surface)',
+					yellow: 'var(--color-brand-yellow)'
+				},
   			sol: {
   				'50': '#f2efff',
   				'100': '#d8ceff',

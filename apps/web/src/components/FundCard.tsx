@@ -125,7 +125,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
                 <Line
                   type="monotone"
                   dataKey="pnl"
-                  stroke="var(--color-brand-accent)"
+                  stroke="#44FFB3"
                   strokeWidth={2}
                   dot={false}
                 />

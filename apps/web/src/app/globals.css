@@ -2,40 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design Tokens Injection (generated from collors.ts) */
-:root {
-  --color-brand-darkNavy: #050021;
-  --color-brand-accent: #44FFB3;
-  --color-semantic-success: #44FFB3;
-  --color-semantic-danger: #ef4444;
-  --color-neutral-white: #FFFFFF;
-  --color-neutral-black: #000000;
-  /* Extended sol scale tokens */
-  --color-sol-50: #f2efff;
-  --color-sol-100: #d8ceff;
-  --color-sol-200: #b39cff;
-  --color-sol-300: #8f6aff;
-  --color-sol-400: #6a38ff;
-  --color-sol-500: #5329e6;
-  --color-sol-600: #3f1fb4;
-  --color-sol-700: #2b1482;
-  --color-sol-800: #170a51;
-  --color-sol-900: #050021; /* alias of brand dark navy */
-  /* RGB channel variants for alpha utilities */
-  --color-brand-darkNavy-rgb: 5 0 33;
-  --color-brand-accent-rgb: 68 255 179;
-  --color-sol-50-rgb: 242 239 255;
-  --color-sol-100-rgb: 216 206 255;
-  --color-sol-200-rgb: 179 156 255;
-  --color-sol-300-rgb: 143 106 255;
-  --color-sol-400-rgb: 106 56 255;
-  --color-sol-500-rgb: 83 41 230;
-  --color-sol-600-rgb: 63 31 180;
-  --color-sol-700-rgb: 43 20 130;
-  --color-sol-800-rgb: 23 10 81;
-  --color-sol-900-rgb: 5 0 33;
-}
-
 .input {
   @apply w-full bg-sol-800 bg-opacity-50
          border border-sol-600 rounded-lg
@@ -72,7 +38,7 @@
     width: 100vw !important;
     height: 100vh !important;
     z-index: 99999 !important;
-  background: var(--color-brand-darkNavy) !important;
+    background: #050021 !important;
     display: block !important;
     overflow: auto !important;
     pointer-events: auto !important;
@@ -93,6 +59,15 @@
 
 @layer base {
   :root {
+  /* Brand palette (reintroduced) */
+  --color-brand-black: #000000;
+  --color-brand-surface: #121212; /* near-black used for navbar */
+  --color-brand-yellow: #F6D23A;
+
+  /* RGB channels for opacity utilities */
+  --color-brand-black-rgb: 0 0 0;
+  --color-brand-surface-rgb: 18 18 18;
+  --color-brand-yellow-rgb: 246 210 58;
 
     --background: 0 0% 100%;
 
@@ -201,6 +176,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+  @apply bg-background text-foreground;
+  /* Ensure base page content stays white while navbar can use brand-surface */
   }
 }
+
+/* Utility classes (optional) */
+.bg-brand-surface { background-color: var(--color-brand-surface); }
+.bg-brand-black { background-color: var(--color-brand-black); }
+.text-brand-yellow { color: var(--color-brand-yellow); }
+

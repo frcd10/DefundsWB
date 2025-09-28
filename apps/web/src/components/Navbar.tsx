@@ -87,7 +87,6 @@ export default function Navbar() {
               </Link>
             </li>
           )}
-      <li><Link href="/products" className="hover:text-brand-yellow transition-colors">Products</Link></li>
       <li><Link href="/news" className="hover:text-brand-yellow transition-colors">News</Link></li>
       <li><Link href="/contact" className="hover:text-brand-yellow transition-colors">Contact</Link></li>
         </ul>
@@ -211,15 +210,6 @@ export default function Navbar() {
                     </Link>
                   </li>
                 )}
-                <li>
-                  <Link 
-                    href="/products" 
-                    className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
-                    onClick={closeMobileMenu}
-                  >
-                    Products
-                  </Link>
-                </li>
                 <li>
                   <Link 
                     href="/news" 

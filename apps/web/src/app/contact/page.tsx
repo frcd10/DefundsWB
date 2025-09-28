@@ -4,12 +4,12 @@ import { Mail, Send, Globe2, MapPin, Users, Linkedin, Github } from 'lucide-reac
 
 export default function Contact() {
   return (
-    <main className="min-h-screen bg-sol-900 text-sol-50 pb-24">
+  <main className="min-h-screen bg-brand-black text-white pb-24">
       <section className="max-w-4xl mx-auto px-4 pt-28">
-        <h1 className="text-5xl font-extrabold mb-4 drop-shadow-lg">
+  <h1 className="text-5xl font-semibold mb-4">
           Get&nbsp;in&nbsp;Touch
         </h1>
-        <p className="text-lg text-sol-200 mb-12 max-w-2xl">
+  <p className="text-lg text-white/60 mb-12 max-w-2xl">
           Questions about vaults, listings, or integrations? Reach out through any
           of the channels below—no ticket systems or captchas, just real people.
         </p>
@@ -17,25 +17,25 @@ export default function Contact() {
         {/* Contact cards ------------------------------------------------ */}
         <div className="grid md:grid-cols-2 gap-8 mb-20">
           <ContactCard
-            icon={<Mail className="w-6 h-6 text-sol-accent" />}
+            icon={<Mail className="w-6 h-6 text-brand-yellow" />}
             title="Email"
             lines={['contact@defunds.finance']}
           />
 
           <ContactCard
-            icon={<Send className="w-6 h-6 text-sol-accent" />}
+            icon={<Send className="w-6 h-6 text-brand-yellow" />}
             title="Telegram"
             lines={['@felipe_fel', 'Group chat: t.me/defundsfinance']}
           />
 
           <ContactCard
-            icon={<Globe2 className="w-6 h-6 text-sol-accent" />}
+            icon={<Globe2 className="w-6 h-6 text-brand-yellow" />}
             title="Discord"
             lines={['discord.gg/blchead']}
           />
 
           <ContactCard
-            icon={<MapPin className="w-6 h-6 text-sol-accent" />}
+            icon={<MapPin className="w-6 h-6 text-brand-yellow" />}
             title="HQ (for paperwork only)"
             lines={[
               'Defunds.Finance',
@@ -47,10 +47,10 @@ export default function Contact() {
         {/* Team Section ------------------------------------------------ */}
         <section className="mt-20">
           <div className="flex items-center gap-3 mb-8">
-            <Users className="w-8 h-8 text-sol-accent" />
-            <h2 className="text-4xl font-extrabold">Meet the Team</h2>
+            <Users className="w-8 h-8 text-brand-yellow" />
+            <h2 className="text-4xl font-semibold">Meet the Team</h2>
           </div>
-          <p className="text-lg text-sol-200 mb-12 max-w-2xl">
+          <p className="text-lg text-white/60 mb-12 max-w-2xl">
             Our team combines traditional finance experience with cutting-edge 
             Web3 expertise to revolutionize asset management.
           </p>
@@ -93,12 +93,12 @@ function ContactCard({
   lines: string[];
 }) {
   return (
-    <article className="bg-sol-800/60 rounded-2xl p-6 flex gap-4">
+  <article className="rounded-2xl p-6 flex gap-4 bg-white/5 border border-white/10 backdrop-blur-sm">
       <div>{icon}</div>
       <div>
-        <h2 className="font-semibold text-sol-accent mb-1">{title}</h2>
+        <h2 className="font-semibold text-brand-yellow mb-1 tracking-wide text-sm uppercase">{title}</h2>
         {lines.map((l) => (
-          <p key={l} className="text-sol-200 text-sm" dangerouslySetInnerHTML={{ __html: l }} />
+          <p key={l} className="text-white/60 text-sm" dangerouslySetInnerHTML={{ __html: l }} />
         ))}
       </div>
     </article>
@@ -122,18 +122,18 @@ function TeamMember({
   twitter?: string;
 }) {
   return (
-    <article className="bg-sol-800/60 rounded-2xl p-6">
+  <article className="rounded-2xl p-6 bg-white/5 border border-white/10 backdrop-blur-sm">
       <div className="mb-4">
-        <h3 className="font-bold text-xl text-sol-accent mb-1">{name}</h3>
-        <p className="font-semibold text-sol-200 mb-3">{role}</p>
-        <p className="text-sol-300 text-sm leading-relaxed">{bio}</p>
+  <h3 className="font-semibold text-lg text-white mb-1">{name}</h3>
+  <p className="font-medium text-white/70 mb-3 text-sm">{role}</p>
+  <p className="text-white/50 text-sm leading-relaxed">{bio}</p>
       </div>
       
       <div className="flex gap-3">
         {linkedin && (
           <a 
             href={`https://linkedin.com/in/${linkedin}`}
-            className="text-sol-accent hover:text-white transition-colors"
+            className="text-brand-yellow hover:text-white transition-colors"
             aria-label={`${name} LinkedIn`}
           >
             <Linkedin className="w-5 h-5" />
@@ -142,7 +142,7 @@ function TeamMember({
         {github && (
           <a 
             href={`https://github.com/${github}`}
-            className="text-sol-accent hover:text-white transition-colors"
+            className="text-brand-yellow hover:text-white transition-colors"
             aria-label={`${name} GitHub`}
           >
             <Github className="w-5 h-5" />
@@ -151,7 +151,7 @@ function TeamMember({
         {twitter && (
           <a 
             href={`https://twitter.com/${twitter}`}
-            className="text-sol-accent hover:text-white transition-colors"
+            className="text-brand-yellow hover:text-white transition-colors"
             aria-label={`${name} Twitter`}
           >
             <Send className="w-5 h-5" />

@@ -29,14 +29,14 @@ The Ideathon Solana Brasil brings together the brightest minds in the Solana eco
 
 export default function NewsPage() {
   return (
-    <main className="min-h-screen bg-sol-900 text-sol-50 pb-24">
+    <main className="min-h-screen bg-brand-black text-white pb-24">
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28">
         {/* Header */}
         <div className="mb-12 sm:mb-16 text-center sm:text-left">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 drop-shadow-lg">
-            Latest <span className="text-sol-accent">News</span>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold mb-4">
+            Latest <span className="text-brand-yellow">News</span>
           </h1>
-          <p className="text-base sm:text-lg text-sol-200 max-w-2xl mx-auto sm:mx-0">
+          <p className="text-base sm:text-lg text-white/60 max-w-2xl mx-auto sm:mx-0">
             Stay updated with the latest developments, partnerships, and milestones at Defunds.Finance
           </p>
         </div>
@@ -44,34 +44,34 @@ export default function NewsPage() {
         {/* News Articles */}
         <div className="space-y-8 sm:space-y-12 mb-12 sm:mb-16">
           {newsArticles.map((article, index) => (
-            <article key={article.id} className="bg-sol-800/60 rounded-2xl p-4 sm:p-6 lg:p-8">
+            <article key={article.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 lg:p-8 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
-                <span className="bg-sol-accent text-sol-900 px-3 py-1 rounded-full text-sm font-semibold w-fit">
+                <span className="bg-brand-yellow text-brand-black px-3 py-1 rounded-full text-xs sm:text-sm font-medium w-fit tracking-wide">
                   {article.category}
                 </span>
-                <span className="text-sol-200 text-sm sm:text-base">{article.date}</span>
-                <span className="text-sol-200 hidden sm:inline">•</span>
-                <span className="text-sol-200 text-sm sm:text-base">By {article.author}</span>
+                <span className="text-white/50 text-sm sm:text-base">{article.date}</span>
+                <span className="text-white/40 hidden sm:inline">•</span>
+                <span className="text-white/50 text-sm sm:text-base">By {article.author}</span>
               </div>
-              
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-sol-50 mb-4 leading-tight">
+
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-4 leading-tight">
                 {article.title}
               </h2>
-              
-              <p className="text-base sm:text-lg text-sol-200 mb-6 leading-relaxed">
+
+              <p className="text-base sm:text-lg text-white/70 mb-6 leading-relaxed">
                 {article.summary}
               </p>
-              
+
               <div className="space-y-4">
                 {article.content.split('\n\n').map((paragraph, paragraphIndex) => (
-                  <p key={paragraphIndex} className="text-sol-200 leading-relaxed text-sm sm:text-base">
+                  <p key={paragraphIndex} className="text-white/60 leading-relaxed text-sm sm:text-base">
                     {paragraph}
                   </p>
                 ))}
               </div>
-              
+
               {index < newsArticles.length - 1 && (
-                <hr className="mt-8 border-sol-700" />
+                <hr className="mt-8 border-white/10" />
               )}
             </article>
           ))}
@@ -79,20 +79,20 @@ export default function NewsPage() {
 
         {/* Newsletter Subscription */}
         <div className="text-center">
-          <div className="bg-sol-800/60 rounded-2xl p-4 sm:p-6 lg:p-8">
-            <h3 className="text-xl sm:text-2xl font-bold text-sol-50 mb-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 lg:p-8 backdrop-blur-sm">
+            <h3 className="text-xl sm:text-2xl font-semibold text-white mb-4">
               Stay in the Loop
             </h3>
-            <p className="text-sol-200 mb-6 text-sm sm:text-base">
+            <p className="text-white/60 mb-6 text-sm sm:text-base">
               Subscribe to our newsletter for the latest updates and insights from the DeFi world
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md mx-auto">
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-3 sm:py-2 rounded-lg bg-sol-900 border border-sol-700 text-sol-50 placeholder-sol-300 focus:outline-none focus:border-sol-accent text-sm sm:text-base"
+                className="input flex-1 rounded-full"
               />
-              <Button className="bg-sol-accent text-sol-900 hover:bg-sol-accent/90 font-semibold py-3 sm:py-2 min-h-[44px]">
+              <Button className="rounded-full bg-brand-yellow text-brand-black hover:brightness-110 font-semibold py-3 sm:py-2 min-h-[44px]">
                 Subscribe
               </Button>
             </div>

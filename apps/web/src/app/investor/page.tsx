@@ -9,114 +9,109 @@ export default function InvestorPage() {
   const [openWaitlist, setOpenWaitlist] = useState(false);
 
   return (
-    <main className="min-h-screen bg-sol-900 text-sol-50">
+    <main className="min-h-screen bg-brand-black text-white pb-24">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-b from-sol-900 via-sol-850 to-sol-800 px-4 pt-16 sm:pt-28 pb-12 sm:pb-20">
+      <section className="px-4 pt-20 sm:pt-32 pb-16 border-b border-white/5 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_60%)]">
         <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-6xl font-extrabold mb-4 sm:mb-6 drop-shadow-lg">
+          <h1 className="text-4xl sm:text-6xl font-semibold mb-6 leading-tight">
             Join the Future of
-            <span className="text-sol-accent block">Asset Management</span>
+            <span className="text-brand-yellow block">Asset Management</span>
           </h1>
-          <p className="text-lg sm:text-xl text-sol-200 mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed">
-            Become a seed investor in the world&apos;s first fully decentralized hedge fund platform. 
-            We&apos;re revolutionizing asset management with self-custodial funds, transparent operations, 
-            and unprecedented investor protection.
+          <p className="text-lg sm:text-xl text-white/60 mb-10 max-w-3xl mx-auto leading-relaxed">
+            Become a seed investor in the first fully decentralized hedge fund platform. We\'re
+            redefining asset management with self-custodial vaults, transparent operations, and
+            enforced on-chain protections.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 sm:mb-12">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
             <Button
               size="lg"
-              className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
-                         px-8 py-3 font-semibold text-sol-900 shadow-lg text-lg
-                         transition hover:scale-105"
+              className="w-64 rounded-full bg-brand-yellow text-brand-black font-semibold px-8 py-3 text-lg shadow hover:brightness-110 transition"
               onClick={() => setOpenWaitlist(true)}
             >
               💎 Invest in Defunds
             </Button>
             <Button
               size="lg"
-              variant="outline"
-              className="w-64 rounded-xl border-2 border-sol-accent text-sol-accent
-                         px-8 py-3 font-semibold text-lg hover:bg-sol-accent hover:text-sol-900"
+              variant="ghost"
+              className="w-64 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold px-8 py-3 text-lg transition"
             >
               📊 View Pitch Deck
             </Button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <DollarSign className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">$50M+ Target AUM</h3>
-              <p className="text-sol-200 text-sm">First year projection</p>
+          <div className="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto">
+            <div className="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <DollarSign className="w-8 h-8 text-brand-yellow mb-3 mx-auto" />
+              <h3 className="font-semibold text-lg mb-1">$50M+ Target AUM</h3>
+              <p className="text-white/50 text-sm">First year projection</p>
             </div>
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <Users className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">10,000+ Users</h3>
-              <p className="text-sol-200 text-sm">Expected platform adoption</p>
+            <div className="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Users className="w-8 h-8 text-brand-yellow mb-3 mx-auto" />
+              <h3 className="font-semibold text-lg mb-1">10,000+ Users</h3>
+              <p className="text-white/50 text-sm">Expected platform adoption</p>
             </div>
-            <div className="bg-sol-800/60 rounded-xl p-4 sm:p-6">
-              <Globe className="w-8 h-8 text-sol-accent mb-3 mx-auto" />
-              <h3 className="font-bold text-lg mb-2">Global Market</h3>
-              <p className="text-sol-200 text-sm">$4.5T hedge fund industry</p>
+            <div className="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Globe className="w-8 h-8 text-brand-yellow mb-3 mx-auto" />
+              <h3 className="font-semibold text-lg mb-1">Global Market</h3>
+              <p className="text-white/50 text-sm">$4.5T hedge fund industry</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Why Invest Section */}
-      <section className="py-20 px-4">
+      <section className="py-24 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-extrabold text-center mb-16">
-            Why Invest in <span className="text-sol-accent">Defunds</span>?
+          <h2 className="text-4xl font-semibold text-center mb-16">
+            Why Invest in <span className="text-brand-yellow">Defunds</span>?
           </h2>
-          
-          <div className="grid lg:grid-cols-2 gap-12">
-            <div className="space-y-8">
+
+          <div className="grid lg:grid-cols-2 gap-14">
+            <div className="space-y-10">
               <InvestmentReason
-                icon={<TrendingUp className="w-8 h-8 text-sol-accent" />}
+                icon={<TrendingUp className="w-8 h-8 text-brand-yellow" />}
                 title="Revolutionary Market Opportunity"
-                description="First-mover advantage in the $4.5 trillion hedge fund industry transitioning to Web3. Traditional funds are slow, opaque, and expensive. We're building the future."
+                description="First‑mover advantage in a $4.5T industry moving on‑chain. Legacy hedge funds are slow, opaque, and expensive. We\'re building the next operating system for asset management."
               />
-              
               <InvestmentReason
-                icon={<Shield className="w-8 h-8 text-sol-accent" />}
-                title="Risk-Free Innovation"
-                description="Self-custodial smart contracts eliminate counterparty risk. Investors maintain full control of their assets while benefiting from professional management."
+                icon={<Shield className="w-8 h-8 text-brand-yellow" />}
+                title="Self-Custodial Architecture"
+                description="Smart contracts enforce all rules. Investors always control withdrawals while benefiting from professional execution—eliminating traditional counterparty risk."
               />
-              
               <InvestmentReason
-                icon={<Zap className="w-8 h-8 text-sol-accent" />}
-                title="Scalable Technology"
-                description="Built on Solana for instant settlements and minimal fees. Our open-source architecture allows rapid deployment of new fund strategies and global accessibility."
+                icon={<Zap className="w-8 h-8 text-brand-yellow" />}
+                title="Scalable & Transparent"
+                description="Built on Solana for low latency & minimal fees. Open-source and modular: rapid deployment of new strategies with global accessibility."
               />
             </div>
-            
-            <div className="bg-sol-800/60 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold mb-6 text-center">Investment Highlights</h3>
-              <ul className="space-y-4">
+
+            <div className="rounded-2xl p-8 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <h3 className="text-2xl font-semibold mb-6 text-center">Investment Highlights</h3>
+              <ul className="space-y-4 text-sm">
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Proven Team:</strong> TradiFi market team and Web3 veterans</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
+                  <span><strong>Proven Team:</strong> TradiFi market expertise + Web3 builders</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
                   <span><strong>Technology:</strong> self-destructing key architecture</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Revenue Model:</strong> 0.1%% management/month + 20% of performance fees</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
+                  <span><strong>Revenue Model:</strong> 0.1% management / month + 20% performance</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Early Stage Advantage:</strong> Pre-launch valuation opportunity</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
+                  <span><strong>Early Stage Advantage:</strong> Pre‑launch valuation</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Token Economics:</strong> Governance and fee-sharing utility token</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
+                  <span><strong>Token Economics:</strong> Governance + fee sharing</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-sol-accent font-bold">•</span>
-                  <span><strong>Global Compliance:</strong> Built for regulatory clarity and institutional adoption</span>
+                  <span className="text-brand-yellow font-semibold">•</span>
+                  <span><strong>Global Compliance:</strong> Built for institutional adoption</span>
                 </li>
               </ul>
             </div>
@@ -125,39 +120,37 @@ export default function InvestorPage() {
       </section>
 
       {/* Investment Tiers Section */}
-      <section className="py-20 px-4 bg-sol-800/30">
+      <section className="py-24 px-4 bg-white/5 border-y border-white/10">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-extrabold text-center mb-16">
-            Investment <span className="text-sol-accent">Opportunities</span>
+          <h2 className="text-4xl font-semibold text-center mb-16">
+            Investment <span className="text-brand-yellow">Opportunities</span>
           </h2>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             <InvestmentTier
               tier="Angel"
               amount="$5K - $25K"
               features={[
-                "Early investor status",
-                "Increase position in 25% in 1 year at same terms",
+                'Early investor status',
+                'Increase position 25% in year one at same terms',
               ]}
               highlight={false}
             />
-            
             <InvestmentTier
               tier="Strategic"
-              amount="$25k - $150K"
+              amount="$25K - $150K"
               features={[
-                "Product input influence",
-                 "Increase position in 30% in 1 year at same terms",
+                'Product influence access',
+                'Increase position 30% in year one at same terms',
               ]}
               highlight={true}
             />
-            
             <InvestmentTier
               tier="Lead"
               amount="$150K+"
               features={[
-                "Board seat",
-                 "Increase position in 35% in 1 year at same terms",
+                'Board seat / governance input',
+                'Increase position 35% in year one at same terms',
               ]}
               highlight={false}
             />
@@ -166,49 +159,45 @@ export default function InvestorPage() {
       </section>
 
       {/* Contact Section */}
-      <section className="py-20 px-4">
+      <section className="py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-extrabold mb-8">
-            Ready to <span className="text-sol-accent">Invest</span>?
+          <h2 className="text-4xl font-semibold mb-8">
+            Ready to <span className="text-brand-yellow">Invest</span>?
           </h2>
-          <p className="text-xl text-sol-200 mb-12 max-w-2xl mx-auto">
-            Join visionary investors who are shaping the future of asset management. 
-            Limited spots available for our seed round.
+          <p className="text-xl text-white/60 mb-12 max-w-2xl mx-auto">
+            Join visionary investors shaping the future of asset management. Limited allocation in
+            the seed round.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-6 justify-center mb-12">
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center mb-14">
             <Button
               size="lg"
-              className="w-64 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400
-                         px-8 py-3 font-semibold text-sol-900 shadow-lg text-lg
-                         transition hover:scale-105"
+              className="w-64 rounded-full bg-brand-yellow text-brand-black font-semibold px-8 py-3 text-lg shadow hover:brightness-110 transition"
               onClick={() => setOpenWaitlist(true)}
             >
               💰 Start Investment Process
             </Button>
           </div>
-          
-          <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
-            <div className="bg-sol-800/60 rounded-xl p-6 flex items-center gap-4">
-              <Mail className="w-6 h-6 text-sol-accent" />
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="rounded-2xl p-6 flex items-center gap-4 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Mail className="w-6 h-6 text-brand-yellow" />
               <div className="text-left">
                 <h3 className="font-semibold">Email</h3>
-                <p className="text-sol-200 text-sm">contact@defunds.finance</p>
+                <p className="text-white/60 text-sm">contact@defunds.finance</p>
               </div>
             </div>
-            
-            <div className="bg-sol-800/60 rounded-xl p-6 flex items-center gap-4">
-              <Send className="w-6 h-6 text-sol-accent" />
+            <div className="rounded-2xl p-6 flex items-center gap-4 bg-white/5 border border-white/10 backdrop-blur-sm">
+              <Send className="w-6 h-6 text-brand-yellow" />
               <div className="text-left">
                 <h3 className="font-semibold">Telegram</h3>
-                <p className="text-sol-200 text-sm">@felipe_fel</p>
+                <p className="text-white/60 text-sm">@felipe_fel</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Waitlist Modal */}
       {openWaitlist && (
         <WaitlistModal forRole="investor" onClose={() => setOpenWaitlist(false)} />
       )}
@@ -217,50 +206,41 @@ export default function InvestorPage() {
 }
 
 // Helper Components
-function InvestmentReason({ icon, title, description }: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
+function InvestmentReason({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
     <div className="flex gap-4">
       <div className="flex-shrink-0">{icon}</div>
       <div>
-        <h3 className="text-xl font-bold mb-2 text-sol-accent">{title}</h3>
-        <p className="text-sol-200 leading-relaxed">{description}</p>
+        <h3 className="text-lg font-semibold mb-1 text-brand-yellow">{title}</h3>
+        <p className="text-white/60 leading-relaxed text-sm sm:text-base">{description}</p>
       </div>
     </div>
   );
 }
 
-function InvestmentTier({ tier, amount, features, highlight }: {
-  tier: string;
-  amount: string;
-  features: string[];
-  highlight: boolean;
-}) {
+function InvestmentTier({ tier, amount, features, highlight }: { tier: string; amount: string; features: string[]; highlight: boolean }) {
   return (
-    <div className={`rounded-2xl p-8 ${
-      highlight 
-        ? 'bg-gradient-to-b from-sol-accent/20 to-sol-800/60 border-2 border-sol-accent' 
-        : 'bg-sol-800/60'
-    }`}>
+    <div
+      className={`rounded-2xl p-8 relative overflow-hidden ${
+        highlight
+          ? 'bg-brand-yellow/10 border border-brand-yellow shadow-[0_0_0_1px_rgba(255,255,255,0.04)]'
+          : 'bg-white/5 border border-white/10 backdrop-blur-sm'
+      }`}
+    >
       {highlight && (
-        <div className="text-center mb-4">
-          <span className="bg-sol-accent text-sol-900 px-3 py-1 rounded-full text-sm font-bold">
+        <div className="text-center mb-5">
+          <span className="bg-brand-yellow text-brand-black px-3 py-1 rounded-full text-xs font-semibold tracking-wide">
             MOST POPULAR
           </span>
         </div>
       )}
-      
-      <h3 className="text-2xl font-bold text-center mb-2">{tier}</h3>
-      <p className="text-xl text-sol-accent font-semibold text-center mb-6">{amount}</p>
-      
-      <ul className="space-y-3">
-        {features.map((feature, index) => (
-          <li key={index} className="flex items-start gap-3">
-            <span className="text-sol-accent font-bold">✓</span>
-            <span className="text-sol-200">{feature}</span>
+      <h3 className="text-2xl font-semibold text-center mb-1">{tier}</h3>
+      <p className="text-lg text-brand-yellow font-semibold text-center mb-6">{amount}</p>
+      <ul className="space-y-3 text-sm">
+        {features.map((feature, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <span className="text-brand-yellow font-semibold">✓</span>
+            <span className="text-white/60">{feature}</span>
           </li>
         ))}
       </ul>

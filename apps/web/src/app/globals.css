@@ -190,3 +190,50 @@
 /* Institutional surface + semantic text utilities */
 /* (Removed experimental utility classes pending Tailwind post-processing context) */
 
+/* (Global wallet adapter overrides removed to keep modal defaults.   */
+/* If you want scoped styling, wrap the trigger in a custom class and  */
+/* add styles here like:                                              */
+/* .wallet-trigger .wallet-adapter-button { ... }                     */
+/* ------------------------------------------------------------------ */
+/* Scoped Wallet Trigger Styling                                      */
+/* Only the trigger buttons wrapped in .wallet-trigger get yellow.    */
+/* Modal content (portal outside wrapper) keeps/receives custom       */
+/* transparency styles below without adopting yellow background.      */
+/* ------------------------------------------------------------------ */
+.wallet-trigger .wallet-adapter-button,
+.wallet-trigger .wallet-adapter-button-trigger {
+  background: var(--color-brand-yellow) !important;
+  color: var(--color-brand-black) !important;
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  text-transform: none !important;
+}
+.wallet-trigger .wallet-adapter-button:not([disabled]):hover,
+.wallet-trigger .wallet-adapter-button-trigger:not([disabled]):hover { filter: brightness(1.1) !important; }
+
+/* Modal Transparency / Glass Effect (optional) */
+.wallet-adapter-modal-wrapper {
+  background: rgba(0,0,0,0.55) !important; /* dim overlay */
+  backdrop-filter: blur(4px);
+}
+.wallet-adapter-modal {
+  background: rgba(18,18,18,0.05) !important; /* near transparent */
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 4px 24px -4px rgba(0,0,0,0.6) !important;
+}
+.wallet-adapter-modal-list { background: transparent !important; }
+.wallet-adapter-modal-title { color: #fff !important; }
+.wallet-adapter-modal-button-close { top: 10px !important; right: 10px !important; }
+.wallet-adapter-modal hr { border-color: rgba(255,255,255,0.08) !important; }
+
+/* Keep wallet list buttons readable */
+.wallet-adapter-modal-list .wallet-adapter-button { 
+  background: rgba(255,255,255,0.06) !important; 
+  color: #fff !important; 
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover { background: rgba(255,255,255,0.12) !important; }
+

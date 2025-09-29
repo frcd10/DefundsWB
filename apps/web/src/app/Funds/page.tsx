@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import FilterBar, { Filters } from '@/components/FilterBar';
 // import FundCard from '@/components/FundCard'; // legacy card view (no longer used)
 import { FundType, FundCardData } from '@/types/fund';
@@ -9,6 +9,7 @@ import { FundType, FundCardData } from '@/types/fund';
 import { CreateRealFundModal } from '@/components/CreateRealFundModal';
 import { Button } from '@/components/ui/button';
 import { InvestInFundModal } from '@/components/InvestInFundModal';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { formatSol } from '@/lib/formatters';
 import {
   LineChart,
@@ -60,6 +61,7 @@ export default function Home() {
   const [realFunds, setRealFunds] = useState<RealFund[]>([]);
   const [showCreateReal, setShowCreateReal] = useState(false);
   const [selectedFundForInvest, setSelectedFundForInvest] = useState<FundCardData | null>(null);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   // Load real funds from backend
   const loadRealFunds = async () => {
@@ -209,7 +211,16 @@ export default function Home() {
 
       {/* Value Props */}
       <section id="funds-market" className="max-w-6xl mx-auto px-4 pb-4">
-        <h2 className="text-3xl sm:text-4xl font-extrabold mb-10">Why On-Chain Funds?</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+          <h2 className="text-3xl sm:text-4xl font-extrabold">Why On-Chain Funds?</h2>
+          <button
+            onClick={() => setShowHowItWorks(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-yellow text-brand-black font-semibold text-sm px-6 py-3 hover:brightness-110 transition shadow-[0_0_0_1px_rgba(0,0,0,0.15)]"
+            aria-label="Open How It Works"
+          >
+            <Info className="w-4 h-4" /> How it works
+          </button>
+        </div>
         <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             ['Decentralized Access', 'Invest permissionlessly from your wallet — no broker forms.'],
@@ -346,6 +357,7 @@ export default function Home() {
         onClose={() => setShowCreateReal(false)}
         onFundCreated={handleRealFundCreated}
       />
+      <HowItWorksModal isOpen={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
     </main>
   );
 }

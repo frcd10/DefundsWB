@@ -91,14 +91,8 @@ export default function Navbar() {
       <li><Link href="/contact" className="hover:text-brand-yellow transition-colors">Contact</Link></li>
         </ul>
 
-        {/* Right Side CTA Buttons ----------------------------------------- */}
+        {/* Right Side CTA Buttons (removed How it Works) ------------------- */}
     <div className="hidden lg:flex items-center gap-3">
-          <Link
-            href="/how-it-works"
-      className="rounded-full border border-brand-yellow/80 px-4 py-1.5 text-brand-yellow text-sm hover:bg-brand-yellow hover:text-brand-black transition-colors"
-          >
-            How it Works
-          </Link>
           <Link
             href="/investor"
       className="rounded-full bg-brand-yellow px-5 py-1.5 text-sm font-semibold text-brand-black hover:brightness-110 transition"
@@ -118,7 +112,9 @@ export default function Navbar() {
         <Send className="w-5 h-5 sm:w-6 sm:h-6 text-white/80 hover:text-white" />
             </Link>
             {/* Wallet Connect Button (always visible) */}
-            <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium hover:!brightness-110 !transition" />
+            <div className="wallet-trigger">
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium !border-0 !shadow-none !bg-none hover:!brightness-110 !transition" />
+            </div>
           </div>
 
           {/* Mobile Menu Button */}
@@ -233,8 +229,8 @@ export default function Navbar() {
               {/* Mobile CTA Buttons */}
               <div className="space-y-4 pt-8 mt-8">
                 {/* Mobile Wallet Button */}
-                <div className="flex justify-center">
-                  <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-4 !h-auto !text-lg !font-semibold hover:!brightness-110 !transition w-full" />
+                <div className="flex justify-center wallet-trigger">
+                  <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-4 !h-auto !text-lg !font-semibold !border-0 !shadow-none !bg-none hover:!brightness-110 !transition w-full" />
                 </div>
                 <Link
                   href="/investor"
@@ -243,13 +239,7 @@ export default function Navbar() {
                 >
                   Invest
                 </Link>
-                <Link
-                  href="/how-it-works"
-                  className="block w-full rounded-full border border-brand-yellow/70 px-6 py-4 text-brand-yellow text-center hover:bg-brand-yellow hover:text-brand-black transition-colors text-lg"
-                  onClick={closeMobileMenu}
-                >
-                  How it Works
-                </Link>
+                {/* Removed mobile How it Works CTA */}
               </div>
 
               {/* Mobile Social Links */}

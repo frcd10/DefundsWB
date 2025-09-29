@@ -6,6 +6,10 @@
 // Landing page adjusted to institutional palette; waitlist functionality removed.
 
 import Link from 'next/link';
+// Background now uses an MP4 video for better compression than animated GIF.
+// If you want a static fallback, add a poster image.
+// (No Next/Image required for raw video.)
+
 
 export default function Landing() {
 
@@ -13,8 +17,27 @@ export default function Landing() {
     <>
       {/* Hero section */}
       <section
-        className="flex min-h-screen flex-col items-center justify-start pt-28 sm:pt-32 bg-brand-black px-4 sm:px-6 text-center text-white"
+        className="relative flex min-h-screen flex-col items-center justify-start pt-28 sm:pt-32 px-4 sm:px-6 text-center text-white overflow-hidden bg-brand-black"
       >
+        {/* Background video layer */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+          <video
+            className="w-full h-full object-cover object-center opacity-55"
+            autoPlay
+            muted
+            playsInline
+            loop
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src="/media/Bcmp4.mp4" type="video/mp4" />
+          </video>
+          {/* Overlays for readability */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_35%,rgba(0,0,0,0)_0%,rgba(0,0,0,0.28)_75%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0)_55%,rgba(0,0,0,0.55))]" />
+        </div>
+        {/* Content wrapper above background */}
+        <div className="relative z-10 flex flex-col items-center w-full">
         {/* Top title */}
         <h1 className="mb-6 sm:mb-10 text-3xl sm:text-5xl lg:text-7xl font-extrabold leading-tight">
           The <span className="text-brand-yellow">Future</span> of Hedge Funds
@@ -33,7 +56,7 @@ export default function Landing() {
           contracts and audited open-source code.
         </p>
 
-        {/* Primary CTAs */}
+    {/* Primary CTAs */}
   <div className="mt-4 flex flex-col sm:flex-row items-center gap-4">
           <Link
             href="/Funds"
@@ -49,6 +72,7 @@ export default function Landing() {
           </Link>
         </div>
   {/* safelist: bg-brand-yellow text-brand-black */}
+        </div>
       </section>
     </>
   );

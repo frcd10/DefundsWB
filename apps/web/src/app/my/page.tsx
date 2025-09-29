@@ -31,8 +31,8 @@ export default function MyAreaPage() {
       setForm((p) => ({ ...p, wallet: addr }));
       fetch(`/api/profile?wallet=${addr}`).then(r => r.ok ? r.json() : null).then(d => {
         if (d?.success && d.data) {
-          // d.data only contains public profile; keep private placeholders
           setProfile(d.data);
+          const priv = d.data.privateProfile || {};
           setForm(prev => ({
             ...prev,
             wallet: addr,
@@ -40,7 +40,10 @@ export default function MyAreaPage() {
             bio: d.data.bio || '',
             twitter: d.data.twitter || '',
             discord: d.data.discord || '',
-            website: d.data.website || ''
+            website: d.data.website || '',
+            email: priv.email || '',
+            phone: priv.phone || '',
+            country: priv.country || ''
           }));
         }
       }).catch(() => {});

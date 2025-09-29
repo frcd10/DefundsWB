@@ -1,8 +1,22 @@
 import { Button } from "@/components/ui/button";
+import { SubscribeForm } from '@/components/SubscribeForm';
+import Image from 'next/image';
+import CypherpunkImg from '@/images/Cypherpunk.png';
 
 const newsArticles = [
   {
-    id: 1,
+    id: 3,
+    title: "Defunds.Finance joins Colosseum Cypherpunk Hackathon (DeFi & RWA)",
+    summary: "We are officially participating in the @colosseum Cypherpunk hackathon competing in two tracks: DeFi and Real World Assets (RWA).",
+    content: `Defunds.Finance is excited to announce its participation in the Colosseum Cypherpunk Hackathon!\n\nWe'll be competing in two core categories: **DeFi** and **RWA (Real World Assets)**—showcasing how programmable asset management and tokenized real yield can converge in a unified experience.\n\nOur focus: \n- Autonomous on-chain fund orchestration (deposits, share accounting, lifecycle)\n- RWA integration pipeline with secure issuance & transparent tracking\n- Institutional-grade UX with investor protections\n\nWhy this matters: bridging permissionless DeFi performance with compliant real world yield is the next frontier.\n\nFollow our progress on X and inside the Colosseum community—more technical deep-dives coming soon.\n\nLet’s build. #DeFi #RWA #Solana #Cypherpunk`,
+    date: "September 29, 2025",
+    author: "Defunds Team",
+    category: "Hackathon",
+    image: CypherpunkImg,
+    tags: ["DeFi", "RWA", "Hackathon"]
+  },
+  {
+    id: 2,
     title: "Defunds.Finance Qualified 5th Place at Solana Ideathon Brasil!",
     summary: "We're thrilled to announce that Defunds.Finance has been qualified in 5th place at the prestigious Solana Ideathon Brasil, recognizing our innovative DeFi fund management platform.",
     content: `We're incredibly excited to share that Defunds.Finance has achieved 5th place at the Solana Ideathon Brasil!
@@ -13,7 +27,7 @@ Thank you to our amazing community, advisors, and the Solana Brasil team for mak
     category: "Achievement"
   },
   {
-    id: 2,
+    id: 1,
     title: "Defunds.Finance is participating on Ideathon Solana Brasil",
     summary: "We're excited to announce our participation in the Ideathon Solana Brasil, showcasing our innovative DeFi fund management platform.",
     content: `Defunds.Finance is participating in the Ideathon Solana Brasil.
@@ -43,7 +57,9 @@ export default function NewsPage() {
 
         {/* News Articles */}
         <div className="space-y-8 sm:space-y-12 mb-12 sm:mb-16">
-          {newsArticles.map((article, index) => (
+          {newsArticles
+            .sort((a, b) => b.id - a.id)
+            .map((article, index, arr) => (
             <article key={article.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 lg:p-8 backdrop-blur-sm">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
                 <span className="bg-brand-yellow text-brand-black px-3 py-1 rounded-full text-xs sm:text-sm font-medium w-fit tracking-wide">
@@ -53,6 +69,19 @@ export default function NewsPage() {
                 <span className="text-white/40 hidden sm:inline">•</span>
                 <span className="text-white/50 text-sm sm:text-base">By {article.author}</span>
               </div>
+
+              {article.image && (
+                <div className="mb-5 flex justify-center">
+                  <div className="rounded-xl overflow-hidden border border-white/10 bg-black/20 w-full max-w-sm shadow-lg">
+                    <Image
+                      src={article.image}
+                      alt={article.title}
+                      className="w-full h-auto object-cover"
+                      priority={article.id === 3}
+                    />
+                  </div>
+                </div>
+              )}
 
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-4 leading-tight">
                 {article.title}
@@ -70,7 +99,7 @@ export default function NewsPage() {
                 ))}
               </div>
 
-              {index < newsArticles.length - 1 && (
+              {index < arr.length - 1 && (
                 <hr className="mt-8 border-white/10" />
               )}
             </article>
@@ -86,16 +115,7 @@ export default function NewsPage() {
             <p className="text-white/60 mb-6 text-sm sm:text-base">
               Subscribe to our newsletter for the latest updates and insights from the DeFi world
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="input flex-1 rounded-full"
-              />
-              <Button className="rounded-full bg-brand-yellow text-brand-black hover:brightness-110 font-semibold py-3 sm:py-2 min-h-[44px]">
-                Subscribe
-              </Button>
-            </div>
+            <SubscribeForm />
           </div>
         </div>
       </section>

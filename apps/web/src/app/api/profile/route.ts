@@ -76,6 +76,12 @@ export async function GET(req: NextRequest) {
       website: doc?.publicProfile?.website,
       stats: { products, avgReturnPct },
       openItems,
+      // expose private profile to authenticated owner (best-effort: client decides if wallet matches)
+      privateProfile: doc?.privateProfile ? {
+        email: doc.privateProfile.email || '',
+        phone: doc.privateProfile.phone || '',
+        country: doc.privateProfile.country || ''
+      } : { email: '', phone: '', country: '' }
     };
 
     return NextResponse.json({

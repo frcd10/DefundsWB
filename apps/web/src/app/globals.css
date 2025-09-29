@@ -180,6 +180,10 @@
   @apply bg-background text-foreground;
   /* Ensure base page content stays white while navbar can use brand-surface */
   }
+  ::selection {
+    background: rgba(246,210,58,0.25);
+    color: #fff;
+  }
 }
 
 /* Utility classes (optional) */

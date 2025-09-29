@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { usePublicProfiles } from '@/lib/hooks/usePublicProfiles';
+import { PublicProfileModal } from '@/components/PublicProfileModal';
 import FilterBar, { Filters } from '@/components/FilterBar';
 // import FundCard from '@/components/FundCard'; // legacy card view (no longer used)
 import { FundType, FundCardData } from '@/types/fund';
@@ -93,7 +95,8 @@ export default function Home() {
   creatorWallet: fund.manager,
     traderTwitter: '@' + fund.manager.slice(0, 8),
     description: fund.description,
-    type: fund.fundType as FundType,
+    // Some API payloads might contain either fundType or type; provide fallback to avoid blank UI cells
+    type: (fund.fundType || (fund as any).type || 'Long Only') as FundType,
     tvl: fund.tvl || 0, // Use tvl from API response (already transformed)
     perfFee: fund.perfFee || 0, // Use perfFee from API response (already transformed)
     maxCap: fund.maxCapacity || 0,
@@ -390,6 +393,8 @@ function FundsTable({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
   const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
+  const { getProfile, cache } = usePublicProfiles();
+  const [profileWallet, setProfileWallet] = useState<string | null>(null);
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -452,7 +457,23 @@ function FundsTable({
                       {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                   </td>
-                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">{f.name}</td>
+                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">
+                    <div className="truncate" title={f.name}>{f.name}</div>
+                    {f.creatorWallet && (
+                      <div className="mt-1 text-[11px] font-normal text-white/50 leading-tight">
+                        <span className="text-white/40">by </span>
+                        {(() => {
+                          const prof = cache[f.creatorWallet];
+                          const label = prof?.name ? prof.name : f.creatorWallet.slice(0,4)+"..."+f.creatorWallet.slice(-4);
+                          return <button
+                            type="button"
+                            onClick={() => { if (f.creatorWallet) { getProfile(f.creatorWallet); setProfileWallet(f.creatorWallet); } }}
+                            className="text-brand-yellow hover:underline decoration-dashed underline-offset-2"
+                          >{label}</button>;
+                        })()}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 align-top text-white/70 whitespace-nowrap">{f.type}</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{formatSol(f.tvl)}</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.perfFee}%</td>
@@ -564,6 +585,13 @@ function FundsTable({
           fundId={investTarget.id}
           fundName={investTarget.name}
           isRwa={false}
+        />
+      )}
+      {profileWallet && (
+        <PublicProfileModal
+          open={true}
+          onOpenChange={(v) => { if (!v) setProfileWallet(null); }}
+          profile={cache[profileWallet]}
         />
       )}
     </div>

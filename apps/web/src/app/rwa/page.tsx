@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Users, AlertTriangle, Shield, Eye, Building, Briefcase, Receipt, ChevronUp, ChevronDown } from 'lucide-react';
+import { usePublicProfiles } from '@/lib/hooks/usePublicProfiles';
+import { PublicProfileModal } from '@/components/PublicProfileModal';
 import { Button } from '@/components/ui/button';
 import WaitlistModal from '@/components/WaitlistModal';
 import FundCard from '@/components/FundCard';
@@ -19,10 +21,10 @@ export default function RWAPage() {
   return (
     <main className="min-h-screen bg-brand-black text-white">
       {/* Hero Section */}
-      <section className="px-4 pt-28 sm:pt-32 pb-16">
+  <section className="px-4 pt-24 sm:pt-28 pb-14">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
-            Real World <span className="text-brand-yellow">Assets</span>
+              Real World <span className="text-brand-yellow">Assets</span>
           </h1>
           <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto">
             Bridge traditional finance and DeFi. Discover on-chain access to real-world projects with transparent profiles and codified flows.
@@ -57,7 +59,7 @@ export default function RWAPage() {
       </section>
 
       {/* How RWA Works Section */}
-  <section className="py-20 px-4">
+  <section className="py-5 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-14">How <span className="text-brand-yellow">RWA</span> Works</h2>
           
@@ -65,7 +67,7 @@ export default function RWAPage() {
             <div className="space-y-8">
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <Shield className="w-8 h-8 text-sol-accent" />
+                  <Shield className="w-8 h-8 text-yellow-400" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold mb-2 text-brand-yellow">On-Chain Transparency</h3>
@@ -91,7 +93,7 @@ export default function RWAPage() {
               
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <Users className="w-8 h-8 text-sol-accent" />
+                  <Users className="w-8 h-8 text-brand-yellow" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold mb-2 text-brand-yellow">Reputation-Based System</h3>
@@ -133,13 +135,13 @@ export default function RWAPage() {
       </section>
 
       {/* Project Types Section */}
-  <section className="py-20 px-4 bg-brand-surface/20">
+  <section className="py-5 px-4 bg-brand-surface/20">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-14">Supported <span className="text-brand-yellow">Project Types</span></h2>
           
           <div className="grid md:grid-cols-3 gap-8">
             <ProjectType
-              icon={<Receipt className="w-12 h-12 text-sol-accent" />}
+              icon={<Receipt className="w-12 h-12 text-brand-yellow" />}
               title="Antecipate Cash Flow"
               description="Get immediate cash flow by selling your future receivables at a discount. Perfect for businesses with confirmed incoming payments."
               details={[
@@ -151,7 +153,7 @@ export default function RWAPage() {
             />
             
             <ProjectType
-              icon={<Building className="w-12 h-12 text-sol-accent" />}
+              icon={<Building className="w-12 h-12 text-brand-yellow" />}
               title="Land & Construction"
               description="Fund real estate developments from land acquisition to construction completion. Transparent project milestones and progress tracking."
               details={[
@@ -163,7 +165,7 @@ export default function RWAPage() {
             />
             
             <ProjectType
-              icon={<Briefcase className="w-12 h-12 text-sol-accent" />}
+              icon={<Briefcase className="w-12 h-12 text-brand-yellow" />}
               title="Business Ventures"
               description="Create and fund new business ventures with equity sharing. Investors receive percentage ownership in growing companies."
               details={[
@@ -178,7 +180,7 @@ export default function RWAPage() {
       </section>
 
       {/* Risk Warning Section */}
-  <section className="py-20 px-4">
+  <section className="py-5 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="bg-brand-surface/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
             <div className="flex items-center gap-4 mb-6">
@@ -219,7 +221,7 @@ export default function RWAPage() {
       </section>
 
     {/* RWA Products Section */}
-  <section id="rwa-products" className="py-20 px-4">
+  <section id="rwa-products" className="py-5 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-10">RWA <span className="text-brand-yellow">Products</span></h2>
 
@@ -250,6 +252,8 @@ function RwaTable({ items }: { items: FundCardData[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
   const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
+  const { getProfile, cache } = usePublicProfiles();
+  const [profileWallet, setProfileWallet] = useState<string | null>(null);
 
   const sorted = useMemo(() => {
     const arr = [...items];
@@ -333,7 +337,23 @@ function RwaTable({ items }: { items: FundCardData[] }) {
                       {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                   </td>
-                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">{f.name}</td>
+                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">
+                    <div className="truncate" title={f.name}>{f.name}</div>
+                    {f.creatorWallet && (
+                      <div className="mt-1 text-[11px] font-normal text-white/50 leading-tight">
+                        <span className="text-white/40">by </span>
+                        {(() => {
+                          const prof = cache[f.creatorWallet];
+                          const label = prof?.name ? prof.name : f.creatorWallet.slice(0,4)+"..."+f.creatorWallet.slice(-4);
+                          return <button
+                            type="button"
+                            onClick={() => { if (f.creatorWallet) { getProfile(f.creatorWallet); setProfileWallet(f.creatorWallet); } }}
+                            className="text-brand-yellow hover:underline decoration-dashed underline-offset-2"
+                          >{label}</button>;
+                        })()}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 align-top text-white/70 whitespace-nowrap">{f.type}</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{formatSol(f.tvl)}</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.perfFee}%</td>
@@ -419,6 +439,13 @@ function RwaTable({ items }: { items: FundCardData[] }) {
           isRwa={true}
         />
       )}
+      {profileWallet && (
+        <PublicProfileModal
+          open={true}
+          onOpenChange={(v) => { if (!v) setProfileWallet(null); }}
+          profile={cache[profileWallet]}
+        />
+      )}
     </div>
   );
 }
@@ -430,7 +457,7 @@ function ProjectType({ icon, title, description, details }: {
 }) {
   return (
     <div className="rounded-2xl p-8 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-colors">
-      <div className="text-center mb-6">
+      <div className="flex items-center justify-center mb-6">
         {icon}
       </div>
       
@@ -470,7 +497,7 @@ function RWAFilterBar({ onChange }: { onChange: (f: RWAFilters) => void }) {
   };
 
   return (
-  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-brand-surface/50 backdrop-blur-sm p-4 rounded-xl mb-10 border border-white/10">
+  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 bg-white/5 backdrop-blur-sm border border-white/10 p-4 rounded-2xl mb-8">
       {/* Operator ------------------------------------------------------ */}
       <div className="flex-1 min-w-[200px] sm:min-w-0 sm:flex-none">
   <label className="block text-white/80 text-sm mb-1">Operator</label>

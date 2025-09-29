@@ -3,6 +3,7 @@
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { COUNTRIES } from '@/lib/countries';
 
 interface Profile {
   wallet: string;
@@ -11,6 +12,10 @@ interface Profile {
   twitter?: string;
   discord?: string;
   website?: string;
+  // private
+  email?: string;
+  phone?: string;
+  country?: string;
 }
 
 export default function MyAreaPage() {
@@ -18,7 +23,7 @@ export default function MyAreaPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [form, setForm] = useState<Profile>({ wallet: '', name: '', bio: '', twitter: '', discord: '', website: '' });
+  const [form, setForm] = useState<Profile>({ wallet: '', name: '', bio: '', twitter: '', discord: '', website: '', email: '', phone: '', country: '' });
 
   useEffect(() => {
     if (wallet.publicKey) {
@@ -26,8 +31,17 @@ export default function MyAreaPage() {
       setForm((p) => ({ ...p, wallet: addr }));
       fetch(`/api/profile?wallet=${addr}`).then(r => r.ok ? r.json() : null).then(d => {
         if (d?.success && d.data) {
+          // d.data only contains public profile; keep private placeholders
           setProfile(d.data);
-          setForm(d.data);
+          setForm(prev => ({
+            ...prev,
+            wallet: addr,
+            name: d.data.name || prev.name,
+            bio: d.data.bio || '',
+            twitter: d.data.twitter || '',
+            discord: d.data.discord || '',
+            website: d.data.website || ''
+          }));
         }
       }).catch(() => {});
     }
@@ -40,7 +54,19 @@ export default function MyAreaPage() {
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          wallet: form.wallet,
+          name: form.name,
+          bio: form.bio,
+          twitter: form.twitter,
+          discord: form.discord,
+          website: form.website,
+          privateProfile: {
+            email: form.email,
+            phone: form.phone || undefined,
+            country: form.country || undefined,
+          }
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -71,13 +97,17 @@ export default function MyAreaPage() {
     <main className="min-h-screen bg-brand-black text-white">
       <section className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-3xl font-extrabold mb-6">My Area</h1>
-        <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
+        <div className="rounded-2xl p-6 space-y-8 bg-white/5 backdrop-blur-sm border border-white/10">
           {notice && (
             <div className={`mb-4 px-3 py-2 rounded-lg text-sm ${notice.includes('Failed') ? 'bg-red-500/20 text-red-200 border border-red-500/40' : 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'}`}>
               {notice}
             </div>
           )}
-          <div className="grid gap-4">
+          <div className="grid gap-6">
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-2">Public Profile</h2>
+              <p className="text-xs text-white/50 mb-4">Visible to other users and investors.</p>
+              <div className="grid gap-4">
             <div>
               <label className="block text-sm text-white/70 mb-1">Display Name</label>
               <input className="input w-full" value={form.name}
@@ -103,6 +133,32 @@ export default function MyAreaPage() {
                 <label className="block text-sm text-white/70 mb-1">Website</label>
                 <input className="input w-full" value={form.website}
                   onChange={(e) => setForm({ ...form, website: e.target.value })} />
+              </div>
+            </div>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-2">Private Profile</h2>
+              <p className="text-xs text-white/50 mb-4">Not publicly visible. Used for future compliance or notifications.</p>
+              <div className="grid gap-4">
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">Email <span className="text-red-400"></span></label>
+                  <input className="input w-full" type="email" value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">Phone (optional)</label>
+                  <input className="input w-full" value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 123 4567" />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">Country</label>
+                  <select className="input w-full bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm" value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}>
+                    <option value="">Select country</option>
+                    {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
             <div>

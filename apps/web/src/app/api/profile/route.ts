@@ -14,9 +14,18 @@ type PublicProfile = {
   updatedAt?: Date;
 };
 
+type PrivateProfile = {
+  email: string;
+  phone?: string;
+  country?: string; // ISO code
+  updatedAt?: Date;
+  createdAt?: Date;
+};
+
 type UserDoc = {
   _id: string; // wallet address as id
   publicProfile?: PublicProfile;
+  privateProfile?: PrivateProfile; // never returned in GET
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -82,27 +91,48 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { wallet, name, bio, twitter, discord, website } = body || {};
-    if (!wallet || !name) return NextResponse.json({ success: false, error: 'wallet and name required' }, { status: 400 });
+  const { wallet, name, bio, twitter, discord, website, privateProfile } = body || {};
+  if (!wallet) return NextResponse.json({ success: false, error: 'wallet required' }, { status: 400 });
+
+    // Private profile validation (email required if object present)
+    if (privateProfile) {
+      if (privateProfile.email && typeof privateProfile.email !== 'string') {
+        return NextResponse.json({ success: false, error: 'invalid email' }, { status: 400 });
+      }
+      if (privateProfile.phone && typeof privateProfile.phone !== 'string') {
+        return NextResponse.json({ success: false, error: 'invalid phone' }, { status: 400 });
+      }
+      if (privateProfile.country && typeof privateProfile.country !== 'string') {
+        return NextResponse.json({ success: false, error: 'invalid country' }, { status: 400 });
+      }
+    }
 
     const client = await getClientPromise();
     const db = client.db('Defunds');
     const col = db.collection<UserDoc>('Users');
     const now = new Date();
 
+    const update: any = {
+  'publicProfile.name': name || '',
+      'publicProfile.bio': bio || '',
+      'publicProfile.twitter': twitter || '',
+      'publicProfile.discord': discord || '',
+      'publicProfile.website': website || '',
+      updatedAt: now,
+      'publicProfile.updatedAt': now,
+    };
+    if (privateProfile) {
+      update['privateProfile.email'] = privateProfile.email || '';
+      update['privateProfile.phone'] = privateProfile.phone || '';
+      update['privateProfile.country'] = privateProfile.country || '';
+      update['privateProfile.updatedAt'] = now;
+    }
+
     await col.updateOne(
       { _id: wallet },
       {
-        $set: {
-          'publicProfile.name': name,
-          'publicProfile.bio': bio || '',
-          'publicProfile.twitter': twitter || '',
-          'publicProfile.discord': discord || '',
-          'publicProfile.website': website || '',
-          updatedAt: now,
-          'publicProfile.updatedAt': now,
-        },
-        $setOnInsert: { createdAt: now, 'publicProfile.createdAt': now },
+        $set: update,
+        $setOnInsert: { createdAt: now, 'publicProfile.createdAt': now, 'privateProfile.createdAt': now },
       },
       { upsert: true }
     );

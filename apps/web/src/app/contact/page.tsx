@@ -72,6 +72,14 @@ export default function Contact() {
               twitter="mvgp.sc"
             />
 
+            <TeamMember
+              name="Matt"
+              role="Marketing Lead"
+              bio="Marketing Specialist with a passion for crypto and DeFi."
+              linkedin="matheus-santos-b87687249"
+              twitter="Mattonweb3"
+            />
+
             
           </div>
 

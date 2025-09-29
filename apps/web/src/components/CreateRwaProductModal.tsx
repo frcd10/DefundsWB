@@ -96,47 +96,50 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[540px] bg-sol-800/90 border border-sol-700 text-sol-50 mt-16 sm:mt-24">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-extrabold text-sol-50">Create RWA Product</DialogTitle>
-          <DialogDescription className="text-sol-200">Create an on-chain RWA product. Uses the same program paths as funds.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
+      <DialogContent className="sm:max-w-[560px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-extrabold text-white">Create RWA Product</DialogTitle>
+            <DialogDescription className="text-white/70">Tokenize a real-world exposure. Parameters can be adjusted before public investors enter.</DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="space-y-5 px-6 pb-7">
           {!wallet.connected ? (
             <div className="text-center space-y-4">
-              <p className="text-sm text-sol-200">Connect your wallet to create</p>
-              <WalletMultiButton className="!bg-gradient-to-r !from-sol-accent !to-cyan-400 !text-sol-900 !rounded-xl !font-semibold hover:!scale-105 !transition" />
+              <p className="text-sm text-white/70">Connect your wallet to create an RWA product</p>
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !font-semibold hover:!brightness-110 !transition" />
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Name</label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="input w-full" />
+                <label className="block text-sm font-medium mb-1 text-white/70">Name</label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Description</label>
-                <textarea className="input w-full resize-none min-h-24" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required />
+                <label className="block text-sm font-medium mb-1 text-white/70">Description</label>
+                <textarea className="w-full resize-none min-h-24 rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 p-3 leading-relaxed" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Type</label>
-                <select className="input w-full" value={form.fundType} onChange={(e) => setForm({ ...form, fundType: e.target.value as FundType })}>
+                <label className="block text-sm font-medium mb-1 text-white/70">Type</label>
+                <select className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm p-3" value={form.fundType} onChange={(e) => setForm({ ...form, fundType: e.target.value as FundType })}>
                   {RWA_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t} className="bg-brand-black text-white">{t}</option>
                   ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-sol-100">Performance Fee (%)</label>
-                  <Input type="number" min="0" max="50" value={form.performanceFee} onChange={(e) => setForm({ ...form, performanceFee: Number(e.target.value) })} className="input w-full" />
+                  <label className="block text-sm font-medium mb-1 text-white/70">Performance Fee (%)</label>
+                  <Input type="number" min="0" max="50" value={form.performanceFee} onChange={(e) => setForm({ ...form, performanceFee: Number(e.target.value) })} className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-sol-100">Max Capacity (SOL)</label>
-                  <Input type="number" min="0" value={form.maxCapacity} onChange={(e) => setForm({ ...form, maxCapacity: Number(e.target.value) })} className="input w-full" />
+                  <label className="block text-sm font-medium mb-1 text-white/70">Max Capacity (SOL)</label>
+                  <Input type="number" min="0" value={form.maxCapacity} onChange={(e) => setForm({ ...form, maxCapacity: Number(e.target.value) })} className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-sol-100">Initial Deposit (SOL)</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Initial Deposit (SOL)</label>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -149,17 +152,30 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
                     commitInitialDepositFromString(raw);
                   }}
                   onBlur={() => setInitialDepositInput(String(form.initialDeposit))}
-                  className="input w-full"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30"
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <input type="checkbox" id="rwapublic" checked={form.isPublic} onChange={(e) => setForm({ ...form, isPublic: e.target.checked })} className="h-4 w-4 accent-sol-accent" />
-                <label htmlFor="rwapublic" className="text-sm text-sol-100">Public product (anyone can invest)</label>
+                <input type="checkbox" id="rwapublic" checked={form.isPublic} onChange={(e) => setForm({ ...form, isPublic: e.target.checked })} className="h-4 w-4 accent-brand-yellow" />
+                <label htmlFor="rwapublic" className="text-sm text-white/70">Public product (anyone can invest)</label>
               </div>
               {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-md"><p className="text-sm text-red-300">{error}</p></div>}
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-sol-700 text-sol-50">Cancel</Button>
-                <Button type="submit" disabled={isLoading} className="flex-1 rounded-xl bg-gradient-to-r from-sol-accent to-cyan-400 text-sol-900 font-semibold hover:scale-105 transition">{isLoading ? 'Creating…' : 'Create RWA'}</Button>
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isLoading}
+                  className="flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Creating…' : 'Create RWA'}
+                </button>
               </div>
             </form>
           )}

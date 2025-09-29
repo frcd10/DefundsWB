@@ -6,11 +6,13 @@ import logo from '../images/logo.png';
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+// Removed direct airdrop logic – using external faucet link instead
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const wallet = useWallet();
   const [isTraderEligible, setIsTraderEligible] = useState(false);
+  const [cluster, setCluster] = useState<'devnet' | 'mainnet' | 'localnet' | 'unknown'>('unknown');
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -19,6 +21,20 @@ export default function Navbar() {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
+
+  // Detect cluster (best-effort) based on env vars or endpoint naming
+  useEffect(() => {
+    const envCluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || '').toLowerCase();
+    if (envCluster === 'devnet' || envCluster === 'mainnet' || envCluster === 'localnet') {
+      setCluster(envCluster as typeof cluster);
+      return;
+    }
+    const endpoint = (process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || '').toLowerCase();
+    if (endpoint.includes('devnet')) setCluster('devnet');
+    else if (endpoint.includes('mainnet')) setCluster('mainnet');
+    else if (endpoint.includes('localhost') || endpoint.includes('127.0.0.1')) setCluster('localnet');
+    else setCluster('devnet'); // default for development convenience
+  }, []);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -115,8 +131,19 @@ export default function Navbar() {
             <div className="wallet-trigger">
               <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium !border-0 !shadow-none !bg-none hover:!brightness-110 !transition" />
             </div>
+            {cluster === 'devnet' && (
+              <a
+                href="https://faucet.solana.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-medium px-3.5 py-1.5 border border-white/10 text-white/70 hover:text-white transition whitespace-nowrap"
+              >
+                GET DEVNET TOKENS
+              </a>
+            )}
           </div>
 
+          {/* Removed dynamic faucet notice (using external faucet) */}
           {/* Mobile Menu Button */}
           <button
             onClick={toggleMobileMenu}
@@ -232,6 +259,16 @@ export default function Navbar() {
                 <div className="flex justify-center wallet-trigger">
                   <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-4 !h-auto !text-lg !font-semibold !border-0 !shadow-none !bg-none hover:!brightness-110 !transition w-full" />
                 </div>
+                {cluster === 'devnet' && (
+                  <a
+                    href="https://faucet.solana.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full rounded-full bg-white/5 border border-white/10 px-6 py-4 text-center text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition"
+                  >
+                    Get Devnet Tokens
+                  </a>
+                )}
                 <Link
                   href="/investor"
                   className="block w-full rounded-full bg-brand-yellow px-6 py-4 text-brand-black text-center font-semibold hover:brightness-110 transition text-lg"
@@ -240,6 +277,7 @@ export default function Navbar() {
                   Invest
                 </Link>
                 {/* Removed mobile How it Works CTA */}
+                {/* Removed faucet status notice */}
               </div>
 
               {/* Mobile Social Links */}

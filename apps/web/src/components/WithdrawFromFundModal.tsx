@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -36,10 +36,23 @@ export function WithdrawFromFundModal({
   const [withdrawPercentage, setWithdrawPercentage] = useState('100');
   const [submitted, setSubmitted] = useState(false);
 
+  // Determine cluster (best-effort) for disabling withdrawals off mainnet
+  const cluster = useMemo(() => {
+    const c = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || '').toLowerCase();
+    if (c === 'mainnet' || c === 'mainnet-beta') return 'mainnet';
+    return 'devnet'; // treat anything else as non-mainnet for gating
+  }, []);
+
+  const withdrawalsEnabled = cluster === 'mainnet';
+
   const withdrawAmount = (currentValue * parseFloat(withdrawPercentage || '0')) / 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!withdrawalsEnabled) {
+      setError('Withdrawals will be enabled when the protocol launches on mainnet.');
+      return;
+    }
     
     console.log('=== WITHDRAWAL ATTEMPT ===');
     console.log('Fund ID:', fundId);
@@ -69,43 +82,8 @@ export function WithdrawFromFundModal({
     try {
       console.log('Starting withdrawal process...');
       
-      // Make the withdrawal from the fund
-      const signature = await solanaFundService.withdrawFromFund(
-        wallet, 
-        fundId, 
-        withdrawPct
-      );
-
-      console.log('Withdrawal transaction signature:', signature);
-
-      // Call the API to record the withdrawal
-      const response = await fetch('/api/funds/withdraw', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fundId,
-          walletAddress: wallet.publicKey.toString(),
-          sharePercentage: withdrawPct,
-          signature,
-          withdrawAmount
-        }),
-      });
-
-      const result = await response.json();
-      console.log('Withdrawal API response:', result);
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Failed to record withdrawal');
-      }
-
-      if (onWithdrawComplete) {
-        onWithdrawComplete(signature);
-      }
-
-      console.log('Withdrawal completed successfully!');
-      onClose();
+      // (Disabled) Real withdrawal logic removed for non-mainnet environment
+      setError('Withdrawals are disabled until mainnet launch.');
       
     } catch (error) {
       console.error('=== ERROR WITHDRAWING FROM FUND ===');
@@ -123,26 +101,29 @@ export function WithdrawFromFundModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-gray-900 border-gray-700">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-white">
-            Withdraw from {fundName}
-          </DialogTitle>
-          <DialogDescription className="text-gray-300">
-            Withdraw your share of the fund proportionally
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[520px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-extrabold text-white">
+              Withdraw from {fundName}
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Withdraw a percentage of your position. {withdrawalsEnabled ? '' : 'Currently disabled off mainnet.'}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-700 text-red-400 px-4 py-3 rounded-lg">
+          <div className="mx-6 mt-2 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-300">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-gray-800 p-4 rounded-lg">
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 pb-7">
+          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
             <h4 className="text-sm font-medium text-white mb-2">Your Position</h4>
-            <div className="space-y-1 text-xs text-gray-300">
+            <div className="space-y-1 text-xs text-white/70">
               <div className="flex justify-between">
                 <span>Your Shares:</span>
                 <span>{userShares.toFixed(2)} / {totalShares.toFixed(2)}</span>
@@ -159,9 +140,7 @@ export function WithdrawFromFundModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Withdrawal Percentage
-            </label>
+            <label className="block text-sm font-medium mb-1 text-white/70">Withdrawal Percentage</label>
             <Input
               type="number"
               value={withdrawPercentage}
@@ -171,53 +150,52 @@ export function WithdrawFromFundModal({
               max="100"
               step="1"
               required
-              className="bg-gray-800 border-gray-600 text-white"
+              className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Enter 100 to withdraw your entire position
-            </p>
+            <p className="text-xs text-white/50 mt-1">Enter 100 to withdraw your entire position</p>
           </div>
 
-          <div className="bg-gray-800 p-4 rounded-lg">
+          <div className="bg-white/5 p-4 rounded-xl border border-white/10">
             <h4 className="text-sm font-medium text-white mb-2">Withdrawal Details</h4>
-            <div className="space-y-1 text-xs text-gray-300">
+            <div className="space-y-1 text-xs text-white/70">
               <div className="flex justify-between">
                 <span>Withdraw:</span>
                 <span>{withdrawPercentage}% of your position</span>
               </div>
               <div className="flex justify-between">
                 <span>Amount:</span>
-                <span className="text-green-400 font-bold">{withdrawAmount.toFixed(2)} SOL</span>
+                <span className="text-brand-yellow font-semibold">{withdrawAmount.toFixed(2)} SOL</span>
               </div>
               <div className="flex justify-between">
                 <span>Remaining:</span>
                 <span>{((100 - parseFloat(withdrawPercentage || '0')) * currentValue / 100).toFixed(2)} SOL</span>
               </div>
             </div>
-                        <div className="mt-3 p-2 bg-blue-900/50 border border-blue-600 rounded">
-              <p className="text-xs text-blue-300">
-                💰 Real withdrawal: You can only withdraw from your own {userShares.toFixed(2)} shares (your portion of the fund).
-              </p>
-            </div>
+            {!withdrawalsEnabled && (
+              <div className="mt-3 p-2 bg-white/5 border border-white/10 rounded">
+                <p className="text-xs text-white/60">
+                  🔒 Withdrawals are disabled in the current cluster. They will be enabled on mainnet launch. As withdrawals will trigger also some trading activities, we cant reproduce it here
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="flex gap-3">
-            <Button
+          <div className="flex gap-4 pt-2">
+            <button
               type="button"
-              variant="outline"
               onClick={onClose}
-              className="flex-1 border-gray-600 text-white hover:bg-gray-800"
               disabled={isLoading}
+              className="flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-              disabled={isLoading}
+              disabled={isLoading || !withdrawalsEnabled}
+              className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Withdrawing...' : 'Withdraw SOL'}
-            </Button>
+              {withdrawalsEnabled ? (isLoading ? 'Withdrawing...' : 'Withdraw SOL') : 'Coming Soon'}
+            </button>
           </div>
         </form>
       </DialogContent>

@@ -117,37 +117,36 @@ export function InvestInFundModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="sm:max-w-[425px] bg-brand-black/90 backdrop-blur-sm border border-white/10">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-white">
-            Invest in {fundName}
-          </DialogTitle>
-          <DialogDescription className="text-white/70">
-            Add SOL to this fund and receive proportional shares
-          </DialogDescription>
-        </DialogHeader>
+  <DialogContent className="sm:max-w-[520px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-extrabold text-white">
+              Invest in {fundName}
+            </DialogTitle>
+            <DialogDescription className="text-white/70">
+              Add SOL to this {isRwa ? 'RWA product' : 'fund'} and receive proportional shares.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/40 text-red-300 px-4 py-3 rounded-lg">
+          <div className="mx-6 mt-2 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-300">
             {error}
           </div>
         )}
 
         {!wallet.connected ? (
-          <div className="space-y-4">
-            <p className="text-white/70 text-center">
-              Connect your wallet to invest in this fund
-            </p>
+          <div className="px-6 pb-7 space-y-5 text-center">
+            <p className="text-sm text-white/70">Connect your wallet to invest in this {isRwa ? 'product' : 'fund'}</p>
             <div className="flex justify-center">
-              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 hover:!brightness-110" />
+              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !font-semibold hover:!brightness-110 !transition" />
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5 px-6 pb-7">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Investment Amount (SOL)
-              </label>
+              <label className="block text-sm font-medium mb-1 text-white/70">Investment Amount (SOL)</label>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -160,11 +159,9 @@ export function InvestInFundModal({
                   }
                 }}
                 placeholder="0.1"
-                className="bg-white/5 border-white/15 text-white placeholder-white/30"
+                className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white"
               />
-              <p className="text-xs text-white/50 mt-1">
-                Minimum investment: 0.001 SOL
-              </p>
+              <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL</p>
             </div>
 
             <div className="bg-white/5 p-4 rounded-xl border border-white/10">
@@ -186,24 +183,22 @@ export function InvestInFundModal({
                 </div>
               </div>
             </div>
-
-            <div className="flex gap-3">
-              <Button
+            <div className="flex gap-4 pt-2">
+              <button
                 type="button"
-                variant="outline"
                 onClick={onClose}
-                className="flex-1 border border-white/20 text-white hover:bg-white/10"
                 disabled={isLoading}
+                className="flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
                 type="submit"
-                className="flex-1 bg-brand-yellow hover:brightness-110 text-brand-black font-semibold"
                 disabled={isLoading}
+                className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Investing...' : 'Invest SOL'}
-              </Button>
+                {isLoading ? 'Investing...' : `Invest ${amount ? amount.replace(/,/g, '.') : ''} SOL`}
+              </button>
             </div>
           </form>
         )}

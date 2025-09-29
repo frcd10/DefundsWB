@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
+import { getRateLimitInfo } from '@/lib/rateLimit';
 
 /* POST /api/subscribe { wallet, email }
    - Saves (wallet,email,createdAt) into Defunds.subscribers (upsert on wallet)
@@ -8,6 +9,12 @@ import getClientPromise from '@/lib/mongodb';
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit (independent bucket using IP only; could extend to wallet/IP combo)
+    const rl = getRateLimitInfo(req);
+    if (!rl.allowed) {
+      return NextResponse.json({ success: false, error: rl.message || 'Rate limit exceeded' }, { status: 429 });
+    }
+
     const { wallet, email } = await req.json();
     if (!wallet) return NextResponse.json({ success: false, error: 'wallet required' }, { status: 400 });
     if (!email) return NextResponse.json({ success: false, error: 'email required' }, { status: 400 });

@@ -17,7 +17,7 @@ export interface CachedPublicProfile {
 
 // Simple in-memory store (per browser session)
 const store: Record<string, CachedPublicProfile> = {};
-let listeners = new Set<() => void>();
+const listeners = new Set<() => void>();
 
 function emit() {
   listeners.forEach((l) => l());

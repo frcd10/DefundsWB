@@ -60,7 +60,7 @@ export default function Landing() {
     <>
       {/* Hero section */}
       <section
-        className="relative flex min-h-screen flex-col items-center justify-start pt-20 sm:pt-24 pb-16 px-4 sm:px-6 text-center text-white overflow-hidden bg-brand-black"
+        className="relative flex h-screen flex-col items-center justify-center px-4 sm:px-6 text-center text-white overflow-hidden bg-brand-black"
       >
         {/* Background video layer */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -79,9 +79,9 @@ export default function Landing() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(0,0,0,0)_0%,rgba(0,0,0,0.35)_80%)]" />
         </div>
         {/* Content wrapper above background */}
-        <div className="relative z-10 flex flex-col items-center w-full">
-        {/* Trust / indicator bar */}
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] tracking-wider uppercase text-white/50">
+  <div className="relative z-10 flex flex-col items-center w-full max-w-6xl">
+  {/* Trust / indicator bar */}
+  <div className="mb-8 -mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] tracking-wider uppercase text-white/50">
           <span className="flex items-center gap-1">Audited <span className="text-white/30">(EST Q1 2026)</span></span>
           <span className="hidden sm:inline-block w-px h-3 bg-white/15" />
           <span className="flex items-center gap-1">Built on <span className="text-brand-yellow">Solana</span></span>
@@ -89,17 +89,17 @@ export default function Landing() {
           <span className="flex items-center gap-1">Open Source</span>
         </div>
 
-        <h1 className="mb-5 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight max-w-4xl">
+  <h1 className="mb-6 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight max-w-4xl">
           Institutional-Grade On‑Chain Asset Management
         </h1>
-        <p className="mb-8 sm:mb-10 max-w-2xl text-sm sm:text-base md:text-lg text-white/70 leading-relaxed">
+  <p className="mb-10 max-w-2xl text-sm sm:text-base md:text-lg text-white/70 leading-relaxed">
           Launch or allocate into professionally structured on-chain funds – and extend strategies into
           <span className="text-brand-yellow"> real‑world assets (RWA)</span>. Maintain full custody while accessing audited
           infrastructure, transparent fee mechanics and real-time program level NAV.
         </p>
 
         {/* Metrics (dynamic) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 mb-10 w-full max-w-4xl">
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 mb-12 w-full max-w-4xl">
           <Metric label="ACTIVE FUNDS" value={loading ? 0 : activeFunds} />
           <Metric label="ACTIVE RWA" value={loading ? 0 : activeRwa} />
           {/* Scale TVL by decimals factor so animation counts integer steps; then format */}
@@ -108,7 +108,7 @@ export default function Landing() {
         </div>
 
         {/* Primary CTAs */}
-        <div className="flex flex-col sm:flex-row items-center gap-4">
+	<div className="flex flex-col sm:flex-row items-center gap-5">
           <Link
             href="/Funds"
             className="group inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black shadow-[0_4px_14px_rgba(246,210,58,0.35)] hover:brightness-110 hover:shadow-[0_6px_22px_rgba(246,210,58,0.45)] active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 transition min-w-[220px]"
@@ -121,62 +121,21 @@ export default function Landing() {
           >
             Explore RWA
           </Link>
-        </div>
-  {/* Removed divider line per request */}
-  {/* safelist: bg-brand-yellow text-brand-black */}
-        </div>
-      </section>
+          <Link
+            href="/investor"
+            className="inline-flex items-center justify-center rounded-full border border-brand-yellow/70 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 transition min-w-[220px]"
+          >
+            Early Investor
+          </Link>
+  </div>
 
-      {/* RWA Bridge Section */}
-      <section className="relative bg-brand-black py-20 px-4 sm:px-6 text-white border-t border-white/5">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-14 items-start">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-5">Where On‑Chain Meets Off‑Chain</h2>
-              <p className="text-white/70 leading-relaxed text-sm sm:text-base mb-6 max-w-prose">
-                Our Real‑World Assets framework lets managers originate, tokenize and service off‑chain exposures (invoices,
-                yield agreements, structured credit) while preserving on‑chain transparency, deterministic fee accrual and
-                continuous liquidity windows. Capital flows are program governed; redemption logic enforces seniority and
-                distribution priority without custodial middle layers.
-              </p>
-              <ul className="space-y-3 text-white/70 text-sm sm:text-[15px] mb-8">
-                <li className="flex gap-3"><span className="text-brand-yellow">•</span><span>Tokenized claim structure with verifiable cashflow attestations.</span></li>
-                <li className="flex gap-3"><span className="text-brand-yellow">•</span><span>Isolated vault architecture – RWA risk segmented from liquid trading sleeves.</span></li>
-                <li className="flex gap-3"><span className="text-brand-yellow">•</span><span>Programmable performance & servicing fees – no manual reconciliations.</span></li>
-                <li className="flex gap-3"><span className="text-brand-yellow">•</span><span>Lifecycle events (funding, coupon, maturity) emitted as on‑chain state transitions.</span></li>
-              </ul>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/rwa"
-                  className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-7 py-3 text-sm font-semibold text-brand-black hover:brightness-110 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 transition shadow-[0_3px_12px_rgba(246,210,58,0.25)]"
-                >
-                  Explore RWA Framework
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-3 text-sm font-medium text-white/70 hover:text-white hover:border-white/40 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-white/20 transition"
-                >
-                  Talk to Team
-                </Link>
-              </div>
-            </div>
-            <div className="space-y-6">
-              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6">
-                <h3 className="text-sm font-semibold text-brand-yellow mb-2 tracking-wide">RWA VAULT LAYERS</h3>
-                <p className="text-xs text-white/60 leading-relaxed">Segregated accounting domains isolate off‑chain collateral from on‑chain liquid portfolios. Each vault exposes deterministic NAV surfaces & withdrawal curves.</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6">
-                <h3 className="text-sm font-semibold text-brand-yellow mb-2 tracking-wide">DATA ATTESTATION</h3>
-                <p className="text-xs text-white/60 leading-relaxed">Signed oracle proofs anchor servicing events (interest, principal, impairment) enabling verifiable yield derivation and risk scoring.</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6">
-                <h3 className="text-sm font-semibold text-brand-yellow mb-2 tracking-wide">PROGRAMMED CASHFLOWS</h3>
-                <p className="text-xs text-white/60 leading-relaxed">Fees & waterfall distributions computed on-chain; eliminates manual spreadsheets and reconciliation risk.</p>
-              </div>
-            </div>
-          </div>
+  {/* Spacer to ensure vertical centering remains stable across responsive breakpoints */}
+  <div className="h-6" aria-hidden />
+
         </div>
-      </section>
+  </section>
+
+      
     </>
   );
 }

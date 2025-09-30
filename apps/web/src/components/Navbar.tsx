@@ -104,30 +104,14 @@ export default function Navbar() {
             </li>
           )}
       <li><Link href="/news" className="hover:text-brand-yellow transition-colors">News</Link></li>
-      <li><Link href="/contact" className="hover:text-brand-yellow transition-colors">Contact</Link></li>
         </ul>
 
-        {/* Right Side CTA Buttons (removed How it Works) ------------------- */}
-    <div className="hidden lg:flex items-center gap-3">
-          <Link
-            href="/investor"
-      className="rounded-full bg-brand-yellow px-5 py-1.5 text-sm font-semibold text-brand-black hover:brightness-110 transition"
-          >
-      Invest
-          </Link>
-        </div>
+
 
         {/* Right Side: Social + Mobile Menu Button ----------------------- */}
   <div className="flex items-center gap-2 sm:gap-4">
-          {/* Social Links - Hidden on small screens */}
-      <div className="hidden sm:flex items-center gap-3">
-            <Link href="https://x.com/blchead" aria-label="X" className="hover:opacity-80 transition-opacity">
-        <X className="w-5 h-5 sm:w-6 sm:h-6 text-white/80 hover:text-white" />
-            </Link>
-            <Link href="https://t.me/felipe_fel" aria-label="Telegram" className="hover:opacity-80 transition-opacity">
-        <Send className="w-5 h-5 sm:w-6 sm:h-6 text-white/80 hover:text-white" />
-            </Link>
-            {/* Wallet Connect Button (always visible) */}
+          {/* Wallet + Devnet Faucet */}
+          <div className="hidden sm:flex items-center gap-3">
             <div className="wallet-trigger">
               <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium !border-0 !shadow-none !bg-none hover:!brightness-110 !transition" />
             </div>

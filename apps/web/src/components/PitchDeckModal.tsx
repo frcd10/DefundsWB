@@ -17,11 +17,14 @@ export function PitchDeckModal({ open, onClose }: PitchDeckModalProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[680px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
-        <div className="px-6 pt-6 pb-3 flex flex-col gap-2">
+        <div className="px-6 pt-6 pb-3 flex flex-col gap-3">
           <DialogHeader>
             <DialogTitle className="text-2xl font-extrabold">Pitch Deck & Progress</DialogTitle>
             <DialogDescription className="text-white/70">Weekly build transparency + full vision deck.</DialogDescription>
           </DialogHeader>
+          <div className="text-[11px] leading-relaxed text-white/50 bg-white/5 border border-white/10 rounded-lg px-4 py-3">
+            Updates are posted weekly. The complete pitch deck will be uploaded at the end of the Cypherpunk hackathon. Early investors can follow iteration here meanwhile.
+          </div>
           <div className="flex gap-2 mt-2">
             <button onClick={() => setTab('updates')} className={`px-4 py-2 rounded-full text-sm font-medium transition border ${tab==='updates' ? 'bg-brand-yellow text-brand-black border-brand-yellow' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}>Weekly Updates</button>
             <button onClick={() => setTab('deck')} className={`px-4 py-2 rounded-full text-sm font-medium transition border ${tab==='deck' ? 'bg-brand-yellow text-brand-black border-brand-yellow' : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'}`}>Full Pitch</button>

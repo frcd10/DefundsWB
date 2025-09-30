@@ -12,18 +12,38 @@ export default function InvestorPage() {
 
   return (
     <main className="min-h-screen bg-brand-black text-white pb-24">
-      {/* Hero Section */}
+      {/* Hero Section (Original Content) */}
       <section className="px-4 pt-20 sm:pt-32 pb-16 border-b border-white/5 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_60%)]">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl sm:text-6xl font-semibold mb-6 leading-tight">
             Join the Future of
             <span className="text-brand-yellow block">Asset Management</span>
           </h1>
-          <p className="text-lg sm:text-xl text-white/60 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Become a seed investor in the first fully decentralized hedge fund platform. We\'re
+          <p className="text-lg sm:text-xl text-white/60 mb-8 max-w-3xl mx-auto leading-relaxed">
+            Become a seed investor in the first fully decentralized hedge fund platform. We're
             redefining asset management with self-custodial vaults, transparent operations, and
             enforced on-chain protections.
           </p>
+
+          {/* Valuation Banner */}
+          <div className="mb-12 max-w-3xl mx-auto">
+            <div className="rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-5 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 text-left sm:text-center">
+              <div className="flex-1">
+                <p className="text-sm sm:text-base leading-relaxed text-white/80">
+                  <span className="text-brand-yellow font-semibold">Current valuation: $15M (FDV)</span>. First round
+                  targeting an allocation of <span className="font-medium text-white/90">3.34% to 6.67%</span> at that valuation.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full border border-brand-yellow/60 text-brand-yellow hover:bg-brand-yellow hover:text-brand-black px-5 py-2 text-xs font-semibold"
+                onClick={() => setOpenJoin(true)}
+              >
+                Join Round
+              </Button>
+            </div>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-14">
             <Button
@@ -63,7 +83,7 @@ export default function InvestorPage() {
         </div>
       </section>
 
-      {/* Why Invest Section */}
+      {/* Why Invest Section (Original) */}
       <section className="py-24 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-semibold text-center mb-16">
@@ -75,7 +95,7 @@ export default function InvestorPage() {
               <InvestmentReason
                 icon={<TrendingUp className="w-8 h-8 text-brand-yellow" />}
                 title="Revolutionary Market Opportunity"
-                description="First‑mover advantage in a $4.5T industry moving on‑chain. Legacy hedge funds are slow, opaque, and expensive. We\'re building the next operating system for asset management."
+                description="First‑mover advantage in a $4.5T industry moving on‑chain. Legacy hedge funds are slow, opaque, and expensive. We're building the next operating system for asset management."
               />
               <InvestmentReason
                 icon={<Shield className="w-8 h-8 text-brand-yellow" />}
@@ -122,12 +142,13 @@ export default function InvestorPage() {
         </div>
       </section>
 
-      {/* Investment Tiers Section */}
+      {/* Investment Tiers Section (Original) */}
       <section className="py-24 px-4 bg-white/5 border-y border-white/10">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-semibold text-center mb-16">
             Investment <span className="text-brand-yellow">Opportunities</span>
           </h2>
+          {/* Valuation paragraph removed (now in hero banner) */}
 
           <div className="grid md:grid-cols-3 gap-8">
             <InvestmentTier
@@ -161,7 +182,7 @@ export default function InvestorPage() {
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* Contact Section (Original) */}
       <section className="py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-semibold mb-8">
@@ -207,7 +228,7 @@ export default function InvestorPage() {
   );
 }
 
-// Helper Components
+// Helper Components (Original retained ones)
 function InvestmentReason({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
     <div className="flex gap-4">
@@ -230,11 +251,7 @@ function InvestmentTier({ tier, amount, features, highlight }: { tier: string; a
       }`}
     >
       {highlight && (
-        <div className="text-center mb-5">
-          <span className="bg-brand-yellow text-brand-black px-3 py-1 rounded-full text-xs font-semibold tracking-wide">
-            MOST POPULAR
-          </span>
-        </div>
+        <div className="mb-5" aria-hidden />
       )}
       <h3 className="text-2xl font-semibold text-center mb-1">{tier}</h3>
       <p className="text-lg text-brand-yellow font-semibold text-center mb-6">{amount}</p>
@@ -249,3 +266,5 @@ function InvestmentTier({ tier, amount, features, highlight }: { tier: string; a
     </div>
   );
 }
+
+// (Removed institutional helper components)

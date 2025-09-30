@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { TrendingUp, Users, Shield, Zap, DollarSign, Globe, Mail, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import WaitlistModal from '@/components/WaitlistModal';
+import { PitchDeckModal } from '@/components/PitchDeckModal';
+import { JoinInvestorModal } from '@/components/JoinInvestorModal';
 
 export default function InvestorPage() {
-  const [openWaitlist, setOpenWaitlist] = useState(false);
+  const [openPitch, setOpenPitch] = useState(false);
+  const [openJoin, setOpenJoin] = useState(false);
 
   return (
     <main className="min-h-screen bg-brand-black text-white pb-24">
@@ -27,7 +29,7 @@ export default function InvestorPage() {
             <Button
               size="lg"
               className="w-64 rounded-full bg-brand-yellow text-brand-black font-semibold px-8 py-3 text-lg shadow hover:brightness-110 transition"
-              onClick={() => setOpenWaitlist(true)}
+              onClick={() => setOpenJoin(true)}
             >
               💎 Invest in Defunds
             </Button>
@@ -35,6 +37,7 @@ export default function InvestorPage() {
               size="lg"
               variant="ghost"
               className="w-64 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold px-8 py-3 text-lg transition"
+              onClick={() => setOpenPitch(true)}
             >
               📊 View Pitch Deck
             </Button>
@@ -173,9 +176,9 @@ export default function InvestorPage() {
             <Button
               size="lg"
               className="w-64 rounded-full bg-brand-yellow text-brand-black font-semibold px-8 py-3 text-lg shadow hover:brightness-110 transition"
-              onClick={() => setOpenWaitlist(true)}
+              onClick={() => setOpenJoin(true)}
             >
-              💰 Start Investment Process
+              💰 Join as Investor
             </Button>
           </div>
 
@@ -198,9 +201,8 @@ export default function InvestorPage() {
         </div>
       </section>
 
-      {openWaitlist && (
-        <WaitlistModal forRole="investor" onClose={() => setOpenWaitlist(false)} />
-      )}
+      <PitchDeckModal open={openPitch} onClose={() => setOpenPitch(false)} />
+      <JoinInvestorModal open={openJoin} onClose={() => setOpenJoin(false)} />
     </main>
   );
 }

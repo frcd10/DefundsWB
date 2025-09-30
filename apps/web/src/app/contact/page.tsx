@@ -60,7 +60,7 @@ export default function Contact() {
               name="Felipe (Blchead)"
               role="CEO & Co-Founder"
               bio="Gestor de produto TradiFi - Dev"
-              linkedin="felipercdrummond"
+              linkedin="felipe-d-96044620"
               twitter="blchead"
             />
 
@@ -68,7 +68,7 @@ export default function Contact() {
               name="Marcos"
               role="CTO & Co-Founder"
               bio="Quantitative Trader - Full Stack Dev"
-              linkedin="Marcos"
+              linkedin="marcos-vinícius-pinto-a13894276"
               twitter="mvgp.sc"
             />
 

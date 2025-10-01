@@ -1,6 +1,20 @@
 "use client";
 import Link from 'next/link';
-import { X, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
+
+// Official X (formerly Twitter) logomark (approx) SVG component
+function XLogo(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M18.244 2h3.63l-7.93 9.053L24 22h-6.708l-5.243-6.858L5.57 22H1.94l8.51-9.72L0 2h6.836l4.77 6.244L18.244 2Zm-2.14 18.42h1.99L7.948 3.476H5.79l10.313 16.944Z" />
+    </svg>
+  );
+}
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -16,7 +30,7 @@ export default function Footer() {
           <Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link>
           <Separator />
           <Link href="https://x.com/DefundsFinance" aria-label="X" className="hover:opacity-90 transition-opacity">
-            <X className="w-4 h-4 text-white/60 hover:text-white" />
+            <XLogo className="w-4 h-4 text-white/60 hover:text-white" />
           </Link>
           <Link href="https://t.me/felipe_fel" aria-label="Telegram" className="hover:opacity-90 transition-opacity">
             <Send className="w-4 h-4 text-white/60 hover:text-white" />

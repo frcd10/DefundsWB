@@ -98,7 +98,7 @@ export default function Contact() {
               name="Cool"
               role="Marketing team"
               bio="Marketing Specialist"
-              linkedin=""
+              linkedin="colinasme"
               twitter="cool_trenches"
             />
 

@@ -2,6 +2,20 @@
 
 import { Mail, Send, Globe2, MapPin, Users, Linkedin, Github } from 'lucide-react';
 
+// Minimal X (formerly Twitter) brand icon (filled) since lucide-react only provides the old bird logo
+function XIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M18.25 2h3.54l-7.73 8.82L24 22h-6.63l-5.18-6.79L6.2 22H2.66l8.26-9.43L0 2h6.75l4.7 6.18L18.25 2Z" />
+    </svg>
+  );
+}
+
 export default function Contact() {
   return (
   <main className="min-h-screen bg-brand-black text-white pb-24">
@@ -79,6 +93,32 @@ export default function Contact() {
               linkedin="matheus-santos-b87687249"
               twitter="Mattonweb3"
             />
+
+            <TeamMember
+              name="Cool"
+              role="Marketing team"
+              bio="Marketing Specialist"
+              linkedin=""
+              twitter="cool_trenches"
+            />
+
+            <TeamMember
+              name="Renan Barreto"
+              role="Legal Advisor"
+              bio="Lawyer with expertise in crypto regulations and compliance."
+              linkedin=""
+              twitter=""
+            />
+
+            <TeamMember
+              name="Open Slot"
+              role="Part of the Team"
+              bio="Contact us on our discord and tell us why you would be a great fit!"
+              linkedin=""
+              twitter=""
+            />
+
+    
 
             
           </div>
@@ -158,11 +198,11 @@ function TeamMember({
         )}
         {twitter && (
           <a 
-            href={`https://twitter.com/${twitter}`}
+            href={`https://x.com/${twitter}`}
             className="text-brand-yellow hover:text-white transition-colors"
-            aria-label={`${name} Twitter`}
+            aria-label={`${name} X`}
           >
-            <Send className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </a>
         )}
       </div>

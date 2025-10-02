@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
       currentValue: 1,
       investments: 1,
       payments: 1,
+      access: 1,
+      accessMode: 1,
+      maxPerInvestor: 1,
     }).toArray();
 
   const eligible = (funds.length + rwas.length) > 0;

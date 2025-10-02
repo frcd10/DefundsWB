@@ -29,7 +29,16 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
     maxCapacity: 5000,
     isPublic: true,
     initialDeposit: 0.5,
+    accessMode: 'public' as 'public' | 'single_code' | 'multi_code',
+    inviteCode: '',
+    inviteCodes: [] as string[],
+    maxPerInvestor: '' as string | ''
   });
+  const [multiCodeCount, setMultiCodeCount] = useState(5);
+  const MAX_MULTI_CODES = 2000;
+  const [showCodesDialog, setShowCodesDialog] = useState(false);
+  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [initialDepositInput, setInitialDepositInput] = useState('0.5');
   const DECIMAL_REGEX = /^\d*(?:[.,]?\d*)?$/;
   const commitInitialDepositFromString = (raw: string) => {
@@ -61,32 +70,52 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
         isPublic: form.isPublic,
         initialDeposit: form.initialDeposit,
       };
-      const { fundId, signature } = await solanaFundService.createFund(wallet, params);
+  const { fundId, signature } = await solanaFundService.createFund(wallet, params);
 
       // Persist to Rwa collection
+      const body: any = {
+        fundId,
+        manager: wallet.publicKey.toString(),
+        name: form.name,
+        description: form.description,
+        fundType: form.fundType,
+        performanceFee: form.performanceFee,
+        maxCapacity: form.maxCapacity,
+        isPublic: form.accessMode === 'public',
+        signature,
+        initialDeposit: form.initialDeposit,
+        accessMode: form.accessMode
+      };
+      if (form.accessMode === 'single_code') body.inviteCode = form.inviteCode.toUpperCase();
+      else if (form.accessMode === 'multi_code') {
+        if (form.inviteCodes.length > 0) body.inviteCodes = form.inviteCodes; else body.inviteCodesCount = multiCodeCount;
+      }
+      if (form.maxPerInvestor) body.maxPerInvestor = Number(form.maxPerInvestor);
+
       const res = await fetch('/api/rwa/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fundId,
-          manager: wallet.publicKey.toString(),
-          name: form.name,
-          description: form.description,
-          fundType: form.fundType,
-          performanceFee: form.performanceFee,
-          maxCapacity: form.maxCapacity,
-          isPublic: form.isPublic,
-          signature,
-          initialDeposit: form.initialDeposit,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || 'Failed to save RWA product');
       }
-      onCreated?.(fundId);
-      onClose();
-      setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5 });
+      const data = await res.json();
+      if (form.accessMode === 'multi_code') {
+        const codes: string[] = (data?.data?.access?.codes?.map((c: any) => c.code)) || data?.inviteCodes || [];
+        setGeneratedCodes(codes);
+        setShowCodesDialog(true);
+        setCreatedId(fundId);
+        // reset form behind
+        setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5, accessMode: 'public', inviteCode: '', inviteCodes: [], maxPerInvestor: '' });
+        setInitialDepositInput('0.5');
+      } else {
+        onCreated?.(fundId);
+        onClose();
+        setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5, accessMode: 'public', inviteCode: '', inviteCodes: [], maxPerInvestor: '' });
+        setInitialDepositInput('0.5');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Creation failed');
     } finally {
@@ -95,6 +124,8 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
   };
 
   return (
+    <>
+    {!showCodesDialog && (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[560px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
@@ -155,9 +186,77 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
                   className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30"
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <input type="checkbox" id="rwapublic" checked={form.isPublic} onChange={(e) => setForm({ ...form, isPublic: e.target.checked })} className="h-4 w-4 accent-brand-yellow" />
-                <label htmlFor="rwapublic" className="text-sm text-white/70">Public product (anyone can invest)</label>
+              {/* Access options */}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Access</label>
+                <div className="space-y-3 bg-white/5 p-4 rounded-xl border border-white/10">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="rwaAccessMode" value="public" checked={form.accessMode === 'public'} onChange={() => setForm({ ...form, accessMode: 'public' })} className="mt-1 accent-brand-yellow" />
+                    <div>
+                      <div className="text-sm font-medium">Public – anyone can invest</div>
+                      <p className="text-xs text-white/50 mt-0.5">Product appears as open access. No codes required.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="rwaAccessMode" value="single_code" checked={form.accessMode === 'single_code'} onChange={() => setForm({ ...form, accessMode: 'single_code' })} className="mt-1 accent-brand-yellow" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">Invite Code – shared code</div>
+                      <p className="text-xs text-white/50 mt-0.5">Anyone with this code can invest. You define it (up to 10 digits).</p>
+                      {form.accessMode === 'single_code' && (
+                        <div className="mt-2">
+                          <Input
+                            placeholder="Choose code (letters/numbers)"
+                            value={form.inviteCode}
+                            maxLength={10}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                              setForm(prev => ({ ...prev, inviteCode: v }));
+                            }}
+                            className="w-full rounded-lg bg-white/10 border-white/20 text-sm tracking-wider"
+                          />
+                          <p className="text-[10px] text-white/40 mt-1">1–10 alphanumeric characters. Not case sensitive when investors enter.</p>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="rwaAccessMode" value="multi_code" checked={form.accessMode === 'multi_code'} onChange={() => setForm({ ...form, accessMode: 'multi_code' })} className="mt-1 accent-brand-yellow" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">One-Time Codes – limited slots</div>
+                      <p className="text-xs text-white/50 mt-0.5">Generate multiple 6-digit codes. Each code usable once.</p>
+                      {form.accessMode === 'multi_code' && (
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-white/60">Number of one-time codes</label>
+                            <Input type="number" min={1} max={MAX_MULTI_CODES} value={multiCodeCount} onChange={(e) => setMultiCodeCount(Math.min(MAX_MULTI_CODES, Math.max(1, Number(e.target.value))))} className="w-28 rounded-lg bg-white/10 border-white/20 text-sm" />
+                          </div>
+                          <p className="text-[10px] text-white/40">Codes generated after creation. Consult later in manager panel.</p>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Max Investment Per User (SOL) <span className="text-white/40">(optional)</span></label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.maxPerInvestor}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!/^\d*(?:[.,]?\d*)?$/.test(raw)) return;
+                    setForm(prev => ({ ...prev, maxPerInvestor: raw }));
+                  }}
+                  onBlur={() => {
+                    if (form.maxPerInvestor === '') return;
+                    const normalized = form.maxPerInvestor.replace(/,/g, '.');
+                    setForm(prev => ({ ...prev, maxPerInvestor: normalized }));
+                  }}
+                  placeholder="e.g. 100 or 0.5"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30"
+                />
+                <p className="text-xs text-white/50 mt-1">If set, a wallet cannot exceed this cumulative SOL invested.</p>
               </div>
               {error && <div className="p-3 bg-red-900/30 border border-red-700 rounded-md"><p className="text-sm text-red-300">{error}</p></div>}
               <div className="flex gap-4 pt-2">
@@ -182,5 +281,43 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
         </div>
       </DialogContent>
     </Dialog>
+    )}
+    {showCodesDialog && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/70" onClick={() => { setShowCodesDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); }} />
+        <div className="relative z-10 w-[90vw] max-w-xl max-h-[80vh] bg-[#0F0F10] border border-white/10 rounded-2xl p-6 flex flex-col">
+          <h3 className="text-xl font-semibold mb-2">One-Time Invite Codes</h3>
+            <p className="text-sm text-white/60 mb-4">Share these with investors. Each can be used once. You can consult them later in the manager panel.</p>
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => navigator.clipboard.writeText(generatedCodes.join('\n'))}
+                className="px-4 py-2 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold hover:brightness-110"
+              >Copy All</button>
+              <button
+                onClick={() => {
+                  const blob = new Blob([generatedCodes.join('\n')], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'rwa_invite_codes.txt';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15"
+              >Download .txt</button>
+              <button
+                onClick={() => { setShowCodesDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); }}
+                className="ml-auto px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15"
+              >Done</button>
+            </div>
+            <div className="overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-3 gap-2 text-[11px] font-mono">
+              {generatedCodes.map(c => (
+                <div key={c} className="px-2 py-1 bg-white/10 rounded text-center select-all tracking-wider">{c}</div>
+              ))}
+            </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

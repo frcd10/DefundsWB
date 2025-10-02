@@ -8,6 +8,7 @@ import { SwapPanel } from '../../components/trader/SwapPanel';
 import { RwaPayoutPanel } from '../../components/trader/RwaPayoutPanel';
 import { FundPayoutPanel } from '../../components/trader/FundPayoutPanel';
 import { FundAccessCodesPanel } from '../../components/trader/FundAccessCodesPanel';
+import { RwaAccessCodesPanel } from '../../components/trader/RwaAccessCodesPanel';
 
 export default function TraderPage() {
   const wallet = useWallet();
@@ -15,6 +16,7 @@ export default function TraderPage() {
   const [loading, setLoading] = useState(true);
   const [funds, setFunds] = useState<Array<Record<string, unknown>>>([]);
   const [rwas, setRwas] = useState<Array<Record<string, unknown>>>([]);
+  const [accessView, setAccessView] = useState<'funds' | 'rwa'>('funds');
 
   useEffect(() => {
     const run = async () => {
@@ -95,7 +97,7 @@ export default function TraderPage() {
               <TabsTrigger value="swap" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Swap</TabsTrigger>
               <TabsTrigger value="rwa" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">RWA Payout</TabsTrigger>
               <TabsTrigger value="funds" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Funds Payout</TabsTrigger>
-              <TabsTrigger value="access" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Fund Access</TabsTrigger>
+              <TabsTrigger value="access" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Created Products</TabsTrigger>
             </TabsList>
 
             <TabsContent value="swap" className="mt-4">
@@ -117,18 +119,53 @@ export default function TraderPage() {
             </TabsContent>
 
               <TabsContent value="access" className="mt-4 space-y-6">
-                {funds.length === 0 && (
-                  <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 text-sm text-white/60">No funds yet.</div>
-                )}
-                {funds.map((f: any) => (
-                  <div key={f.fundId} className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold text-white">{f.name || f.fundId}</h3>
-                      <span className="text-[11px] px-2 py-1 rounded bg-black/30 border border-white/10 text-white/50 font-medium">{(f.access?.type || f.accessMode || 'public').replace('_',' ')}</span>
-                    </div>
-                    <FundAccessCodesPanel fund={f} />
+                <div className="flex items-center gap-3">
+                  <span className="text-xs uppercase tracking-wide text-white/40">View</span>
+                  <div className="inline-flex rounded-full bg-white/5 border border-white/10 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setAccessView('funds')}
+                      className={`px-4 py-1.5 text-xs font-medium rounded-full transition ${accessView==='funds' ? 'bg-brand-yellow text-brand-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >Funds</button>
+                    <button
+                      type="button"
+                      onClick={() => setAccessView('rwa')}
+                      className={`px-4 py-1.5 text-xs font-medium rounded-full transition ${accessView==='rwa' ? 'bg-brand-yellow text-brand-black shadow' : 'text-white/60 hover:text-white'}`}
+                    >RWA</button>
                   </div>
-                ))}
+                </div>
+                {accessView === 'funds' && (
+                  <div className="space-y-6">
+                    {funds.length === 0 && (
+                      <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 text-sm text-white/60">No funds yet.</div>
+                    )}
+                    {funds.map((f: any) => (
+                      <div key={f.fundId} className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-white">{f.name || f.fundId}</h3>
+                          <span className="text-[11px] px-2 py-1 rounded bg-black/30 border border-white/10 text-white/50 font-medium">{(f.access?.type || f.accessMode || 'public').replace('_',' ')}</span>
+                        </div>
+                        <FundAccessCodesPanel fund={f} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {accessView === 'rwa' && (
+                  <div className="space-y-6">
+                    {rwas.length === 0 && (
+                      <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 text-sm text-white/60">No RWA products yet.</div>
+                    )}
+                    {rwas.map((p: any) => (
+                      <div key={p.fundId} className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-white">{p.name || p.fundId}</h3>
+                          <span className="text-[11px] px-2 py-1 rounded bg-black/30 border border-white/10 text-white/50 font-medium">{(p.access?.type || p.accessMode || 'public').replace('_',' ')}</span>
+                        </div>
+                        <RwaAccessCodesPanel product={p} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
           </Tabs>
         </div>

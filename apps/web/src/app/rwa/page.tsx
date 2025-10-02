@@ -9,7 +9,7 @@ import WaitlistModal from '@/components/WaitlistModal';
 import FundCard from '@/components/FundCard';
 import { FundCardData, FundType } from '@/types/fund';
 import { formatSol } from '@/lib/formatters';
-import { InvestInFundModal } from '@/components/InvestInFundModal';
+import { InvestRwaModal } from '@/components/InvestRwaModal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { CreateRwaProductModal } from '@/components/CreateRwaProductModal';
 
@@ -250,7 +250,7 @@ export default function RWAPage() {
 function RwaTable({ items }: { items: FundCardData[] }) {
   const [sort, setSort] = useState<{ key: keyof FundCardData; dir: 'asc' | 'desc' }>({ key: 'tvl', dir: 'desc' });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
+  // Removed inline invite code capture; handled in InvestRwaModal
   const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
   const { getProfile, cache } = usePublicProfiles();
   const [profileWallet, setProfileWallet] = useState<string | null>(null);
@@ -387,14 +387,9 @@ function RwaTable({ items }: { items: FundCardData[] }) {
                             </ul>
                           </div>
                           {f.inviteOnly && (
-                            <div className="space-y-2">
-                              <input
-                                value={inviteCodes[f.id] || ''}
-                                onChange={(e) => setInviteCodes(prev => ({ ...prev, [f.id]: e.target.value }))}
-                                placeholder="Invite code"
-                                className="input w-full text-xs"
-                              />
-                              <p className="text-[10px] text-white/50">This product requires an invite code to invest.</p>
+                            <div className="space-y-1">
+                              <p className="text-[11px] text-brand-yellow font-medium">Invite code required</p>
+                              <p className="text-[10px] text-white/40">You'll be asked for it when investing.</p>
                             </div>
                           )}
                           <div>
@@ -431,12 +426,11 @@ function RwaTable({ items }: { items: FundCardData[] }) {
         </tbody>
       </table>
       {investTarget && (
-        <InvestInFundModal
+        <InvestRwaModal
           isOpen={true}
           onClose={() => setInvestTarget(null)}
-          fundId={investTarget.id}
-          fundName={investTarget.name}
-          isRwa={true}
+          product={{ fundId: investTarget.id, name: investTarget.name, accessMode: (investTarget as any).accessMode }}
+          onInvested={() => { /* could trigger reload if needed */ }}
         />
       )}
       {profileWallet && (

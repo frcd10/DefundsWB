@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
 import { Connection } from '@solana/web3.js';
 
-function validate(body: Record<string, unknown>) {
+function validate(body: Record<string, any>) {
   const reqd = ['fundId', 'investorWallet', 'amount', 'signature'];
   for (const f of reqd) if (!body[f]) return `Missing required field: ${f}`;
   const amt = Number(body.amount);
   if (!Number.isFinite(amt) || amt <= 0) return 'Amount must be a positive number';
+  if (body.inviteCode && typeof body.inviteCode !== 'string') return 'inviteCode must be a string';
   return null;
 }
 
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
     if (err) return NextResponse.json({ success: false, error: err }, { status: 400 });
 
   const { fundId, investorWallet, amount, signature } = body as { fundId: string; investorWallet: string; amount: number; signature: string };
+  let inviteCode: string | undefined = body.inviteCode ? String(body.inviteCode).trim() : undefined;
+  if (inviteCode) inviteCode = inviteCode.toUpperCase();
 
     const ok = await verify(signature);
     if (!ok) return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
@@ -46,9 +49,35 @@ export async function POST(req: NextRequest) {
       totalShares?: number;
       currentValue?: number;
       investorCount?: number;
-      investments?: Array<{ walletAddress: string }>;
+      investments?: Array<{ walletAddress: string; amount?: number }>;
+      accessMode?: string;
+      access?: any;
+      maxPerInvestor?: number;
     }>({ fundId } as any);
     if (!product) return NextResponse.json({ success: false, error: 'RWA product not found' }, { status: 404 });
+
+    // Access control checks
+  const mode: 'public' | 'single_code' | 'multi_code' = (product as any).accessMode || (product as any).access?.type || 'public';
+    if (mode === 'single_code') {
+      const expected = product.access?.code?.toUpperCase();
+      if (!inviteCode) return NextResponse.json({ success: false, error: 'Invite code required' }, { status: 400 });
+      if (inviteCode !== expected) return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 403 });
+    } else if (mode === 'multi_code') {
+      if (!inviteCode) return NextResponse.json({ success: false, error: 'Invite code required' }, { status: 400 });
+      // Find unused code
+      const codeEntry = (product.access?.codes || []).find((c: any) => c.code === inviteCode);
+      if (!codeEntry) return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 403 });
+      if (codeEntry.used) return NextResponse.json({ success: false, error: 'Invite code already used' }, { status: 403 });
+    }
+
+    // Per-investor cap enforcement
+    if (product.maxPerInvestor) {
+      const priorInvestments = (product.investments || []).filter(i => i.walletAddress === investorWallet);
+      const priorTotal = priorInvestments.reduce((sum, i: any) => sum + (i.amount || 0), 0);
+      if (priorTotal + amount > product.maxPerInvestor + 1e-9) {
+        return NextResponse.json({ success: false, error: 'Investment exceeds per-investor limit' }, { status: 400 });
+      }
+    }
 
     const currentNav = product.currentValue && product.totalShares && product.totalShares > 0
       ? product.currentValue / product.totalShares
@@ -64,33 +93,38 @@ export async function POST(req: NextRequest) {
     const isExistingInvestor = (product.investments ?? []).some((inv) => inv.walletAddress === investorWallet);
     const newInvestorCount = isExistingInvestor ? (product.investorCount ?? 0) : ((product.investorCount ?? 0) + 1);
 
+    const update: any = {
+      $set: {
+        ...newTotals,
+        investorCount: newInvestorCount,
+        updatedAt: new Date(),
+      },
+      $push: {
+        investments: {
+          walletAddress: investorWallet,
+          amount,
+          shares: sharesToIssue,
+          navAtTime: currentNav,
+          timestamp: new Date(),
+          transactionSignature: signature,
+          type: 'investment',
+        },
+        performanceHistory: {
+          date: new Date().toISOString(),
+          tvl: newTotals.totalDeposits,
+          nav: newTotals.totalShares > 0 ? newTotals.currentValue / newTotals.totalShares : 1.0,
+          pnl: newTotals.currentValue - newTotals.totalDeposits,
+          pnlPercentage: newTotals.totalDeposits > 0 ? ((newTotals.currentValue - newTotals.totalDeposits) / newTotals.totalDeposits) * 100 : 0,
+        },
+      }
+    };
+    if (mode === 'multi_code' && inviteCode) {
+      update.$set['access.codes.$[codeEl].used'] = true;
+    }
     await col.updateOne(
       { fundId },
-      {
-        $set: {
-          ...newTotals,
-          investorCount: newInvestorCount,
-          updatedAt: new Date(),
-        },
-        $push: {
-          investments: {
-            walletAddress: investorWallet,
-            amount,
-            shares: sharesToIssue,
-            navAtTime: currentNav,
-            timestamp: new Date(),
-            transactionSignature: signature,
-            type: 'investment',
-          },
-          performanceHistory: {
-            date: new Date().toISOString(),
-            tvl: newTotals.totalDeposits,
-            nav: newTotals.totalShares > 0 ? newTotals.currentValue / newTotals.totalShares : 1.0,
-            pnl: newTotals.currentValue - newTotals.totalDeposits,
-            pnlPercentage: newTotals.totalDeposits > 0 ? ((newTotals.currentValue - newTotals.totalDeposits) / newTotals.totalDeposits) * 100 : 0,
-          },
-        } as any,
-      } as any
+      update,
+      mode === 'multi_code' && inviteCode ? { arrayFilters: [{ 'codeEl.code': inviteCode }] } as any : undefined
     );
 
     return NextResponse.json({ success: true, data: { fundId, amount, signature } }, { status: 201 });

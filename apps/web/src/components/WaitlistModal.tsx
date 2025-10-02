@@ -14,7 +14,6 @@ interface Props {
   onClose: () => void;
 }
 
-//testing
 export default function WaitlistModal({ forRole, onClose }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

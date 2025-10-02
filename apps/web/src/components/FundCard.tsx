@@ -15,7 +15,7 @@ import {
 
 export default function FundCard({ f }: { f: FundCardData }) {
   const [details, setDetails] = useState(false);
-  const [invite, setInvite] = useState('');
+  // invite code no longer entered here; handled in investment modal
   const [showInvestModal, setShowInvestModal] = useState(false);
 
   // Transform performance data to show PnL instead of cumulative NAV
@@ -38,11 +38,6 @@ export default function FundCard({ f }: { f: FundCardData }) {
   });
 
   const invest = () => {
-    if (f.inviteOnly && !invite.trim()) {
-      return alert('Invite code required');
-    }
-    
-    // Open the investment modal
     setShowInvestModal(true);
     console.log('Opening investment modal for fund:', f.id);
   };
@@ -90,14 +85,10 @@ export default function FundCard({ f }: { f: FundCardData }) {
       {/* ── Invest action ─────────────────────────── */}
       <div className="space-y-2">
         {f.inviteOnly && (
-          <input
-            value={invite}
-            onChange={(e) => setInvite(e.target.value)}
-            placeholder="Invite code"
-            className="input w-full text-sm"
-          />
+          <div className="text-[11px] font-medium text-brand-yellow/90 bg-brand-yellow/10 border border-brand-yellow/30 px-3 py-1.5 rounded-md text-center">
+            Invite code required
+          </div>
         )}
-
         <button
           onClick={invest}
           className="w-full bg-brand-yellow text-brand-black font-semibold py-2.5 rounded-full hover:brightness-110 active:scale-[.99] transition text-sm"
@@ -206,6 +197,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
         fundId={f.id}
         fundName={f.name}
         isRwa={f.type === 'Construction' || f.type === 'Advance Receivable'}
+        requiresInviteCode={f.inviteOnly}
         onInvestmentComplete={handleInvestmentComplete}
       />
     </div>

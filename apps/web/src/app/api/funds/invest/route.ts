@@ -3,13 +3,14 @@ import getClientPromise from '@/lib/mongodb';
 import { Connection } from '@solana/web3.js';
 
 // Validation function
-function validateInvestmentRequest(body: Record<string, unknown>) {
+function validateInvestmentRequest(body: Record<string, any>) {
   const required = ['fundId', 'investorWallet', 'amount', 'signature'];
   for (const field of required) {
     if (!body[field]) {
       return `Missing required field: ${field}`;
     }
   }
+  // inviteCode is conditionally required; validated after we fetch fund (need accessMode)
   return null;
 }
 
@@ -58,12 +59,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const {
-      fundId,
-      investorWallet,
-      amount,
-      signature
-    } = body;
+  const { fundId, investorWallet, amount, signature } = body;
 
     // Verify the transaction on Solana
     console.log('Verifying investment transaction:', signature);
@@ -93,6 +89,41 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'Fund not found',
       }, { status: 404 });
+    }
+
+    // Enforce invite code access if required
+    const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
+    if (accessMode !== 'public') {
+      const providedCodeRaw: string | undefined = body.inviteCode;
+      const providedCode = providedCodeRaw ? String(providedCodeRaw).toUpperCase() : undefined;
+      if (!providedCode) {
+        return NextResponse.json({ success: false, error: 'Invite code required' }, { status: 400 });
+      }
+      if (accessMode === 'single_code') {
+        const storedCode = (fund.access?.code || fund.inviteCode || '').toUpperCase(); // fallback legacy
+        if (!storedCode || providedCode !== storedCode) {
+          return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 400 });
+        }
+      } else if (accessMode === 'multi_code') {
+        const codes: Array<{ code: string; used: boolean }> = fund.access?.codes || [];
+        const codeObj = codes.find(c => c.code === providedCode);
+        if (!codeObj) {
+          return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 400 });
+        }
+        if (codeObj.used) {
+          return NextResponse.json({ success: false, error: 'Invite code already used' }, { status: 400 });
+        }
+        // Mark as used (optimistic; will update in same atomic update below)
+      }
+    }
+    // Enforce maxPerInvestor if defined (sum of existing + new amount <= max)
+    if (fund.maxPerInvestor) {
+      const priorAmount = (fund.investments || [])
+        .filter((inv: any) => inv.walletAddress === investorWallet)
+        .reduce((sum: number, inv: any) => sum + (inv.amount || 0), 0);
+      if (priorAmount + amount > fund.maxPerInvestor + 1e-9) { // small epsilon
+        return NextResponse.json({ success: false, error: `Per-investor cap exceeded (max ${fund.maxPerInvestor} SOL)` }, { status: 400 });
+      }
     }
 
     // Idempotency: if we've already recorded this signature, return success
@@ -153,31 +184,41 @@ export async function POST(req: NextRequest) {
     };
 
     // Update the fund with investment tracking
+    // Build update doc including possible invite code consumption
+    const updateDoc: any = {
+      $set: {
+        totalDeposits: newTotalDeposits,
+        totalShares: newTotalShares,
+        currentValue: newCurrentValue,
+        investorCount: newInvestorCount,
+        updatedAt: new Date()
+      },
+      $inc: { solBalance: amount },
+      $push: {
+        investments: investmentRecord,
+        performanceHistory: {
+          date: new Date().toISOString(),
+          tvl: newTotalDeposits,
+          nav: newNavPerShare,
+          pnl: newCurrentValue - newTotalDeposits,
+          pnlPercentage: newTotalDeposits > 0 ? ((newCurrentValue - newTotalDeposits) / newTotalDeposits) * 100 : 0
+        }
+      }
+    };
+
+    if ((fund.accessMode || fund.access?.type) === 'multi_code' && body.inviteCode) {
+      // Mark the specific invite code as used in the embedded array
+      updateDoc.$set['access.codes.$[codeEl].used'] = true;
+    }
+
+    const arrayFilters = ((fund.accessMode || fund.access?.type) === 'multi_code' && body.inviteCode)
+      ? { arrayFilters: [{ 'codeEl.code': body.inviteCode }] }
+      : undefined;
+
     const updateResult = await db.collection('Funds').updateOne(
       { fundId },
-      {
-        $set: {
-          totalDeposits: newTotalDeposits,
-          totalShares: newTotalShares,
-          currentValue: newCurrentValue,
-          investorCount: newInvestorCount,
-          updatedAt: new Date()
-        },
-        // Increase explicit SOL balance tracking (used by trader UI) by deposit amount
-        $inc: {
-          solBalance: amount
-        },
-        $push: {
-          investments: investmentRecord,
-          performanceHistory: {
-            date: new Date().toISOString(),
-            tvl: newTotalDeposits,
-            nav: newNavPerShare,
-            pnl: newCurrentValue - newTotalDeposits, // Current PnL (should be 0 for deposits only)
-            pnlPercentage: newTotalDeposits > 0 ? ((newCurrentValue - newTotalDeposits) / newTotalDeposits) * 100 : 0
-          }
-        }
-      } as any // eslint-disable-line @typescript-eslint/no-explicit-any -- MongoDB operation type assertion
+      updateDoc,
+      arrayFilters as any
     );
 
     if (updateResult.matchedCount === 0) {

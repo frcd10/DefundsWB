@@ -53,6 +53,8 @@ export interface FundCardData {
   maxCap: number;
   investorCount: number;
   inviteOnly: boolean;
+  accessMode?: 'public' | 'single_code' | 'multi_code';
+  maxPerInvestor?: number;
   performance: PerformancePoint[];
   stats: FundStats;
 }

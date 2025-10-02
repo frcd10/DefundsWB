@@ -16,6 +16,7 @@ interface InvestInFundModalProps {
   // If true, records the investment using the RWA API instead of Funds API
   isRwa?: boolean;
   onInvestmentComplete?: (signature: string) => void;
+  requiresInviteCode?: boolean; // new: whether an invite code is required to invest
 }
 
 export function InvestInFundModal({ 
@@ -24,13 +25,15 @@ export function InvestInFundModal({
   fundId, 
   fundName,
   isRwa = false,
-  onInvestmentComplete 
+  onInvestmentComplete,
+  requiresInviteCode = false
 }: InvestInFundModalProps) {
   const wallet = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState('0.1');
   const [submitted, setSubmitted] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +54,11 @@ export function InvestInFundModal({
   const investmentAmount = parseFloat(normalized);
     if (isNaN(investmentAmount) || investmentAmount <= 0) {
       setError('Please enter a valid investment amount');
+      return;
+    }
+
+    if (requiresInviteCode && !inviteCode.trim()) {
+      setError('Invite code required');
       return;
     }
 
@@ -83,7 +91,8 @@ export function InvestInFundModal({
           fundId,
           investorWallet: wallet.publicKey.toString(),
           amount: investmentAmount,
-          signature
+          signature,
+          inviteCode: requiresInviteCode ? inviteCode.trim() : undefined
         }),
       });
 
@@ -163,6 +172,20 @@ export function InvestInFundModal({
               />
               <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL</p>
             </div>
+            {requiresInviteCode && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Invite Code</label>
+                <Input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                  placeholder="INVITE123"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
+                  maxLength={10}
+                />
+                <p className="text-xs text-white/50 mt-1">Alphanumeric (1–10 chars). Not case sensitive.</p>
+              </div>
+            )}
 
             <div className="bg-white/5 p-4 rounded-xl border border-white/10">
               <h4 className="text-sm font-medium text-white mb-2">Investment Details</h4>

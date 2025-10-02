@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       console.log('- Original totalDeposits:', fund.totalDeposits);
       console.log('- Original performanceFee:', fund.performanceFee);
       console.log('- Original investorCount:', fund.investorCount);
+      const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
       
       return {
         id: fund._id,
@@ -57,8 +58,9 @@ export async function GET(req: NextRequest) {
         perfFee: fund.performanceFee || 0,
         investorCount: fund.investorCount || 0,
         maxCapacity: fund.maxCapacity || 0,
-        isPublic: fund.isPublic !== false,
-        inviteOnly: fund.isPublic === false,
+        isPublic: accessMode === 'public',
+        inviteOnly: accessMode !== 'public',
+        accessMode, // expose access mode (front-end can decide wording); DOES NOT expose actual codes
         
         // Performance data for PnL curve (will be flat until trading is added)
         performance: fund.performanceHistory || [{

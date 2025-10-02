@@ -391,7 +391,7 @@ function FundsTable({
   onSort: (k: keyof FundCardData) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
+  // invite codes now handled inside investment modal only
   const [investTarget, setInvestTarget] = useState<FundCardData | null>(null);
   const { getProfile, cache } = usePublicProfiles();
   const [profileWallet, setProfileWallet] = useState<string | null>(null);
@@ -528,14 +528,8 @@ function FundsTable({
                             </div>
                           </div>
                           {f.inviteOnly && (
-                            <div className="space-y-2">
-                              <input
-                                value={inviteCodes[f.id] || ''}
-                                onChange={(e) => setInviteCodes(prev => ({ ...prev, [f.id]: e.target.value }))}
-                                placeholder="Invite code"
-                                className="input w-full text-xs"
-                              />
-                              <p className="text-[10px] text-white/50">This fund requires an invite code to invest.</p>
+                            <div className="text-[11px] font-medium text-brand-yellow/90 bg-brand-yellow/10 border border-brand-yellow/30 px-2 py-1.5 rounded-md inline-block">
+                              Invite code required
                             </div>
                           )}
                           <div>
@@ -585,6 +579,7 @@ function FundsTable({
           fundId={investTarget.id}
           fundName={investTarget.name}
           isRwa={false}
+          requiresInviteCode={investTarget.inviteOnly}
         />
       )}
       {profileWallet && (

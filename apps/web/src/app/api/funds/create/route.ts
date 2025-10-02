@@ -3,12 +3,52 @@ import getClientPromise from '@/lib/mongodb';
 import { Connection, PublicKey } from '@solana/web3.js';
 
 // Validation function
-function validateCreateFundRequest(body: Record<string, unknown>) {
+function validateCreateFundRequest(body: Record<string, any>) {
   const required = ['fundId', 'manager', 'name', 'signature'];
   for (const field of required) {
     if (!body[field]) {
       return `Missing required field: ${field}`;
     }
+  }
+
+  // Access control validation
+  const accessMode = body.accessMode || 'public';
+  if (!['public', 'single_code', 'multi_code'].includes(accessMode)) {
+    return 'Invalid accessMode';
+  }
+
+  if (accessMode === 'single_code') {
+    const code = body.inviteCode;
+    if (!code) return 'inviteCode required for single_code accessMode';
+    if (typeof code !== 'string') return 'inviteCode must be a string';
+    if (!/^[a-zA-Z0-9]{1,10}$/.test(code)) return 'inviteCode must be 1-10 alphanumeric chars';
+  } else if (accessMode === 'multi_code') {
+    let codes = body.inviteCodes;
+    const countRaw = body.inviteCodesCount;
+    if ((!Array.isArray(codes) || codes.length === 0) && (countRaw === undefined || countRaw === null)) {
+      return 'Provide inviteCodes array or inviteCodesCount for multi_code accessMode';
+    }
+    if ((!Array.isArray(codes) || codes.length === 0) && countRaw) {
+      const n = Number(countRaw);
+      if (!Number.isInteger(n) || n < 1 || n > 2000) return 'inviteCodesCount must be integer 1-2000';
+      // generate placeholder; real generation done below before insert
+      body.__generateInviteCodes = n; // flag for later
+      codes = [];
+    }
+    if (Array.isArray(codes) && codes.length > 2000) return 'Too many invite codes (max 2000)';
+    if (Array.isArray(codes)) {
+      for (const c of codes) {
+        if (typeof c !== 'string' || !/^\d{6}$/.test(c)) {
+          return 'All inviteCodes must be 6 digit strings';
+        }
+      }
+    }
+  }
+  if (body.maxPerInvestor !== undefined && body.maxPerInvestor !== '') {
+    const raw = String(body.maxPerInvestor).replace(/,/g, '.');
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v <= 0) return 'maxPerInvestor must be a positive number if provided';
+    body.maxPerInvestor = v; // normalize
   }
   return null;
 }
@@ -69,7 +109,8 @@ export async function POST(req: NextRequest) {
       maxCapacity = 0,
       isPublic = true,
       signature,
-      initialDeposit = 0
+      initialDeposit = 0,
+      maxPerInvestor
     } = body;
 
     // Verify the transaction on Solana (idempotent path supported)
@@ -126,6 +167,27 @@ export async function POST(req: NextRequest) {
       performanceFee,
       maxCapacity,
       isPublic,
+      accessMode: body.accessMode || 'public',
+      access: (() => {
+        if ((body.accessMode || 'public') === 'single_code') {
+          return { type: 'single_code', code: String(body.inviteCode).toUpperCase() };
+        }
+        if ((body.accessMode || 'public') === 'multi_code') {
+          let codes: string[] = body.inviteCodes || [];
+          if (body.__generateInviteCodes && codes.length === 0) {
+            const n: number = body.__generateInviteCodes;
+            const set = new Set<string>();
+            while (set.size < n) {
+              set.add(Math.floor(100000 + Math.random() * 900000).toString());
+            }
+            codes = Array.from(set);
+            body.inviteCodes = codes; // expose in response
+          }
+          return { type: 'multi_code', codes: codes.map((c: string) => ({ code: c, used: false })) };
+        }
+        return { type: 'public' };
+      })(),
+      maxPerInvestor: maxPerInvestor ? Number(maxPerInvestor) : undefined,
       signature,
       
       // Financial tracking

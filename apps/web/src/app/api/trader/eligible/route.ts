@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
       solBalance: 1,
       investments: 1,
       payments: 1,
+      access: 1,
+      accessMode: 1,
     }).toArray();
     const rwas = await db.collection('Rwa').find({ manager: wallet }).project({
       _id: 1,

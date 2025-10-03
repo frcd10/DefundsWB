@@ -37,8 +37,12 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
   const [multiCodeCount, setMultiCodeCount] = useState(5);
   const [perInvestorInviteCodes, setPerInvestorInviteCodes] = useState(0);
   const MAX_MULTI_CODES = 2000;
-  const [showCodesDialog, setShowCodesDialog] = useState(false);
-  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  // Share overlay state (for all access modes)
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareAccessMode, setShareAccessMode] = useState<'public' | 'single_code' | 'multi_code'>('public');
+  const [shareSingleCode, setShareSingleCode] = useState('');
+  const [shareCodes, setShareCodes] = useState<string[]>([]);
+  const [shareName, setShareName] = useState('');
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [initialDepositInput, setInitialDepositInput] = useState('0.5');
   const DECIMAL_REGEX = /^\d*(?:[.,]?\d*)?$/;
@@ -104,20 +108,21 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
         throw new Error(data?.error || 'Failed to save RWA product');
       }
       const data = await res.json();
+      // Prepare share overlay for all access modes
+      setShareAccessMode(form.accessMode);
+      setShareSingleCode(form.accessMode === 'single_code' ? form.inviteCode.toUpperCase() : '');
+      setShareName(form.name);
+      setCreatedId(fundId);
       if (form.accessMode === 'multi_code') {
         const codes: string[] = (data?.data?.access?.codes?.map((c: any) => c.code)) || data?.inviteCodes || [];
-        setGeneratedCodes(codes);
-        setShowCodesDialog(true);
-        setCreatedId(fundId);
-        // reset form behind
-        setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5, accessMode: 'public', inviteCode: '', inviteCodes: [], maxPerInvestor: '' });
-        setInitialDepositInput('0.5');
+        setShareCodes(Array.isArray(codes) ? codes : []);
       } else {
-        onCreated?.(fundId);
-        onClose();
-        setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5, accessMode: 'public', inviteCode: '', inviteCodes: [], maxPerInvestor: '' });
-        setInitialDepositInput('0.5');
+        setShareCodes([]);
       }
+      setShowShareDialog(true);
+      // reset form behind
+      setForm({ name: '', description: '', fundType: 'Construction', performanceFee: 10, maxCapacity: 5000, isPublic: true, initialDeposit: 0.5, accessMode: 'public', inviteCode: '', inviteCodes: [], maxPerInvestor: '' });
+      setInitialDepositInput('0.5');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Creation failed');
     } finally {
@@ -127,8 +132,7 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
 
   return (
     <>
-    {!showCodesDialog && (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+  <Dialog open={isOpen && !showShareDialog} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[560px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
         <div className="px-6 pt-6 pb-2">
@@ -287,40 +291,43 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
         </div>
       </DialogContent>
     </Dialog>
-    )}
-    {showCodesDialog && (
+    {showShareDialog && (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/70" onClick={() => { setShowCodesDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); }} />
+        <div className="absolute inset-0 bg-black/70" onClick={() => { setShowShareDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); setShareAccessMode('public'); setShareSingleCode(''); setShareCodes([]); setShareName(''); }} />
         <div className="relative z-10 w-[90vw] max-w-xl max-h-[80vh] bg-[#0F0F10] border border-white/10 rounded-2xl p-6 flex flex-col">
-          <h3 className="text-xl font-semibold mb-2">One-Time Invite Codes</h3>
-            <p className="text-sm text-white/60 mb-4">Share these with investors. Each can be used once. You can consult them later in the manager panel.</p>
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => navigator.clipboard.writeText(generatedCodes.join('\n'))}
-                className="px-4 py-2 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold hover:brightness-110"
-              >Copy All</button>
-              <button
-                onClick={() => {
-                  const blob = new Blob([generatedCodes.join('\n')], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'rwa_invite_codes.txt';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                className="px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15"
-              >Download .txt</button>
-              <button
-                onClick={() => { setShowCodesDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); }}
-                className="ml-auto px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15"
-              >Done</button>
+          <h3 className="text-xl font-semibold mb-2">Share your RWA product</h3>
+          <p className="text-sm text-white/60 mb-4">Let people know your product is live.</p>
+          {shareAccessMode === 'multi_code' && shareCodes.length > 0 && (
+            <>
+              <div className="flex gap-2 mb-4">
+                <button onClick={() => navigator.clipboard.writeText(shareCodes.join('\n'))} className="px-4 py-2 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold hover:brightness-110">Copy All</button>
+                <button onClick={() => { const blob = new Blob([shareCodes.join('\n')], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'rwa_invite_codes.txt'; a.click(); URL.revokeObjectURL(url); }} className="px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Download .txt</button>
+              </div>
+              <div className="overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-3 gap-2 text-[11px] font-mono mb-4">
+                {shareCodes.map(c => (<div key={c} className="px-2 py-1 bg-white/10 rounded text-center select-all tracking-wider">{c}</div>))}
+              </div>
+            </>
+          )}
+          {shareAccessMode === 'single_code' && shareSingleCode && (
+            <div className="mb-4">
+              <p className="text-xs text-white/60 mb-2">Shared invite code</p>
+              <div className="px-3 py-2 inline-block rounded bg-white/10 border border-white/15 font-mono text-[12px] tracking-wider select-all">{shareSingleCode}</div>
             </div>
-            <div className="overflow-auto rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-3 gap-2 text-[11px] font-mono">
-              {generatedCodes.map(c => (
-                <div key={c} className="px-2 py-1 bg-white/10 rounded text-center select-all tracking-wider">{c}</div>
-              ))}
-            </div>
+          )}
+          <div className="flex gap-2">
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent([
+                `I just created an RWA product on @DefundsFinance`,
+                shareName ? `(${shareName})` : undefined,
+                shareAccessMode === 'single_code' && shareSingleCode ? `Access code: ${shareSingleCode}` : undefined,
+                shareAccessMode === 'multi_code' && shareCodes.length > 0 ? `Starter access codes: ${shareCodes.slice(0, 5).join(', ')}` : undefined,
+                `${typeof window !== 'undefined' ? window.location.origin : ''}/rwa`
+              ].filter(Boolean).join(' \n '))}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 px-4 py-2 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold hover:brightness-110 text-center"
+            >Share on X</a>
+            <button onClick={() => { setShowShareDialog(false); onCreated?.(createdId || ''); setCreatedId(null); onClose(); setShareAccessMode('public'); setShareSingleCode(''); setShareCodes([]); setShareName(''); }} className="flex-1 px-4 py-2 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
+          </div>
         </div>
       </div>
     )}

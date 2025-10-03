@@ -76,8 +76,9 @@ export function InvestInFundModal({
     try {
       console.log('Starting investment process...');
       // Pre-validate server-side to avoid on-chain failure from bad codes or limits
-      if (!isRwa) {
-        const precheckRes = await fetch('/api/funds/invest', {
+      {
+        const preEndpoint = isRwa ? '/api/rwa/invest' : '/api/funds/invest';
+        const precheckRes = await fetch(preEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -103,8 +104,8 @@ export function InvestInFundModal({
 
       console.log('Investment transaction signature:', signature);
 
-      // Record the investment in the database (Funds vs RWA)
-      const endpoint = isRwa ? '/api/rwa/invest' : '/api/funds/invest';
+  // Record the investment in the database (Funds vs RWA)
+  const endpoint = isRwa ? '/api/rwa/invest' : '/api/funds/invest';
       console.log(`Recording investment in database via ${endpoint}...`);
       const response = await fetch(endpoint, {
         method: 'POST',

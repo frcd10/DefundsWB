@@ -17,6 +17,7 @@ interface InvestInFundModalProps {
   isRwa?: boolean;
   onInvestmentComplete?: (signature: string) => void;
   requiresInviteCode?: boolean; // new: whether an invite code is required to invest
+  canRequestInviteCodesCount?: number; // 0-5 allowed; when >0 show selector to request new codes
 }
 
 export function InvestInFundModal({ 
@@ -26,7 +27,8 @@ export function InvestInFundModal({
   fundName,
   isRwa = false,
   onInvestmentComplete,
-  requiresInviteCode = false
+  requiresInviteCode = false,
+  canRequestInviteCodesCount
 }: InvestInFundModalProps) {
   const wallet = useWallet();
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +36,10 @@ export function InvestInFundModal({
   const [amount, setAmount] = useState('0.1');
   const [submitted, setSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const [requestCodes, setRequestCodes] = useState(0);
+  const [grantedCodes, setGrantedCodes] = useState<string[] | null>(null);
+  const [investSuccess, setInvestSuccess] = useState(false);
+  const [usedCode, setUsedCode] = useState<string | undefined>(undefined);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,13 +68,31 @@ export function InvestInFundModal({
       return;
     }
 
-  if (submitted) return; // guard double submit
-  setSubmitted(true);
-  setIsLoading(true);
+    if (submitted) return; // guard double submit
+    setSubmitted(true);
+    setIsLoading(true);
     setError(null);
 
     try {
       console.log('Starting investment process...');
+      // Pre-validate server-side to avoid on-chain failure from bad codes or limits
+      if (!isRwa) {
+        const precheckRes = await fetch('/api/funds/invest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fundId,
+            investorWallet: wallet.publicKey.toString(),
+            amount: investmentAmount,
+            inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
+            validateOnly: true,
+          }),
+        });
+        const precheck = await precheckRes.json();
+        if (!precheckRes.ok || !precheck.success) {
+          throw new Error(precheck.error || 'Validation failed');
+        }
+      }
       
       // Make the deposit to the fund
       const signature = await solanaFundService.depositToFund(
@@ -92,7 +116,8 @@ export function InvestInFundModal({
           investorWallet: wallet.publicKey.toString(),
           amount: investmentAmount,
           signature,
-          inviteCode: requiresInviteCode ? inviteCode.trim() : undefined
+          inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
+          generateInviteCodesCount: canRequestInviteCodesCount ? Math.min(Math.max(requestCodes, 0), canRequestInviteCodesCount) : undefined
         }),
       });
 
@@ -103,12 +128,19 @@ export function InvestInFundModal({
         throw new Error(result.error || 'Failed to record investment');
       }
 
+      if (result?.data?.inviteCodes?.length) {
+        setGrantedCodes(result.data.inviteCodes);
+      }
       if (onInvestmentComplete) {
         onInvestmentComplete(signature);
       }
 
       console.log('Investment completed successfully!');
-      onClose();
+      if (!result?.data?.inviteCodes?.length) {
+        // For public or single_code investments, show post-invest share UI instead of closing immediately
+        setUsedCode(requiresInviteCode ? inviteCode.trim().toUpperCase() : undefined);
+        setInvestSuccess(true);
+      }
       
     } catch (error) {
       console.error('=== ERROR INVESTING IN FUND ===');
@@ -145,7 +177,52 @@ export function InvestInFundModal({
           </div>
         )}
 
-        {!wallet.connected ? (
+        {grantedCodes ? (
+          <div className="px-6 pb-7 space-y-4">
+            <h3 className="text-lg font-semibold">Your invite codes</h3>
+            <p className="text-sm text-white/60">Share these with friends. Each code can be used once.</p>
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-3 gap-2 text-[11px] font-mono">
+              {grantedCodes.map(c => (<div key={c} className="px-2 py-1 bg-white/10 rounded text-center tracking-wider">{c}</div>))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => navigator.clipboard.writeText(grantedCodes.join('\n'))} className="flex-1 h-10 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold">Copy</button>
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent([
+                  `I just invested in ${fundName} using @DefundsFinance`,
+                  `${grantedCodes.length === 1 ? 'Here is my invite code' : 'Here are my invite codes'} so you can invest too: ${grantedCodes.join(', ')}`,
+                  `Be fast — only ${grantedCodes.length} ${grantedCodes.length === 1 ? 'code' : 'codes'}!`,
+                  `${typeof window !== 'undefined' ? window.location.origin : ''}/Funds`
+                ].join(' \n '))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 h-10 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
+              >
+                Share on X
+              </a>
+              <button onClick={() => { setGrantedCodes(null); onClose(); }} className="flex-1 h-10 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
+            </div>
+          </div>
+        ) : investSuccess ? (
+          <div className="px-6 pb-7 space-y-4">
+            <h3 className="text-lg font-semibold">Investment successful</h3>
+            <p className="text-sm text-white/60">Share your investment so friends can join.</p>
+            <div className="flex gap-2">
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent([
+                  `I just invested in ${fundName} using @DefundsFinance`,
+                  requiresInviteCode && usedCode ? `Use this invite code to join: ${usedCode}` : undefined,
+                  `${typeof window !== 'undefined' ? window.location.origin : ''}/Funds`
+                ].filter(Boolean).join(' \n '))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 h-10 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
+              >
+                Share on X
+              </a>
+              <button onClick={() => { setInvestSuccess(false); setUsedCode(undefined); onClose(); }} className="flex-1 h-10 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
+            </div>
+          </div>
+        ) : !wallet.connected ? (
           <div className="px-6 pb-7 space-y-5 text-center">
             <p className="text-sm text-white/70">Connect your wallet to invest in this {isRwa ? 'product' : 'fund'}</p>
             <div className="flex justify-center">
@@ -184,6 +261,15 @@ export function InvestInFundModal({
                   maxLength={10}
                 />
                 <p className="text-xs text-white/50 mt-1">Alphanumeric (1–10 chars). Not case sensitive.</p>
+              </div>
+            )}
+            {!!canRequestInviteCodesCount && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Get invite codes for friends</label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={0} max={canRequestInviteCodesCount} value={requestCodes} onChange={(e) => setRequestCodes(Math.max(0, Math.min(Number(e.target.value || 0), canRequestInviteCodesCount)))} className="w-24 rounded-lg bg-white/5 border border-white/15 text-sm" />
+                  <span className="text-xs text-white/50">You can request up to {canRequestInviteCodesCount} codes with this investment.</span>
+                </div>
               </div>
             )}
 

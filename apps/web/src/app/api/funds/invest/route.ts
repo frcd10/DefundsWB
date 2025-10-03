@@ -4,11 +4,18 @@ import { Connection } from '@solana/web3.js';
 
 // Validation function
 function validateInvestmentRequest(body: Record<string, any>) {
-  const required = ['fundId', 'investorWallet', 'amount', 'signature'];
-  for (const field of required) {
-    if (!body[field]) {
+  const requiredBase = ['fundId', 'investorWallet', 'amount'] as const;
+  for (const field of requiredBase) {
+    if (body[field] === undefined || body[field] === null || body[field] === '') {
       return `Missing required field: ${field}`;
     }
+  }
+  const amt = Number(body.amount);
+  if (!Number.isFinite(amt) || amt <= 0) return 'Amount must be a positive number';
+
+  // signature required only when not in validateOnly precheck mode
+  if (!body.validateOnly && !body.signature) {
+    return 'Missing required field: signature';
   }
   // inviteCode is conditionally required; validated after we fetch fund (need accessMode)
   return null;
@@ -59,22 +66,13 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-  const { fundId, investorWallet, amount, signature } = body;
+    const { fundId, investorWallet } = body as { fundId: string; investorWallet: string };
+    const amount = Number(body.amount);
+    const signature: string | undefined = body.signature;
+    const validateOnly: boolean = !!body.validateOnly;
+    const generateInviteCodesCountRaw = body.generateInviteCodesCount;
 
-    // Verify the transaction on Solana
-    console.log('Verifying investment transaction:', signature);
-    const verified = await verifyTransaction(signature);
-    console.log('Investment transaction verified:', verified);
-    
-    if (!verified) {
-      console.log('Investment transaction verification failed');
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid transaction signature',
-      }, { status: 400 });
-    }
-
-  // Update fund in MongoDB
+    // Update fund in MongoDB
     console.log('Connecting to MongoDB...');
     const client = await getClientPromise();
     const db = client.db('Defunds');
@@ -91,7 +89,7 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // Enforce invite code access if required
+    // Enforce invite code access if required (BEFORE verifying tx to prevent wasted on-chain fees)
     const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
     if (accessMode !== 'public') {
       const providedCodeRaw: string | undefined = body.inviteCode;
@@ -126,8 +124,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // If this is only a validation precheck, return early (no tx verification or DB updates)
+    if (validateOnly) {
+      return NextResponse.json({ success: true, data: { valid: true } }, { status: 200 });
+    }
+
+    // Verify the transaction on Solana (after validating inputs)
+    if (!signature) {
+      return NextResponse.json({ success: false, error: 'Missing signature' }, { status: 400 });
+    }
+    console.log('Verifying investment transaction:', signature);
+    const verified = await verifyTransaction(signature);
+    console.log('Investment transaction verified:', verified);
+    
+    if (!verified) {
+      console.log('Investment transaction verification failed');
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid transaction signature',
+      }, { status: 400 });
+    }
+
     // Idempotency: if we've already recorded this signature, return success
-    const existingWithSig = await collection.findOne({ fundId, 'investments.transactionSignature': signature });
+  const existingWithSig = await collection.findOne({ fundId, 'investments.transactionSignature': signature });
     if (existingWithSig) {
       console.log('Duplicate investment submission detected; returning idempotent success');
       return NextResponse.json({ success: true, data: { fundId, investorWallet, amount, signature, idempotent: true } }, { status: 200 });
@@ -215,6 +234,22 @@ export async function POST(req: NextRequest) {
       ? { arrayFilters: [{ 'codeEl.code': body.inviteCode }] }
       : undefined;
 
+    // Generate per-investor invite codes if configured (will be pushed in a separate update to avoid path conflicts)
+    let newCodes: string[] = [];
+    const perInvestorCount: number = (fund.perInvestorInviteCodes as number) || 0;
+    const requestedCount = Number(generateInviteCodesCountRaw);
+    const finalCount = Number.isInteger(requestedCount) ? Math.max(0, Math.min(perInvestorCount, requestedCount)) : perInvestorCount;
+    if ((fund.accessMode || fund.access?.type) === 'multi_code' && finalCount > 0) {
+      const set = new Set<string>();
+      const existingCodes = new Set<string>((fund.access?.codes || []).map((c: any) => c.code));
+      while (set.size < finalCount) {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        if (!existingCodes.has(code)) set.add(code);
+      }
+      newCodes = Array.from(set);
+      // NOTE: we will push these new codes in a second update to avoid conflict with marking a specific code as used in the same path
+    }
+
     const updateResult = await db.collection('Funds').updateOne(
       { fundId },
       updateDoc,
@@ -229,6 +264,14 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
+    // If we need to append new codes, do it in a follow-up update to avoid 'path conflict' on access.codes
+    if (newCodes.length > 0) {
+      await db.collection('Funds').updateOne(
+        { fundId },
+        { $push: { 'access.codes': { $each: newCodes.map(c => ({ code: c, used: false })) } } } as any
+      );
+    }
+
     console.log('Investment processed successfully');
 
     return NextResponse.json({
@@ -240,7 +283,8 @@ export async function POST(req: NextRequest) {
         signature,
         newTotalDeposits,
         newTotalShares,
-        newInvestorCount
+        newInvestorCount,
+        inviteCodes: newCodes
       },
     }, { status: 201 });
 

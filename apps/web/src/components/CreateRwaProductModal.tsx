@@ -35,6 +35,7 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
     maxPerInvestor: '' as string | ''
   });
   const [multiCodeCount, setMultiCodeCount] = useState(5);
+  const [perInvestorInviteCodes, setPerInvestorInviteCodes] = useState(0);
   const MAX_MULTI_CODES = 2000;
   const [showCodesDialog, setShowCodesDialog] = useState(false);
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
@@ -89,6 +90,7 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
       if (form.accessMode === 'single_code') body.inviteCode = form.inviteCode.toUpperCase();
       else if (form.accessMode === 'multi_code') {
         if (form.inviteCodes.length > 0) body.inviteCodes = form.inviteCodes; else body.inviteCodesCount = multiCodeCount;
+        body.perInvestorInviteCodes = perInvestorInviteCodes;
       }
       if (form.maxPerInvestor) body.maxPerInvestor = Number(form.maxPerInvestor);
 
@@ -229,6 +231,10 @@ export function CreateRwaProductModal({ isOpen, onClose, onCreated }: CreateRwaP
                           <div className="flex items-center gap-3">
                             <label className="text-xs text-white/60">Number of one-time codes</label>
                             <Input type="number" min={1} max={MAX_MULTI_CODES} value={multiCodeCount} onChange={(e) => setMultiCodeCount(Math.min(MAX_MULTI_CODES, Math.max(1, Number(e.target.value))))} className="w-28 rounded-lg bg-white/10 border-white/20 text-sm" />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-xs text-white/60">Codes per investor (optional)</label>
+                            <Input type="number" min={0} max={5} value={perInvestorInviteCodes} onChange={(e) => setPerInvestorInviteCodes(Math.max(0, Math.min(5, Number(e.target.value || 0))))} className="w-28 rounded-lg bg-white/10 border-white/20 text-sm" />
                           </div>
                           <p className="text-[10px] text-white/40">Codes generated after creation. Consult later in manager panel.</p>
                         </div>

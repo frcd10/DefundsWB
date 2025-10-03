@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     if (err) return NextResponse.json({ success: false, error: err }, { status: 400 });
 
   const { fundId, investorWallet, amount, signature } = body as { fundId: string; investorWallet: string; amount: number; signature: string };
+  const generateInviteCodesCountRaw = (body as any).generateInviteCodesCount;
   let inviteCode: string | undefined = body.inviteCode ? String(body.inviteCode).trim() : undefined;
   if (inviteCode) inviteCode = inviteCode.toUpperCase();
 
@@ -121,13 +122,30 @@ export async function POST(req: NextRequest) {
     if (mode === 'multi_code' && inviteCode) {
       update.$set['access.codes.$[codeEl].used'] = true;
     }
+    // Generate per-investor invite codes if configured
+    let newCodes: string[] = [];
+    const perInvestorCount: number = (product as any).perInvestorInviteCodes || 0;
+    const requestedCount = Number(generateInviteCodesCountRaw);
+    const finalCount = Number.isInteger(requestedCount) ? Math.max(0, Math.min(perInvestorCount, requestedCount)) : perInvestorCount;
+    if (mode === 'multi_code' && finalCount > 0) {
+      const set = new Set<string>();
+      const existingCodes = new Set<string>(((product as any).access?.codes || []).map((c: any) => c.code));
+      while (set.size < finalCount) {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        if (!existingCodes.has(code)) set.add(code);
+      }
+      newCodes = Array.from(set);
+      if (!update.$push.access) update.$push.access = {} as any;
+      update.$push['access.codes'] = { $each: newCodes.map(c => ({ code: c, used: false })) } as any;
+    }
+
     await col.updateOne(
       { fundId },
       update,
       mode === 'multi_code' && inviteCode ? { arrayFilters: [{ 'codeEl.code': inviteCode }] } as any : undefined
     );
 
-    return NextResponse.json({ success: true, data: { fundId, amount, signature } }, { status: 201 });
+  return NextResponse.json({ success: true, data: { fundId, amount, signature, inviteCodes: newCodes } }, { status: 201 });
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to invest in RWA product' }, { status: 500 });
   }

@@ -39,6 +39,11 @@ function validateCreateRwaRequest(body: Record<string, any>) {
     if (!Number.isFinite(v) || v <= 0) return 'maxPerInvestor must be a positive number if provided';
     body.maxPerInvestor = v;
   }
+  if (body.perInvestorInviteCodes !== undefined && body.perInvestorInviteCodes !== null && body.perInvestorInviteCodes !== '') {
+    const n = Number(body.perInvestorInviteCodes);
+    if (!Number.isInteger(n) || n < 0 || n > 5) return 'perInvestorInviteCodes must be an integer between 0 and 5';
+    body.perInvestorInviteCodes = n;
+  }
   return null;
 }
 
@@ -133,7 +138,8 @@ export async function POST(req: NextRequest) {
         }
         return { type: 'public' };
       })(),
-      maxPerInvestor: maxPerInvestor ? Number(maxPerInvestor) : undefined,
+  maxPerInvestor: maxPerInvestor ? Number(maxPerInvestor) : undefined,
+  perInvestorInviteCodes: (typeof body.perInvestorInviteCodes === 'number') ? body.perInvestorInviteCodes : 0,
       signature,
       totalDeposits: initialDeposit,
       totalShares: initialDeposit,

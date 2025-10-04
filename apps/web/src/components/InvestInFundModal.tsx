@@ -36,6 +36,7 @@ export function InvestInFundModal({
   const [amount, setAmount] = useState('0.1');
   const [submitted, setSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [requestCodes, setRequestCodes] = useState(0);
   const [grantedCodes, setGrantedCodes] = useState<string[] | null>(null);
   const [investSuccess, setInvestSuccess] = useState(false);
@@ -86,6 +87,7 @@ export function InvestInFundModal({
             investorWallet: wallet.publicKey.toString(),
             amount: investmentAmount,
             inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
+            referralCode: referralCode ? referralCode.trim() : undefined,
             validateOnly: true,
           }),
         });
@@ -118,6 +120,7 @@ export function InvestInFundModal({
           amount: investmentAmount,
           signature,
           inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
+          referralCode: referralCode ? referralCode.trim() : undefined,
           generateInviteCodesCount: canRequestInviteCodesCount ? Math.min(Math.max(requestCodes, 0), canRequestInviteCodesCount) : undefined
         }),
       });
@@ -261,15 +264,27 @@ export function InvestInFundModal({
                   className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
                   maxLength={10}
                 />
-                <p className="text-xs text-white/50 mt-1">Alphanumeric (1–10 chars). Not case sensitive.</p>
+                <p className="text-xs text-white/50 mt-1">Required for this product.</p>
               </div>
             )}
+            <div>
+              <label className="block text-sm font-medium mb-1 text-white/70">Referral Code (optional)</label>
+              <Input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                placeholder="YOURFRIEND"
+                className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
+                maxLength={10}
+              />
+              <p className="text-xs text-white/50 mt-1">If you have a friend’s referral code, paste it here.</p>
+            </div>
             {!!canRequestInviteCodesCount && (
               <div>
                 <label className="block text-sm font-medium mb-1 text-white/70">Get invite codes for friends</label>
                 <div className="flex items-center gap-2">
                   <Input type="number" min={0} max={canRequestInviteCodesCount} value={requestCodes} onChange={(e) => setRequestCodes(Math.max(0, Math.min(Number(e.target.value || 0), canRequestInviteCodesCount)))} className="w-24 rounded-lg bg-white/5 border border-white/15 text-sm" />
-                  <span className="text-xs text-white/50">You can request up to {canRequestInviteCodesCount} codes with this investment.</span>
+                  <span className="text-xs text-white/50">Request up to {canRequestInviteCodesCount} codes.</span>
                 </div>
               </div>
             )}

@@ -18,12 +18,17 @@ interface Profile {
   country?: string;
 }
 
+type Referrals = { referralCode: string | null; inviteCodes: string[]; invitedUsers: number; invitedList: string[]; points: number; totalInvested: number; referredBy: string | null };
+
 export default function MyAreaPage() {
   const wallet = useWallet();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState<Profile>({ wallet: '', name: '', bio: '', twitter: '', discord: '', website: '', email: '', phone: '', country: '' });
+  const [referrals, setReferrals] = useState<Referrals | null>(null);
+  const [rotating, setRotating] = useState(false);
+  const [desiredCode, setDesiredCode] = useState('');
 
   useEffect(() => {
     if (wallet.publicKey) {
@@ -33,20 +38,10 @@ export default function MyAreaPage() {
         if (d?.success && d.data) {
           setProfile(d.data);
           const priv = d.data.privateProfile || {};
-          setForm(prev => ({
-            ...prev,
-            wallet: addr,
-            name: d.data.name || prev.name,
-            bio: d.data.bio || '',
-            twitter: d.data.twitter || '',
-            discord: d.data.discord || '',
-            website: d.data.website || '',
-            email: priv.email || '',
-            phone: priv.phone || '',
-            country: priv.country || ''
-          }));
+          setForm(prev => ({ ...prev, wallet: addr, name: d.data.name || prev.name, bio: d.data.bio || '', twitter: d.data.twitter || '', discord: d.data.discord || '', website: d.data.website || '', email: priv.email || '', phone: priv.phone || '', country: priv.country || '' }));
         }
       }).catch(() => {});
+      fetch(`/api/referrals?wallet=${addr}`).then(r => r.ok ? r.json() : null).then(d => { if (d?.success) setReferrals(d.data); }).catch(() => {});
     }
   }, [wallet.publicKey]);
 
@@ -54,35 +49,30 @@ export default function MyAreaPage() {
     if (!wallet.publicKey) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet: form.wallet,
-          name: form.name,
-          bio: form.bio,
-          twitter: form.twitter,
-          discord: form.discord,
-          website: form.website,
-          privateProfile: {
-            email: form.email,
-            phone: form.phone || undefined,
-            country: form.country || undefined,
-          }
-        }),
-      });
+      const res = await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: form.wallet, name: form.name, bio: form.bio, twitter: form.twitter, discord: form.discord, website: form.website, privateProfile: { email: form.email, phone: form.phone || undefined, country: form.country || undefined } }) });
+      const data = await res.json();
+      if (res.ok && data.success) { setProfile(form); setNotice('Profile updated'); setTimeout(() => setNotice(null), 2500); } else { setNotice('Failed to save profile'); setTimeout(() => setNotice(null), 2500); }
+    } finally { setSaving(false); }
+  };
+
+  const rotateReferral = async () => {
+    if (!wallet.publicKey) return;
+    const code = desiredCode.trim();
+    if (!code) { setNotice('Enter a referral code to set'); setTimeout(() => setNotice(null), 2500); return; }
+    setRotating(true);
+    try {
+      const res = await fetch('/api/referrals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: wallet.publicKey.toString(), desiredCode: code }) });
       const data = await res.json();
       if (res.ok && data.success) {
-        setProfile(form);
-        setNotice('Profile updated');
+        setReferrals((r) => r ? { ...r, referralCode: data.data.referralCode, inviteCodes: Array.from(new Set([data.data.referralCode, ...r.inviteCodes])) } : { referralCode: data.data.referralCode, inviteCodes: [data.data.referralCode], invitedUsers: 0, invitedList: [], points: 0, totalInvested: 0, referredBy: null });
+        setDesiredCode('');
+        setNotice('Referral code updated');
         setTimeout(() => setNotice(null), 2500);
       } else {
-        setNotice('Failed to save profile');
+        setNotice(data?.error || 'Failed to update referral code');
         setTimeout(() => setNotice(null), 2500);
       }
-    } finally {
-      setSaving(false);
-    }
+    } finally { setRotating(false); }
   };
 
   if (!wallet.connected) {
@@ -107,37 +97,59 @@ export default function MyAreaPage() {
             </div>
           )}
           <div className="grid gap-6">
+            {/* Referral section */}
+            <div className="rounded-xl border border-white/10 p-4 bg-black/30">
+              <h2 className="text-lg font-semibold text-white mb-2">Your Referral</h2>
+              <p className="text-xs text-white/60 mb-4">Share your code so friends can be attributed to you.</p>
+              <div className="flex items-center gap-2 mb-3">
+                <input className="w-full rounded-lg bg-white/5 border border-white/15 px-3 py-2 text-sm text-white font-mono tracking-wider" readOnly value={referrals?.referralCode || ''} />
+                <Button onClick={() => referrals?.referralCode && navigator.clipboard.writeText(referrals.referralCode)} className="rounded-lg bg-brand-yellow text-brand-black">Copy</Button>
+              </div>
+              <div className="text-xs text-white/60">Invited users: <span className="text-white">{referrals?.invitedUsers ?? 0}</span></div>
+              {referrals?.referredBy && (<div className="text-xs text-white/60 mt-1">Referred by: <span className="text-white">{referrals.referredBy}</span></div>)}
+              <div className="flex items-center gap-2 mt-4">
+                <input
+                  className="input w-full"
+                  value={desiredCode}
+                  onChange={(e) => setDesiredCode(e.target.value)}
+                  placeholder="Enter new referral code"
+                />
+                <Button onClick={rotateReferral} disabled={rotating} className="rounded-lg bg-white/10 border border-white/15 text-white">{rotating ? 'Changing…' : 'Change'}</Button>
+              </div>
+            </div>
+
+            {/* Profile sections (existing) */}
             <div>
               <h2 className="text-lg font-semibold text-white mb-2">Public Profile</h2>
               <p className="text-xs text-white/50 mb-4">Visible to other users and investors.</p>
               <div className="grid gap-4">
-            <div>
-              <label className="block text-sm text-white/70 mb-1">Display Name</label>
-              <input className="input w-full" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm text-white/70 mb-1">Bio</label>
-              <textarea className="input w-full min-h-24" value={form.bio}
-                onChange={(e) => setForm({ ...form, bio: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Twitter</label>
-                <input className="input w-full" value={form.twitter}
-                  onChange={(e) => setForm({ ...form, twitter: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Discord</label>
-                <input className="input w-full" value={form.discord}
-                  onChange={(e) => setForm({ ...form, discord: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm text-white/70 mb-1">Website</label>
-                <input className="input w-full" value={form.website}
-                  onChange={(e) => setForm({ ...form, website: e.target.value })} />
-              </div>
-            </div>
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">Display Name</label>
+                  <input className="input w-full" value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/70 mb-1">Bio</label>
+                  <textarea className="input w-full min-h-24" value={form.bio}
+                    onChange={(e) => setForm({ ...form, bio: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm text-white/70 mb-1">Twitter</label>
+                    <input className="input w-full" value={form.twitter}
+                      onChange={(e) => setForm({ ...form, twitter: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-white/70 mb-1">Discord</label>
+                    <input className="input w-full" value={form.discord}
+                      onChange={(e) => setForm({ ...form, discord: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-white/70 mb-1">Website</label>
+                    <input className="input w-full" value={form.website}
+                      onChange={(e) => setForm({ ...form, website: e.target.value })} />
+                  </div>
+                </div>
               </div>
             </div>
             <div>

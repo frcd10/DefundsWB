@@ -1,12 +1,11 @@
 'use client';
 import Link from 'next/link';
-import { X, Send, Menu } from 'lucide-react';    // lucide-react already in shadcn stack
+import { X, Send, Menu, Trophy } from 'lucide-react';    // lucide-react already in shadcn stack
 import Image from 'next/image';
 import logo from '../images/logo.png';
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-// Removed direct airdrop logic – using external faucet link instead
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -90,6 +89,7 @@ export default function Navbar() {
         <ul className="hidden lg:flex items-center gap-4 xl:gap-6 text-white text-sm xl:text-base">
           <li><Link href="/Funds" className="hover:text-brand-yellow transition-colors">Funds</Link></li>
           <li><Link href="/rwa" className="hover:text-brand-yellow transition-colors">RWA</Link></li>
+          <li><Link href="/leaderboard" className="hover:text-brand-yellow transition-colors">Leaderboard</Link></li>
           {wallet.connected && (
             <li><Link href="/portfolio" className="hover:text-brand-yellow transition-colors">Portfolio</Link></li>
           )}
@@ -110,6 +110,9 @@ export default function Navbar() {
 
         {/* Right Side: Social + Mobile Menu Button ----------------------- */}
   <div className="flex items-center gap-2 sm:gap-4">
+          {/* Leaderboard Button */}
+          
+
           {/* Wallet + Devnet Faucet */}
           <div className="hidden sm:flex items-center gap-3">
             <div className="wallet-trigger">
@@ -184,6 +187,15 @@ export default function Navbar() {
                     onClick={closeMobileMenu}
                   >
                     RWA
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    href="/leaderboard" 
+                    className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
+                    onClick={closeMobileMenu}
+                  >
+                    Leaderboard
                   </Link>
                 </li>
                 <li>

@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
     const signature: string | undefined = body.signature;
     const validateOnly: boolean = !!body.validateOnly;
     const generateInviteCodesCountRaw = body.generateInviteCodesCount;
+    const referralCodeRaw: string | undefined = body.referralCode; // optional friend code
+    const referralCode = referralCodeRaw ? String(referralCodeRaw).toUpperCase() : undefined;
 
     // Update fund in MongoDB
     console.log('Connecting to MongoDB...');
@@ -89,8 +91,9 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // Enforce invite code access if required (BEFORE verifying tx to prevent wasted on-chain fees)
+    // Access control
     const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
+    let inviteOwner: string | undefined;
     if (accessMode !== 'public') {
       const providedCodeRaw: string | undefined = body.inviteCode;
       const providedCode = providedCodeRaw ? String(providedCodeRaw).toUpperCase() : undefined;
@@ -98,12 +101,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Invite code required' }, { status: 400 });
       }
       if (accessMode === 'single_code') {
-        const storedCode = (fund.access?.code || fund.inviteCode || '').toUpperCase(); // fallback legacy
+        const storedCode = (fund.access?.code || fund.inviteCode || '').toUpperCase();
         if (!storedCode || providedCode !== storedCode) {
           return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 400 });
         }
       } else if (accessMode === 'multi_code') {
-        const codes: Array<{ code: string; used: boolean }> = fund.access?.codes || [];
+        const codes: Array<{ code: string; used: boolean; owner?: string }> = fund.access?.codes || [];
         const codeObj = codes.find(c => c.code === providedCode);
         if (!codeObj) {
           return NextResponse.json({ success: false, error: 'Invalid invite code' }, { status: 400 });
@@ -111,7 +114,7 @@ export async function POST(req: NextRequest) {
         if (codeObj.used) {
           return NextResponse.json({ success: false, error: 'Invite code already used' }, { status: 400 });
         }
-        // Mark as used (optimistic; will update in same atomic update below)
+        inviteOwner = codeObj.owner; // may be undefined for older data
       }
     }
     // Enforce maxPerInvestor if defined (sum of existing + new amount <= max)
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Idempotency: if we've already recorded this signature, return success
-  const existingWithSig = await collection.findOne({ fundId, 'investments.transactionSignature': signature });
+    const existingWithSig = await collection.findOne({ fundId, 'investments.transactionSignature': signature });
     if (existingWithSig) {
       console.log('Duplicate investment submission detected; returning idempotent success');
       return NextResponse.json({ success: true, data: { fundId, investorWallet, amount, signature, idempotent: true } }, { status: 200 });
@@ -155,43 +158,22 @@ export async function POST(req: NextRequest) {
     console.log('Updating fund with new investment...');
     
     // Calculate shares based on current NAV (Net Asset Value)
-    // NAV per share = current fund value / total shares outstanding
     const currentNavPerShare = fund.currentValue && fund.totalShares > 0 
       ? fund.currentValue / fund.totalShares 
       : 1.0;
     
-    // Shares to issue = investment amount / NAV per share
     const sharesToIssue = amount / currentNavPerShare;
-    
-    console.log('=== SHARE CALCULATION ===');
-    console.log('Fund current state:');
-    console.log('- Current value:', fund.currentValue, 'SOL');
-    console.log('- Total shares:', fund.totalShares);
-    console.log('- NAV per share:', currentNavPerShare);
-    console.log('New investment:');
-    console.log('- Amount invested:', amount, 'SOL');
-    console.log('- Shares to issue:', sharesToIssue);
-    console.log('After investment:');
-    console.log('- New current value:', fund.currentValue + amount, 'SOL');
-    console.log('- New total shares:', fund.totalShares + sharesToIssue);
-    console.log('- New NAV per share:', (fund.currentValue + amount) / (fund.totalShares + sharesToIssue));
-    
-    // Verify NAV stays constant (should be ~1.0 for deposits)
-    const newNavPerShare = (fund.currentValue + amount) / (fund.totalShares + sharesToIssue);
-    console.log('NAV per share should remain constant:', currentNavPerShare, '→', newNavPerShare);
     
     // Calculate new totals
     const newTotalDeposits = fund.totalDeposits + amount;
     const newTotalShares = fund.totalShares + sharesToIssue;
     const newCurrentValue = fund.currentValue + amount; // TVL increases by deposit amount
     
-    // Check if this is an existing investor
     const isExistingInvestor = fund.investments && fund.investments.some((inv: { walletAddress: string }) => 
       inv.walletAddress === investorWallet
     );
     const newInvestorCount = isExistingInvestor ? fund.investorCount : fund.investorCount + 1;
 
-    // Create investment record
     const investmentRecord = {
       walletAddress: investorWallet,
       amount: amount,
@@ -202,8 +184,6 @@ export async function POST(req: NextRequest) {
       type: 'investment'
     };
 
-    // Update the fund with investment tracking
-    // Build update doc including possible invite code consumption
     const updateDoc: any = {
       $set: {
         totalDeposits: newTotalDeposits,
@@ -218,7 +198,7 @@ export async function POST(req: NextRequest) {
         performanceHistory: {
           date: new Date().toISOString(),
           tvl: newTotalDeposits,
-          nav: newNavPerShare,
+          nav: (newCurrentValue) / (newTotalShares),
           pnl: newCurrentValue - newTotalDeposits,
           pnlPercentage: newTotalDeposits > 0 ? ((newCurrentValue - newTotalDeposits) / newTotalDeposits) * 100 : 0
         }
@@ -226,16 +206,17 @@ export async function POST(req: NextRequest) {
     };
 
     if ((fund.accessMode || fund.access?.type) === 'multi_code' && body.inviteCode) {
-      // Mark the specific invite code as used in the embedded array
       updateDoc.$set['access.codes.$[codeEl].used'] = true;
+      updateDoc.$set['access.codes.$[codeEl].usedBy'] = investorWallet;
+      updateDoc.$set['access.codes.$[codeEl].usedAt'] = new Date();
     }
 
     const arrayFilters = ((fund.accessMode || fund.access?.type) === 'multi_code' && body.inviteCode)
       ? { arrayFilters: [{ 'codeEl.code': body.inviteCode }] }
       : undefined;
 
-    // Generate per-investor invite codes if configured (will be pushed in a separate update to avoid path conflicts)
-    let newCodes: string[] = [];
+    // Generate per-investor invite codes for FUND access and stamp owner
+    let newFundCodes: string[] = [];
     const perInvestorCount: number = (fund.perInvestorInviteCodes as number) || 0;
     const requestedCount = Number(generateInviteCodesCountRaw);
     const finalCount = Number.isInteger(requestedCount) ? Math.max(0, Math.min(perInvestorCount, requestedCount)) : perInvestorCount;
@@ -246,8 +227,7 @@ export async function POST(req: NextRequest) {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         if (!existingCodes.has(code)) set.add(code);
       }
-      newCodes = Array.from(set);
-      // NOTE: we will push these new codes in a second update to avoid conflict with marking a specific code as used in the same path
+      newFundCodes = Array.from(set);
     }
 
     const updateResult = await db.collection('Funds').updateOne(
@@ -257,45 +237,68 @@ export async function POST(req: NextRequest) {
     );
 
     if (updateResult.matchedCount === 0) {
-      console.log('Failed to update fund');
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to update fund',
-      }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Failed to update fund' }, { status: 500 });
     }
 
-    // If we need to append new codes, do it in a follow-up update to avoid 'path conflict' on access.codes
-    if (newCodes.length > 0) {
+    if (newFundCodes.length > 0) {
       await db.collection('Funds').updateOne(
         { fundId },
-        { $push: { 'access.codes': { $each: newCodes.map(c => ({ code: c, used: false })) } } } as any
+        { $push: { 'access.codes': { $each: newFundCodes.map(c => ({ code: c, used: false, owner: investorWallet })) } } } as any
       );
     }
 
-    console.log('Investment processed successfully');
+    // Users collection updates
+    const usersCol = db.collection<any>('Users');
+    const now = new Date();
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        fundId,
-        investorWallet,
-        amount,
-        signature,
-        newTotalDeposits,
-        newTotalShares,
-        newInvestorCount,
-        inviteCodes: newCodes
-      },
-    }, { status: 201 });
+    await usersCol.updateOne(
+      { _id: investorWallet },
+      { $setOnInsert: { createdAt: now, points: 0, invitedUsers: 0, invitedList: [], inviteCodes: [] }, $inc: { totalInvested: amount }, $set: { updatedAt: now } },
+      { upsert: true }
+    );
+
+    // Attribute referral via explicit referralCode
+    if (referralCode) {
+      const refDoc = await db.collection('ReferralCodes').findOne({ code: referralCode });
+      if (refDoc?.owner && refDoc.owner !== investorWallet) {
+        const investorDoc = await usersCol.findOne({ _id: investorWallet }, { projection: { referredBy: 1 } });
+        if (!investorDoc?.referredBy) {
+          await usersCol.updateOne({ _id: investorWallet }, { $set: { referredBy: refDoc.owner, referredAt: now } });
+          await usersCol.updateOne({ _id: refDoc.owner }, { $setOnInsert: { createdAt: now, points: 0, totalInvested: 0, invitedUsers: 0, invitedList: [], inviteCodes: [] }, $inc: { invitedUsers: 1 }, $addToSet: { invitedList: investorWallet }, $set: { updatedAt: now } }, { upsert: true });
+          await db.collection('ReferralCodes').updateOne({ code: referralCode }, { $set: { usedBy: investorWallet, usedAt: now, status: 'used' } });
+        }
+      }
+    }
+
+    // Attribute referral via multi_code invite owner
+    if (inviteOwner && inviteOwner !== investorWallet) {
+      const investorDoc = await usersCol.findOne({ _id: investorWallet }, { projection: { referredBy: 1 } });
+      if (!investorDoc?.referredBy) {
+        await usersCol.updateOne({ _id: investorWallet }, { $set: { referredBy: inviteOwner, referredAt: now } });
+        await usersCol.updateOne({ _id: inviteOwner }, { $setOnInsert: { createdAt: now, points: 0, totalInvested: 0, invitedUsers: 0, invitedList: [], inviteCodes: [] }, $inc: { invitedUsers: 1 }, $addToSet: { invitedList: investorWallet }, $set: { updatedAt: now } }, { upsert: true });
+      }
+    }
+
+    // Generate and grant personal referral code
+    async function generateUniqueCode(dbx: any): Promise<string> {
+      const col = dbx.collection('ReferralCodes');
+      while (true) {
+        const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+        const exists = await col.findOne({ code });
+        if (!exists) return code;
+      }
+    }
+    const newReferralCode = await generateUniqueCode(db);
+    await db.collection('ReferralCodes').insertOne({ code: newReferralCode, owner: investorWallet, status: 'active', createdAt: now, source: 'investment' });
+    await usersCol.updateOne({ _id: investorWallet }, { $addToSet: { inviteCodes: newReferralCode }, $set: { updatedAt: now } });
+
+    return NextResponse.json({ success: true, data: { fundId, investorWallet, amount, signature, newTotalDeposits, newTotalShares, newInvestorCount, inviteCodes: newFundCodes, grantedReferralCode: newReferralCode } }, { status: 201 });
 
   } catch (error) {
     console.error('=== ERROR PROCESSING INVESTMENT ===');
     console.error('Error details:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to process investment',
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Failed to process investment' }, { status: 500 });
   }
 }

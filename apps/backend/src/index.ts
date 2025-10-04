@@ -12,6 +12,7 @@ import { solanaService } from './services/solana';
 import { websocketHandler } from './websocket/handler';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
+import { updateHourlyPoints } from './services/points';
 
 dotenv.config();
 
@@ -51,6 +52,18 @@ async function startServer() {
     // Initialize Solana connection
     await solanaService.initialize();
     console.log('✅ Solana connection established');
+
+    // Kick off points updater on startup and schedule hourly
+    const runPoints = async () => {
+      try {
+        await updateHourlyPoints();
+      } catch (e) {
+        console.error('Points update failed', e);
+      }
+    };
+    // Run once at start, then every hour
+    runPoints();
+    setInterval(runPoints, 60 * 60 * 1000);
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

@@ -7,7 +7,7 @@ pub mod errors;
 // Re-export instructions module contents for client code; required for Anchor codegen to locate context structs.
 pub use instructions::*;
 
-declare_id!("3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt");
+declare_id!("5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB");
 
 #[program]
 pub mod managed_funds {

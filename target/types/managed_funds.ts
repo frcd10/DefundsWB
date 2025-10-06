@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/managed_funds.json`.
  */
 export type ManagedFunds = {
-  "address": "3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt",
+  "address": "5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB",
   "metadata": {
     "name": "managedFunds",
     "version": "0.1.0",

@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-managed_funds = "3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt"
+managed_funds = "5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB"
 
 [registry]
 url = "https://api.apr.dev"

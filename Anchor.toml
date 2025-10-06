@@ -12,8 +12,8 @@ managed_funds = "5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB"
 url = "https://api.apr.dev"
 
 [provider]
-# Public devnet RPC (no API key). Override at runtime with ANCHOR_PROVIDER_URL if needed.
-cluster = "https://api.devnet.solana.com"
+# Use Helius devnet RPC for all Anchor operations
+cluster = "https://devnet.helius-rpc.com/?api-key=19e2e36f-3222-481a-af0d-4271e77bb9b2"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

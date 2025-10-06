@@ -87,7 +87,9 @@ export async function POST(req: NextRequest) {
     // Build common PDAs and accounts for both devnet and mainnet
   const rpcUrl = process.env.SOLANA_RPC_URL || (isMainnet ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com');
     const conn = new Connection(rpcUrl, 'confirmed');
-    const PROGRAM_ID = new PublicKey('3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt');
+  const PID_STR = (process.env.SOLANA_PROGRAM_ID || process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || '').trim();
+  if (!PID_STR) return NextResponse.json({ success: false, error: 'Program ID not configured in env' }, { status: 500 });
+  const PROGRAM_ID = new PublicKey(PID_STR);
     const managerPk = new PublicKey(manager);
     const [fundPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('fund'), managerPk.toBuffer(), Buffer.from(String(fund.name))],

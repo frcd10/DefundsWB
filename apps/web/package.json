@@ -11,6 +11,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@solana/spl-token": "^0.4.7",
     "bs58": "^5.0.0",
     "@coral-xyz/anchor": "^0.30.1",
     "@hookform/resolvers": "^5.2.1",

@@ -49,15 +49,16 @@ const ERROR_TEST_PERCENTAGE = 120; // Test percentage > 100% for error handling
 // =============================================================================
 // PROGRAM CONFIGURATION
 // =============================================================================
-// Use env if provided, otherwise fall back to the deployed program ID to avoid Non-base58 errors
-const DEFAULT_PROGRAM_ID_STR = '3dHDaKpa5aLMwimWJeBihqwQyyHpR6ky7NNDPtv7QFYt';
+// Require program ID from env to avoid any hardcoded literals
 const ENV_PROGRAM_ID_STR = (process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || '').trim();
+if (!ENV_PROGRAM_ID_STR) {
+  throw new Error('SOLANA_PROGRAM_ID or NEXT_PUBLIC_SOLANA_PROGRAM_ID must be set in env');
+}
 let PROGRAM_ID;
 try {
-  PROGRAM_ID = new PublicKey(ENV_PROGRAM_ID_STR && ENV_PROGRAM_ID_STR.length > 0 ? ENV_PROGRAM_ID_STR : DEFAULT_PROGRAM_ID_STR);
+  PROGRAM_ID = new PublicKey(ENV_PROGRAM_ID_STR);
 } catch (e) {
-  console.warn(`⚠️ Invalid PROGRAM ID in env ('${ENV_PROGRAM_ID_STR}'): ${e.message}. Falling back to default.`);
-  PROGRAM_ID = new PublicKey(DEFAULT_PROGRAM_ID_STR);
+  throw new Error(`Invalid PROGRAM ID in env ('${ENV_PROGRAM_ID_STR}'): ${e.message}`);
 }
 
 // USDC Mint addresses (different on mainnet vs devnet)

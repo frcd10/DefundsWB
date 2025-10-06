@@ -11,6 +11,10 @@ Inside root
 2 - npm run build
 3 - anchor build
 4 - anchor deploy
+on step 4 use anchor deploy --provider.cluster https://devnet.helius-rpc.com/?api-key=YOURAPIKEY
+
+npm -w apps/web install
+npm -w apps/web run build
 
 Go to solscan to your program deploy
 Run npm run dev to use website locally.

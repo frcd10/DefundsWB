@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Verify the transaction on-chain
     console.log('Verifying withdrawal transaction...');
     const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com',
+  process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
       'confirmed'
     );
 

@@ -50,7 +50,7 @@ function validateCreateRwaRequest(body: Record<string, any>) {
 async function verifyTransaction(signature: string): Promise<boolean> {
   try {
     if (signature.startsWith('mock_')) return false;
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
     const tx = await connection.getTransaction(signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
     return tx !== null;
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     let ok: boolean;
     if (signature === 'already-processed') {
       try {
-        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
         const connection = new Connection(rpcUrl, 'confirmed');
         const info = await connection.getAccountInfo(new PublicKey(fundId));
         ok = info !== null;

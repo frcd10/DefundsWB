@@ -25,7 +25,8 @@ function WalletConnectSaver({ children }: { children: React.ReactNode }) {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
+  const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "devnet";
+  const endpoint = cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
   const wallets = [new PhantomWalletAdapter()];
 
   return (

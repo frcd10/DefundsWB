@@ -119,4 +119,18 @@ pub mod managed_funds {
     pub fn investor_fund_withdrawal(ctx: Context<InvestorFundWithdrawal>) -> Result<()> {
         instructions::investor_fund_withdrawal(ctx)
     }
+
+    /// Authorize a Jupiter swap: approve manager as delegate on the vault for amount_in.
+    pub fn authorize_defund_swap(
+        ctx: Context<AuthorizeDefundSwap>,
+        input_mint: Pubkey,
+        amount_in: u64,
+    ) -> Result<()> {
+        instructions::authorize_defund_swap(ctx, input_mint, amount_in)
+    }
+
+    /// Revoke Jupiter swap authorization: remove delegate from the vault.
+    pub fn revoke_defund_swap(ctx: Context<RevokeDefundSwap>) -> Result<()> {
+        instructions::revoke_defund_swap(ctx)
+    }
 }

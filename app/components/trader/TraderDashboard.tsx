@@ -97,7 +97,7 @@ export function TraderDashboard({ vaultId }: TraderDashboardProps) {
     window.Jupiter.init({
       displayMode: 'integrated',
       integratedTargetId: 'jupiter-terminal',
-      endpoint: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+  endpoint: (process.env.NEXT_PUBLIC_SOLANA_CLUSTER === 'mainnet-beta') ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com',
       formProps: {
         fixedInputMint: false,
         fixedOutputMint: false,

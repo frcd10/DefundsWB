@@ -10,6 +10,7 @@ pub mod pay_rwa_investors;
 pub mod pay_fund_investors;
 pub mod investor_fund_withdrawal;
 pub mod debug_vault;
+pub mod swap;
 
 pub use initialize_fund::*;
 pub use deposit::*;
@@ -23,3 +24,4 @@ pub use pay_rwa_investors::*;
 pub use pay_fund_investors::*;
 pub use investor_fund_withdrawal::*;
 pub use debug_vault::*;
+pub use swap::*;

@@ -14,6 +14,95 @@ export type ManagedFunds = {
   },
   "instructions": [
     {
+      "name": "authorizeDefundSwap",
+      "docs": [
+        "Authorize a Jupiter swap: approve manager as delegate on the vault for amount_in."
+      ],
+      "discriminator": [
+        140,
+        86,
+        101,
+        151,
+        183,
+        161,
+        120,
+        176
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "manager",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "fund"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "inputMint",
+          "type": "pubkey"
+        },
+        {
+          "name": "amountIn",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "debugVault",
       "docs": [
         "Debug vault state (manager only). Prints owner, size, token fields if possible."
@@ -1326,6 +1415,86 @@ export type ManagedFunds = {
       ]
     },
     {
+      "name": "revokeDefundSwap",
+      "docs": [
+        "Revoke Jupiter swap authorization: remove delegate from the vault."
+      ],
+      "discriminator": [
+        225,
+        81,
+        242,
+        46,
+        188,
+        211,
+        73,
+        14
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "manager",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "fund"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "updateFund",
       "docs": [
         "Update fund settings (only fund manager)"
@@ -1606,6 +1775,34 @@ export type ManagedFunds = {
       ]
     }
   ],
+  "events": [
+    {
+      "name": "defundSwapAuthorized",
+      "discriminator": [
+        231,
+        171,
+        204,
+        134,
+        19,
+        178,
+        94,
+        19
+      ]
+    },
+    {
+      "name": "defundSwapRevoked",
+      "discriminator": [
+        250,
+        155,
+        6,
+        109,
+        18,
+        135,
+        219,
+        176
+      ]
+    }
+  ],
   "errors": [
     {
       "code": 6000,
@@ -1669,6 +1866,46 @@ export type ManagedFunds = {
     }
   ],
   "types": [
+    {
+      "name": "defundSwapAuthorized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fund",
+            "type": "pubkey"
+          },
+          {
+            "name": "manager",
+            "type": "pubkey"
+          },
+          {
+            "name": "inputMint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amountIn",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "defundSwapRevoked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fund",
+            "type": "pubkey"
+          },
+          {
+            "name": "manager",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
     {
       "name": "fund",
       "type": {

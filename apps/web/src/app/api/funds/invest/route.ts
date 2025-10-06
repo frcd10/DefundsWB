@@ -31,7 +31,7 @@ async function verifyTransaction(signature: string): Promise<boolean> {
       return false;
     }
 
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
     
     const transaction = await connection.getTransaction(signature, {

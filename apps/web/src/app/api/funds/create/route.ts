@@ -70,7 +70,7 @@ async function verifyTransaction(signature: string): Promise<boolean> {
       return false;
     }
 
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
     
     const transaction = await connection.getTransaction(signature, {
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     let verified: boolean;
     if (signature === 'already-processed') {
       try {
-        const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
         const connection = new Connection(rpcUrl, 'confirmed');
         const info = await connection.getAccountInfo(new PublicKey(fundId));
         verified = info !== null;

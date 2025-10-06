@@ -25,6 +25,8 @@ export function SwapPanel({ funds, managerWallet }: { funds: GenericFund[]; mana
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [devnetTxn, setDevnetTxn] = useState<{ pre?: string; post?: string; memo?: string; summary?: string } | null>(null);
+  const [mainnetTxns, setMainnetTxns] = useState<{ pre?: string; swap?: string; post?: string } | null>(null);
 
   const [localFunds, setLocalFunds] = useState<GenericFund[]>(funds);
   const selectedFund = useMemo(() => localFunds.find(f => f.fundId === selectedFundId), [localFunds, selectedFundId]);
@@ -47,7 +49,7 @@ export function SwapPanel({ funds, managerWallet }: { funds: GenericFund[]; mana
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fundId: selectedFundId, manager: managerWallet, fromMint, toMint, inAmountLamports, outAmountLamports })
       });
-      const data = await res.json();
+  const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Swap failed');
       // Update local fund positions immediately
       setLocalFunds(prev => prev.map(f => {
@@ -59,6 +61,17 @@ export function SwapPanel({ funds, managerWallet }: { funds: GenericFund[]; mana
         };
       }));
       setMessage('Swap recorded. Positions updated.');
+      const d = data.data;
+      if (d?.mock && (d.devnetPreTxBase64 || d.summary)) {
+        setDevnetTxn({ pre: d.devnetPreTxBase64, post: d.devnetPostTxBase64, memo: d.devnetMemo, summary: d.summary });
+        setMainnetTxns(null);
+      } else if (!d?.mock && (d.preTxBase64 || d.swapTxBase64 || d.postTxBase64)) {
+        setMainnetTxns({ pre: d.preTxBase64, swap: d.swapTxBase64, post: d.postTxBase64 });
+        setDevnetTxn(null);
+      } else {
+        setDevnetTxn(null);
+        setMainnetTxns(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Swap failed');
     } finally {
@@ -100,6 +113,50 @@ export function SwapPanel({ funds, managerWallet }: { funds: GenericFund[]; mana
 
       {error && <div className="text-red-400 text-sm">{error}</div>}
       {message && <div className="text-green-400 text-sm">{message}</div>}
+
+      {devnetTxn && (
+        <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+          <div className="text-sm text-white/80">Devnet dry-run transaction (not sent):</div>
+          {devnetTxn.summary && <div className="text-white text-sm">{devnetTxn.summary}</div>}
+          {devnetTxn.memo && <div className="text-white/70 text-xs break-all">Memo: {devnetTxn.memo}</div>}
+          {devnetTxn.pre && (
+            <div className="text-xs text-white/60 break-all">
+              <div className="mb-1">Pre Tx (authorize + ATAs + memo):</div>
+              <div className="font-mono">{devnetTxn.pre}</div>
+            </div>
+          )}
+          {devnetTxn.post && (
+            <div className="text-xs text-white/60 break-all">
+              <div className="mb-1">Post Tx (revoke):</div>
+              <div className="font-mono">{devnetTxn.post}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mainnetTxns && (
+        <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+          <div className="text-sm text-white/80">Mainnet transactions (unsigned):</div>
+          {mainnetTxns.pre && (
+            <div className="text-xs text-white/60 break-all">
+              <div className="mb-1">Pre Tx (authorize + ATAs):</div>
+              <div className="font-mono">{mainnetTxns.pre}</div>
+            </div>
+          )}
+          {mainnetTxns.swap && (
+            <div className="text-xs text-white/60 break-all">
+              <div className="mb-1">Swap Tx (Jupiter):</div>
+              <div className="font-mono">{mainnetTxns.swap}</div>
+            </div>
+          )}
+          {mainnetTxns.post && (
+            <div className="text-xs text-white/60 break-all">
+              <div className="mb-1">Post Tx (revoke):</div>
+              <div className="font-mono">{mainnetTxns.post}</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedFund && (
         <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">

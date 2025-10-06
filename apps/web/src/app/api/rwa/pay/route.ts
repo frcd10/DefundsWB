@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Initialize connection
-    const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
 
     const client = await getClientPromise();

@@ -90,7 +90,7 @@ function fail(msg: string, extra?: unknown): never {
   const AMOUNT_SOL = cli.amount || process.env.AMOUNT;
   const INVESTORS = (cli.investors || process.env.INVESTORS || '').split(',').filter(Boolean);
   const TREASURY = cli.treasury || process.env.TREASURY;
-  const RPC = cli.rpc || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const RPC = cli.rpc || process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
   const PROGRAM_ID = new PublicKey(cli.programId || process.env.NEXT_PUBLIC_SOLANA_PROGRAM_ID || process.env.SOLANA_PROGRAM_ID || fail('PROGRAM_ID missing (set NEXT_PUBLIC_SOLANA_PROGRAM_ID).'));
   const manager = loadKeypair(cli.managerKeypair || process.env.MANAGER_KEYPAIR);
 

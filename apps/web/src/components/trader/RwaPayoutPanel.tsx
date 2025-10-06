@@ -62,7 +62,8 @@ export function RwaPayoutPanel({ rwas, managerWallet }: { rwas: Array<Partial<Rw
         ]));
       } else if (data.data?.plan) {
         // Client-side signing path
-        const rpc = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet';
+  const rpc = cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com';
         const payments = await sendBatchedSolPayments(wallet, data.data.plan, rpc);
         // Save to server
         const save = await fetch('/api/rwa/pay', {

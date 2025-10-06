@@ -11,7 +11,7 @@ Inside root
 2 - npm run build
 3 - anchor build
 4 - anchor deploy
-on step 4 use anchor deploy --provider.cluster https://devnet.helius-rpc.com/?api-key=YOURAPIKEY
+on step 4 use anchor deploy --provider.cluster https://devnet.helius-rpc.com/?api-key=19e2e36f-3222-481a-af0d-4271e77bb9b2
 
 npm -w apps/web install
 npm -w apps/web run build

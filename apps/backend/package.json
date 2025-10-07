@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "points:reset": "tsx src/scripts/resetPoints.ts",
+  "points:run": "tsx src/scripts/runHourlyPoints.ts",
+  "points:run:node": "node dist/scripts/runHourlyPoints.js",
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf dist"

@@ -2,8 +2,37 @@ import { Button } from "@/components/ui/button";
 import { SubscribeForm } from '@/components/SubscribeForm';
 import Image from 'next/image';
 import CypherpunkImg from '@/images/Cypherpunk.png';
+import React from 'react';
+
+// Simple util to convert raw URLs in text into clickable anchors
+function linkify(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, idx) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={idx} href={part} target="_blank" rel="noopener noreferrer" className="text-brand-yellow hover:underline break-words">{part}</a>
+    ) : (
+      <React.Fragment key={idx}>{part}</React.Fragment>
+    )
+  );
+}
 
 const newsArticles = [
+  {
+    id: 4,
+    title: "Weekly Update: Submitted to Colosseum Cypherpunk Hackathon",
+    summary: "Weekly progress submitted to Colosseum. Watch the update and see branding, community, and mainnet progress.",
+    content: `We submitted our weekly update to the Colosseum Cypherpunk Hackathon. Watch: https://www.youtube.com/watch?v=aucL3IrktPo
+
+Marketing: Established a brand identity, refreshed the website color palette and UI.
+
+Community: Verified organization on X (https://x.com/DefundsFinance) and created our Discord channel: https://discord.gg/6UJmM29KbA
+
+Engineering: Created the Rust program and deployed to mainnet.`,
+    date: "October 7, 2025",
+    author: "Defunds Team",
+    category: "Weekly Update",
+    tags: ["Update", "Hackathon", "RWA", "DeFi"]
+  },
   {
     id: 3,
     title: "Defunds.Finance joins Colosseum Cypherpunk Hackathon (DeFi & RWA)",
@@ -88,13 +117,13 @@ export default function NewsPage() {
               </h2>
 
               <p className="text-base sm:text-lg text-white/70 mb-6 leading-relaxed">
-                {article.summary}
+                {linkify(article.summary)}
               </p>
 
               <div className="space-y-4">
                 {article.content.split('\n\n').map((paragraph, paragraphIndex) => (
                   <p key={paragraphIndex} className="text-white/60 leading-relaxed text-sm sm:text-base">
-                    {paragraph}
+                    {linkify(paragraph)}
                   </p>
                 ))}
               </div>

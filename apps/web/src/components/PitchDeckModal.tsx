@@ -5,7 +5,7 @@ import { useState } from 'react';
 interface PitchDeckModalProps { open: boolean; onClose: () => void; }
 
 const weeks = [
-  { week: 'Week 1', progress: 'October 2', summary: 'Soon' },
+  { week: 'Week 1', progress: 'October 2', summary: 'https://www.youtube.com/watch?v=aucL3IrktPo' },
   { week: 'Week 2', progress: 'October 9', summary: 'Soon' },
   { week: 'Week 3', progress: 'October 16', summary: 'Soon' },
 ];
@@ -39,7 +39,18 @@ export function PitchDeckModal({ open, onClose }: PitchDeckModalProps) {
                     <h3 className="font-semibold text-white">{w.week}</h3>
                     <span className="text-xs px-2 py-1 rounded-full bg-brand-yellow/15 text-brand-yellow border border-brand-yellow/30">{w.progress}</span>
                   </div>
-                  <p className="text-sm text-white/70 leading-relaxed">{w.summary}</p>
+                  {typeof w.summary === 'string' && w.summary.startsWith('http') ? (
+                    <a
+                      href={w.summary}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-brand-yellow hover:underline break-words"
+                    >
+                      {w.summary}
+                    </a>
+                  ) : (
+                    <p className="text-sm text-white/70 leading-relaxed">{w.summary}</p>
+                  )}
                 </div>
               ))}
             </div>

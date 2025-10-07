@@ -56,12 +56,30 @@ function Metric({ label, value, suffix = '+', decimals = 0 }: { label: string; v
 export default function Landing() {
   const { loading, activeFunds, activeRwa, totalInvestors, totalTvl } = useLandingMetrics();
 
-  // Disable body scroll while on the landing page to avoid any scrollbar
+  // Lock the page to a single viewport without affecting fixed Navbar/Footer
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
+    const html = document.documentElement;
+    const prev = {
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: document.body.style.overscrollBehavior,
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      width: document.body.style.width,
+      height: document.body.style.height,
+    };
+    html.style.overscrollBehavior = 'none';
+    document.body.style.overscrollBehavior = 'none';
     document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100dvh';
     return () => {
-      document.body.style.overflow = prevOverflow;
+      html.style.overscrollBehavior = prev.htmlOverscroll;
+      document.body.style.overscrollBehavior = prev.bodyOverscroll;
+      document.body.style.overflow = prev.overflow;
+      document.body.style.position = prev.position;
+      document.body.style.width = prev.width;
+      document.body.style.height = prev.height;
     };
   }, []);
 

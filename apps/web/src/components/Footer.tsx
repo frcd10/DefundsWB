@@ -16,14 +16,16 @@ function XLogo(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function Footer({ overlay = false }: { overlay?: boolean }) {
+export default function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className={`${overlay ? 'fixed left-0 right-0 bottom-0 z-[200]' : ''} mt-auto w-full bg-brand-surface/80 backdrop-blur-md border-t border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(0,0,0,0.6)] text-white`}>
+    <footer className={`fixed left-0 right-0 bottom-0 z-[1000] w-full bg-brand-surface backdrop-blur-md border-t border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(0,0,0,0.6)] text-white`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex flex-col md:flex-row items-center md:items-center justify-between gap-3 text-[11px] tracking-wide">
         {/* Left: navigation + socials tightly grouped */}
         <div className="flex items-center flex-wrap gap-2 text-white/70">
           <Link href="/investor" className="hover:text-white transition-colors">Invest</Link>
+          <Separator />
+          <Link href="/roadmap" className="hover:text-white transition-colors">Roadmap</Link>
           <Separator />
           <Link href="/news" className="hover:text-white transition-colors">News</Link>
           <Separator />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { TrendingUp, Users, Shield, Zap, DollarSign, Globe, Mail, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PitchDeckModal } from '@/components/PitchDeckModal';
@@ -61,6 +62,15 @@ export default function InvestorPage() {
             >
               📊 View Pitch Deck
             </Button>
+            <Link href="/roadmap" className="w-64">
+              <Button
+                size="lg"
+                variant="ghost"
+                className="w-full rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold px-8 py-3 text-lg transition"
+              >
+                🗺️ View Roadmap
+              </Button>
+            </Link>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto">

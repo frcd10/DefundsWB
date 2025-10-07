@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { X, Send, Menu, Trophy } from 'lucide-react';    // lucide-react already in shadcn stack
 import Image from 'next/image';
 import logo from '../images/logo.png';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
-export default function Navbar() {
+export default function Navbar({ overlay = false }: { overlay?: boolean }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const wallet = useWallet();
   const [isTraderEligible, setIsTraderEligible] = useState(false);
@@ -35,17 +35,23 @@ export default function Navbar() {
     else setCluster('devnet'); // default for development convenience
   }, []);
 
-  // Prevent body scroll when menu is open
+  // Prevent body scroll when menu is open (non-destructive restore)
+  const prevOverflowRef = useRef<string>('');
   useEffect(() => {
     if (isMobileMenuOpen) {
+      prevOverflowRef.current = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = 'unset';
+      // restore to previous overflow to avoid fighting with page-level locks
+      if (prevOverflowRef.current) {
+        document.body.style.overflow = prevOverflowRef.current;
+      }
     }
-    
-    // Cleanup function to reset overflow when component unmounts
     return () => {
-      document.body.style.overflow = 'unset';
+      // on unmount, restore if we had changed it
+      if (!isMobileMenuOpen && prevOverflowRef.current) {
+        document.body.style.overflow = prevOverflowRef.current;
+      }
     };
   }, [isMobileMenuOpen]);
 
@@ -71,7 +77,7 @@ export default function Navbar() {
   }, [wallet.connected, wallet.publicKey]);
 
   return (
-    <header className="sticky top-0 z-[100] w-full bg-brand-surface border-b border-white/5 shadow-[0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(0,0,0,0.6)]">
+    <header className={`${overlay ? 'fixed top-0 left-0 right-0 z-[200]' : 'sticky top-0 z-[100]'} w-full ${overlay ? 'bg-brand-surface/80 backdrop-blur-md' : 'bg-brand-surface'} border-b border-white/5 shadow-[0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(0,0,0,0.6)]`}>
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-2">
         {/* Brand ----------------------------------------------------------- */}
   <Link href="/" className="flex items-center gap-2 text-brand-yellow font-extrabold">

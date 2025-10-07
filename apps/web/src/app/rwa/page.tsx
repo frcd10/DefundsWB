@@ -26,22 +26,21 @@ export default function RWAPage() {
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
               Real World <span className="text-brand-yellow">Assets</span>
           </h1>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-yellow/10 border border-brand-yellow/30 text-brand-yellow text-xs font-semibold mb-3">
+            Coming soon Q1 2026🚧
+          </div>
           <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto">
             Bridge traditional finance and DeFi. Discover on-chain access to real-world projects with transparent profiles and codified flows.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          {/* Disabled buttons while Coming Soon */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 blur-[2px] opacity-60 pointer-events-none select-none">
             <button
-              className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black hover:brightness-110 transition min-w-[220px]"
-              onClick={() => {
-                const el = document.getElementById('rwa-products');
-                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+              className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black min-w-[220px]"
             >
               📊 View RWA Products
             </button>
             <button
-              className="inline-flex items-center justify-center rounded-full border border-brand-yellow/80 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black transition min-w-[220px]"
-              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center justify-center rounded-full border border-brand-yellow/80 px-8 py-4 text-base font-semibold text-brand-yellow min-w-[220px]"
             >
               ➕ Create Product
             </button>
@@ -58,6 +57,14 @@ export default function RWAPage() {
         </div>
       </section>
 
+      {/* Everything below is blurred and non-interactive while Coming Soon */}
+      <div className="relative">
+        {/* Overlay badge to indicate intentional blur */}
+        <div className="pointer-events-none select-none absolute inset-0 z-10 flex items-start justify-center">
+          <div className="mt-2">
+          </div>
+        </div>
+        <div className="blur-sm opacity-40 pointer-events-none select-none">
       {/* How RWA Works Section */}
   <section className="py-5 px-4">
         <div className="max-w-6xl mx-auto">
@@ -134,7 +141,7 @@ export default function RWAPage() {
         </div>
       </section>
 
-      {/* Project Types Section */}
+    {/* Project Types Section */}
   <section className="py-5 px-4 bg-brand-surface/20">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-center mb-14">Supported <span className="text-brand-yellow">Project Types</span></h2>
@@ -179,7 +186,7 @@ export default function RWAPage() {
         </div>
       </section>
 
-      {/* Risk Warning Section */}
+    {/* Risk Warning Section */}
   <section className="py-5 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="bg-brand-surface/40 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
@@ -232,13 +239,17 @@ export default function RWAPage() {
         </div>
       </section>
 
+        </div>
+      </div>
+
   {/* CTA Section removed per request */}
 
       {/* Waitlist Modal */}
       {openWaitlist && (
         <WaitlistModal forRole="investor" onClose={() => setOpenWaitlist(false)} />
       )}
-      <CreateRwaProductModal isOpen={showCreate} onClose={() => setShowCreate(false)} onCreated={() => reload()} />
+      {/* Disabled while Coming Soon */}
+      {/* <CreateRwaProductModal isOpen={showCreate} onClose={() => setShowCreate(false)} onCreated={() => reload()} /> */}
     </main>
   );
 }

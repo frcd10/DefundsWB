@@ -56,11 +56,20 @@ function Metric({ label, value, suffix = '+', decimals = 0 }: { label: string; v
 export default function Landing() {
   const { loading, activeFunds, activeRwa, totalInvestors, totalTvl } = useLandingMetrics();
 
+  // Disable body scroll while on the landing page to avoid any scrollbar
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   return (
     <>
       {/* Hero section */}
       <section
-        className="relative flex h-screen flex-col items-center justify-center px-4 sm:px-6 text-center text-white overflow-hidden bg-brand-black"
+        className="fixed inset-0 relative flex h-[100dvh] min-h-[100dvh] w-full flex-col items-center justify-center px-4 sm:px-6 text-center text-white overflow-hidden bg-brand-black overscroll-none"
       >
         {/* Background video layer */}
         <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -116,12 +125,6 @@ export default function Landing() {
             Explore Funds
           </Link>
           <Link
-            href="/rwa"
-            className="inline-flex items-center justify-center rounded-full border border-brand-yellow/70 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 transition min-w-[220px]"
-          >
-            Explore RWA
-          </Link>
-          <Link
             href="/investor"
             className="inline-flex items-center justify-center rounded-full border border-brand-yellow/70 px-8 py-4 text-base font-semibold text-brand-yellow hover:bg-brand-yellow hover:text-brand-black active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 transition min-w-[220px]"
           >
@@ -129,8 +132,6 @@ export default function Landing() {
           </Link>
   </div>
 
-  {/* Spacer to ensure vertical centering remains stable across responsive breakpoints */}
-  <div className="h-6" aria-hidden />
 
         </div>
   </section>

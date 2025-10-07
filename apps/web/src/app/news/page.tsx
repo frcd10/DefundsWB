@@ -27,7 +27,7 @@ Marketing: Established a brand identity, refreshed the website color palette and
 
 Community: Verified organization on X (https://x.com/DefundsFinance) and created our Discord channel: https://discord.gg/6UJmM29KbA
 
-Engineering: Created the Rust program and deployed to mainnet.`,
+Engineering: Created the Rust program and deployed to devnet.`,
     date: "October 7, 2025",
     author: "Defunds Team",
     category: "Weekly Update",

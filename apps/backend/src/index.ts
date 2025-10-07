@@ -13,6 +13,7 @@ import { websocketHandler } from './websocket/handler';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { updateHourlyPoints } from './services/points';
+import getClientPromise from './lib/mongodb';
 
 dotenv.config();
 
@@ -50,6 +51,20 @@ app.post('/api/admin/points/run', async (req, res) => {
     res.status(500).json({ ok: false });
   }
 });
+// Inspect current hourly lock status (for debugging)
+app.get('/api/admin/points/status', async (req, res) => {
+  try {
+    const client = await getClientPromise();
+    const meta = client.db('Defunds').collection<any>('Meta');
+    const lock = await meta.findOne({ _id: 'points-hourly-lock' });
+    const now = new Date();
+    const hourKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}T${String(now.getUTCHours()).padStart(2,'0')}`;
+    res.json({ ok: true, lock, currentUtcHourKey: hourKey, serverTime: now.toISOString() });
+  } catch (e) {
+    console.error('Points status fetch failed', e);
+    res.status(500).json({ ok: false });
+  }
+});
 
 // WebSocket handler
 wss.on('connection', websocketHandler);
@@ -63,17 +78,24 @@ async function startServer() {
     await solanaService.initialize();
     console.log('✅ Solana connection established');
 
-    // Schedule points updater to run only at minute 0 of each hour
+    // Schedule points updater to run at the top of the UTC hour
     let lastRunKey: string | null = null; // e.g., '2025-10-07T13'
-    const schedule = () => {
+
+    const scheduleNextUtcHour = () => {
       const now = new Date();
-      const next = new Date(now);
-      next.setMinutes(0, 0, 0);
-      if (next <= now) {
-        // If we've already passed the top of this hour, schedule next hour
-        next.setHours(next.getHours() + 1);
-      }
-      const delay = next.getTime() - now.getTime();
+      const nextHourUtc = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        now.getUTCHours() + 1,
+        0,
+        0,
+        0
+      );
+      const delay = nextHourUtc - now.getTime();
+      const when = new Date(nextHourUtc).toISOString();
+      console.log(`Points updater: scheduling next run in ${Math.round(delay/1000)}s at ${when}`);
+
       setTimeout(async () => {
         try {
           const runAt = new Date();
@@ -87,13 +109,32 @@ async function startServer() {
         } catch (e) {
           console.error('Points update failed', e);
         } finally {
-          // reschedule for the next top of the hour
-          schedule();
+          // Always reschedule for the next UTC hour
+          scheduleNextUtcHour();
         }
-      }, delay);
+      }, Math.max(0, delay));
     };
-    // Start scheduling without running immediately
-    schedule();
+
+    // Optional: immediate catch-up run on startup if current UTC hour hasn't been processed
+    try {
+      const now = new Date();
+      const currentKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}T${String(now.getUTCHours()).padStart(2,'0')}`;
+      const client = await getClientPromise();
+      const meta = client.db('Defunds').collection<any>('Meta');
+      const lock = await meta.findOne({ _id: 'points-hourly-lock' });
+      if (lock?.lastRunKey !== currentKey) {
+        console.log('Points updater: performing immediate catch-up run for hour', currentKey);
+        await updateHourlyPoints();
+        lastRunKey = currentKey;
+      } else {
+        console.log('Points updater: current UTC hour already processed, no immediate run');
+      }
+    } catch (e) {
+      console.warn('Points updater: startup catch-up check failed (will continue with schedule)', e);
+    }
+
+    // Start scheduling for the next UTC hour
+    scheduleNextUtcHour();
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

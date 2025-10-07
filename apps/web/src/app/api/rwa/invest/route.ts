@@ -175,7 +175,11 @@ export async function POST(req: NextRequest) {
       }
     }
     const newReferralCode = await generateUniqueCode(db);
-    await db.collection('ReferralCodes').insertOne({ code: newReferralCode, owner: investorWallet, status: 'active', createdAt: now, source: 'investment' });
+    await db.collection<any>('ReferralCodes').updateOne(
+      { _id: investorWallet as any },
+      { $setOnInsert: { createdAt: now, owner: investorWallet }, $set: { code: newReferralCode, status: 'active', source: 'investment', updatedAt: now } },
+      { upsert: true }
+    );
     await usersCol.updateOne({ _id: investorWallet }, { $addToSet: { inviteCodes: newReferralCode }, $set: { updatedAt: now } });
 
     return NextResponse.json({ success: true, data: { fundId, amount, signature, inviteCodes: newCodes, grantedReferralCode: newReferralCode } }, { status: 201 });

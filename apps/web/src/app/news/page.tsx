@@ -44,7 +44,7 @@ The Ideathon Solana Brasil brings together the brightest minds in the Solana eco
 export default function NewsPage() {
   return (
     <main className="min-h-screen bg-brand-black text-white pb-24">
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 sm:pt-28">
+  <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 sm:pt-12">
         {/* Header */}
         <div className="mb-12 sm:mb-16 text-center sm:text-left">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold mb-4">

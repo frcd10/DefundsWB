@@ -57,13 +57,16 @@ export async function POST(req: NextRequest) {
     );
 
     // Track code ownership in separate collection
-    await db.collection('ReferralCodes').insertOne({
-      code: referralCode,
-      owner: wallet,
-      status: 'active',
-      createdAt: now,
-      source: 'connect',
-    });
+    // One referral code doc per wallet: upsert by _id = wallet
+    const codes = db.collection<any>('ReferralCodes');
+    await codes.updateOne(
+      { _id: wallet as any },
+      {
+        $setOnInsert: { createdAt: now, owner: wallet },
+        $set: { code: referralCode, status: 'active', source: 'connect', updatedAt: now }
+      },
+      { upsert: true }
+    );
 
     return NextResponse.json({ success: true, data: { referralCode, inviteCodes: [referralCode] } });
   } catch (e) {

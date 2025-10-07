@@ -177,15 +177,12 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-brand-black text-white">
       {/* Hero / Intro */}
-      <section className="max-w-6xl mx-auto px-4 pt-28 sm:pt-32 pb-16">
+  <section className="max-w-6xl mx-auto px-4 pt-10 sm:pt-12 pb-10">
         <div className="text-center max-w-5xl mx-auto">
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
             Explore <span className="text-brand-yellow">Funds</span>
           </h1>
-          <p className="text-base sm:text-lg text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto">
-            Access actively managed on-chain strategies. Delegate capital with transparent performance,
-            codified fees and 24/7 self-custodial liquidity. No intermediaries.
-          </p>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <button
               className="inline-flex items-center justify-center rounded-full bg-brand-yellow px-8 py-4 text-base font-semibold text-brand-black hover:brightness-110 transition min-w-[220px]"
@@ -207,52 +204,21 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-6">
             <IntroStep icon={<TrendingUp className="w-7 h-7 text-brand-yellow" />} title="Pick a fund" body="Compare stats, risk and historical NAV. Choose a strategy that fits you." />
             <IntroStep icon={<Zap className="w-7 h-7 text-brand-yellow" />} title="Delegate capital" body="Deposit and mint vault shares instantly – assets stay in the program." />
-            <IntroStep icon={<Clock3 className="w-7 h-7 text-brand-yellow" />} title="Withdraw anytime" body="Redeem shares 24/7; receive SOL back in seconds with transparent fees." />
+            <IntroStep icon={<Clock3 className="w-7 h-7 text-brand-yellow" />} title="Shared Vault Performance" body="Manager trades inside the vault — all participants realize the same percentage PnL; no spreads and no exit‑liquidity." />
           </div>
         </div>
       </section>
 
-      {/* Value Props */}
-      <section id="funds-market" className="max-w-6xl mx-auto px-4 pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
-          <h2 className="text-3xl sm:text-4xl font-extrabold">Why On-Chain Funds?</h2>
-          <button
-            onClick={() => setShowHowItWorks(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-yellow text-brand-black font-semibold text-sm px-6 py-3 hover:brightness-110 transition shadow-[0_0_0_1px_rgba(0,0,0,0.15)]"
-            aria-label="Open How It Works"
-          >
-            <Info className="w-4 h-4" /> How it works
-          </button>
-        </div>
-        <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            ['Decentralized Access', 'Invest permissionlessly from your wallet — no broker forms.'],
-            ['Transparent Fees', 'Performance & management fees enforced by open-source code.'],
-            ['Real-Time Accounting', 'NAV updates with each on-chain trade settlement.'],
-            ['Low Friction', 'Deposit or exit anytime. No quarterly gates or lock-ups.'],
-            ['Flexible Allocation', 'Start small, scale anytime; no minimum tickets.'],
-            ['Privacy Preserving', 'For public funds your address is your identity.'],
-          ].map(([t, b]) => (
-            <li key={t} className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
-              <h3 className="font-semibold mb-2 text-brand-yellow">{t}</h3>
-              <p className="text-sm leading-relaxed text-white/70">{b}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+      
+      <section className="max-w-6xl mx-auto px-4 py-0" aria-label="Funds marketplace listing">
 
-      <section className="max-w-6xl mx-auto px-4 py-16" aria-label="Funds marketplace listing">
-        <header className="mb-10 text-center">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">All Funds</h2>
-          <p className="text-white/60 text-sm">Filter and explore live strategies</p>
-        </header>
 
   {/* Filters */}
   <FilterBar onChange={setFilters} />
 
         {/* Cards grid */}
         {pageSlice.length === 0 ? (
-          <p className="text-white/80 text-center py-8">No fund matches your filters.</p>
+          <p className="text-white/80 text-center py-4">No fund matches your filters.</p>
         ) : (
           <>
             <FundsTable
@@ -272,7 +238,7 @@ export default function Home() {
               <button
                 onClick={prev}
                 disabled={page === 0}
-                className="px-2 sm:px-3 py-1 rounded-lg bg-white/5 text-white/70 disabled:opacity-30 text-sm hover:text-white hover:bg-white/10 transition"
+                className="px-2 sm:px-3 py-4 rounded-lg bg-white/5 text-white/70 disabled:opacity-30 text-sm hover:text-white hover:bg-white/10 transition"
               >
                 ‹ Prev
               </button>
@@ -353,6 +319,36 @@ export default function Home() {
           </>
         )}
   </section>
+
+  {/* Value Props */}
+      <section id="funds-market" className="max-w-6xl mx-auto px-4 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+          <h2 className="text-3xl sm:text-4xl font-extrabold">Why On-Chain Funds?</h2>
+          <button
+            onClick={() => setShowHowItWorks(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-yellow text-brand-black font-semibold text-sm px-6 py-3 hover:brightness-110 transition shadow-[0_0_0_1px_rgba(0,0,0,0.15)]"
+            aria-label="Open How It Works"
+          >
+            <Info className="w-4 h-4" /> How it works
+          </button>
+        </div>
+        <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            ['Decentralized Access', 'Invest permissionlessly from your wallet — no broker forms.'],
+            ['Transparent Fees', 'Performance & management fees enforced by open-source code.'],
+            ['Real-Time Accounting', 'NAV updates with each on-chain trade settlement.'],
+            ['Low Friction', 'Deposit or exit anytime. No quarterly gates or lock-ups.'],
+            ['Flexible Allocation', 'Start small, scale anytime; no minimum tickets.'],
+            ['Privacy Preserving', 'For public funds your address is your identity.'],
+          ].map(([t, b]) => (
+            <li key={t} className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
+              <h3 className="font-semibold mb-2 text-brand-yellow">{t}</h3>
+              <p className="text-sm leading-relaxed text-white/70">{b}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
 
       {/* Real Fund Creation Modal */}
       <CreateRealFundModal

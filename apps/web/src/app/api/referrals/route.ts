@@ -75,8 +75,12 @@ export async function POST(req: NextRequest) {
       await codes.updateOne({ code: existingUser.referralCode }, { $set: { status: 'retired', retiredAt: now } });
     }
 
-    // Create new code for this user
-    await codes.insertOne({ code: normalized, owner: wallet, status: 'active', createdAt: now, source: 'user-chosen' });
+    // Create or replace code for this wallet (single doc per wallet)
+    await codes.updateOne(
+      { _id: wallet as any },
+      { $setOnInsert: { createdAt: now, owner: wallet }, $set: { code: normalized, status: 'active', source: 'user-chosen', updatedAt: now } },
+      { upsert: true }
+    );
 
     await users.updateOne(
       { _id: wallet },

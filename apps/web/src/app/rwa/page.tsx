@@ -20,8 +20,8 @@ export default function RWAPage() {
 
   return (
     <main className="min-h-screen bg-brand-black text-white">
-      {/* Hero Section */}
-  <section className="px-4 pt-24 sm:pt-28 pb-14">
+    {/* Hero Section */}
+  <section className="px-4 pt-10 sm:pt-12 pb-10">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
               Real World <span className="text-brand-yellow">Assets</span>

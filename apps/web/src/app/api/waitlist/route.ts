@@ -60,13 +60,15 @@ export async function POST(req: NextRequest): Promise<NextResponse<WaitlistRespo
       );
     }
 
-    // Create user document
+    // Create user document with string _id (no ObjectId)
+    const emailId = email.toLowerCase().trim();
     const userDoc = {
-      email: email.toLowerCase().trim(),
+      _id: emailId,
+      email: emailId,
       role,
       createdAt: new Date(),
       updatedAt: new Date(),
-    };
+    } as any;
 
     // Insert into the appropriate collection
     const result = await collection.insertOne(userDoc);

@@ -13,7 +13,7 @@ export async function GET() {
     } catch {
       return NextResponse.json({ success: true, data: { address, lamports: 0, sol: 0, expectedDistributionLamports: 0, expectedDistributionSol: 0 } });
     }
-  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
     const lamports = await connection.getBalance(pk);
     const sol = lamports / LAMPORTS_PER_SOL;

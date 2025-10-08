@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const fund = await db.collection('Funds').findOne({ fundId, manager });
     if (!fund) return NextResponse.json({ success: false, error: 'Fund not found or not owned by manager' }, { status: 404 });
 
-  const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet';
+  const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'mainnet-beta';
     const isMainnet = cluster === 'mainnet-beta';
   if (isMainnet && signature) {
       try {

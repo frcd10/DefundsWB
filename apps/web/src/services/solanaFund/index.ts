@@ -12,8 +12,11 @@ import { CreateFundParams } from './types';
 export class SolanaFundServiceModular {
   private connection: Connection;
   constructor(rpcUrl?: string) {
-    const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'devnet';
-    const url = rpcUrl || (cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com');
+    const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'mainnet-beta';
+    const url =
+      rpcUrl ||
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+      (cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com');
     this.connection = new Connection(url, 'confirmed');
   }
 

@@ -18,6 +18,33 @@ function linkify(text: string) {
 
 const newsArticles = [
   {
+    id: 5,
+    title: "Weekly Update: Week 2 — Public Devnet, Whitepaper, Points, X Minicard",
+    summary: "Watch the Week 2 update: https://www.youtube.com/watch?v=On6Ki4A35ss",
+    content: `This week, we launched our public Devnet, inviting users to interact with us for the first time.
+We also released our whitepaper, a simple tutorial, and our new points system, so users can start earning points during the Devnet phase.
+And of course, we introduced the X Minicard.
+
+Our online presence is also growing fast.
+We have our first AMA with Agio, and we’re running a marketing campaign to be active not only on X, but also on Superteam Earn.
+This campaign will have three weekly phases, where users who join each phase will receive special roles on Discord.
+Those roles will unlock gated products and even more exclusive access inside our community.
+
+At DeFunds Finance, we decided to focus on one main problem — because we saw some confusion around funds, RWA, and copy trading.
+So here’s our message:
+Copy trading is broken.
+
+How do we fix it?
+Simple.
+A manager creates a vault — and unlike copy trading, all users inside win or lose the same percentage.
+The manager earns a performance fee, not from users’ losses.
+This marks the end of the exit-liquidity era — and the start of a fair model for everyone.`,
+    date: "October 8, 2025",
+    author: "Defunds Team",
+    category: "Weekly Update",
+    tags: ["Update", "Devnet", "Whitepaper", "Tutorial", "Marketing"]
+  },
+  {
     id: 4,
     title: "Weekly Update: Submitted to Colosseum Cypherpunk Hackathon",
     summary: "Weekly progress submitted to Colosseum. Watch the update and see branding, community, and mainnet progress.",
@@ -28,7 +55,7 @@ Marketing: Established a brand identity, refreshed the website color palette and
 Community: Verified organization on X (https://x.com/DefundsFinance) and created our Discord channel: https://discord.gg/6UJmM29KbA
 
 Engineering: Created the Rust program and deployed to devnet.`,
-    date: "October 7, 2025",
+    date: "October 1, 2025",
     author: "Defunds Team",
     category: "Weekly Update",
     tags: ["Update", "Hackathon", "RWA", "DeFi"]

@@ -39,7 +39,7 @@
     width: 100vw !important;
     height: 100vh !important;
     z-index: 99999 !important;
-    background: #050021 !important;
+  background: var(--color-brand-surface) !important;
     display: block !important;
     overflow: auto !important;
     pointer-events: auto !important;

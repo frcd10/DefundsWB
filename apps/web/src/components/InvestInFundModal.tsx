@@ -162,11 +162,11 @@ export function InvestInFundModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="sm:max-w-[520px] bg-[#0B0B0C] text-white border border-white/10 rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
+  <DialogContent className="sm:max-w-[520px] bg-[#0B0B0C] text-white border border-white/10 rounded-xl sm:rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
-        <div className="px-6 pt-6 pb-2">
+        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-2">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-extrabold text-white">
+            <DialogTitle className="text-xl sm:text-2xl font-extrabold text-white">
               Invest in {fundName}
             </DialogTitle>
             <DialogDescription className="text-white/70">
@@ -176,20 +176,20 @@ export function InvestInFundModal({
         </div>
 
         {error && (
-          <div className="mx-6 mt-2 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-300">
+          <div className="mx-4 sm:mx-6 mt-2 mb-4 p-3 bg-red-900/30 border border-red-700 rounded-md text-sm text-red-300">
             {error}
           </div>
         )}
 
         {grantedCodes ? (
-          <div className="px-6 pb-7 space-y-4">
+          <div className="px-4 sm:px-6 pb-6 sm:pb-7 space-y-4">
             <h3 className="text-lg font-semibold">Your invite codes</h3>
             <p className="text-sm text-white/60">Share these with friends. Each code can be used once.</p>
-            <div className="rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-3 gap-2 text-[11px] font-mono">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] sm:text-xs font-mono">
               {grantedCodes.map(c => (<div key={c} className="px-2 py-1 bg-white/10 rounded text-center tracking-wider">{c}</div>))}
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => navigator.clipboard.writeText(grantedCodes.join('\n'))} className="flex-1 h-10 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold">Copy</button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button onClick={() => navigator.clipboard.writeText(grantedCodes.join('\n'))} className="w-full sm:flex-1 h-11 rounded-full bg-brand-yellow text-brand-black text-sm font-semibold">Copy</button>
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent([
                   `I just invested in ${fundName} using @DefundsFinance`,
@@ -199,18 +199,18 @@ export function InvestInFundModal({
                 ].join(' \n '))}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 h-10 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
+                className="w-full sm:flex-1 h-11 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
               >
                 Share on X
               </a>
-              <button onClick={() => { setGrantedCodes(null); onClose(); }} className="flex-1 h-10 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
+              <button onClick={() => { setGrantedCodes(null); onClose(); }} className="w-full sm:flex-1 h-11 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
             </div>
           </div>
         ) : investSuccess ? (
-          <div className="px-6 pb-7 space-y-4">
+          <div className="px-4 sm:px-6 pb-6 sm:pb-7 space-y-4">
             <h3 className="text-lg font-semibold">Investment successful</h3>
             <p className="text-sm text-white/60">Share your investment so friends can join.</p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent([
                   `I just invested in ${fundName} using @DefundsFinance`,
@@ -219,22 +219,22 @@ export function InvestInFundModal({
                 ].filter(Boolean).join(' \n '))}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 h-10 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
+                className="w-full sm:flex-1 h-11 rounded-full bg-[#1DA1F2] text-white text-sm font-semibold flex items-center justify-center hover:brightness-110"
               >
                 Share on X
               </a>
-              <button onClick={() => { setInvestSuccess(false); setUsedCode(undefined); onClose(); }} className="flex-1 h-10 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
+              <button onClick={() => { setInvestSuccess(false); setUsedCode(undefined); onClose(); }} className="w-full sm:flex-1 h-11 rounded-full bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15">Done</button>
             </div>
           </div>
         ) : !wallet.connected ? (
-          <div className="px-6 pb-7 space-y-5 text-center">
+          <div className="px-4 sm:px-6 pb-6 sm:pb-7 space-y-5 text-center">
             <p className="text-sm text-white/70">Connect your wallet to invest in this {isRwa ? 'product' : 'fund'}</p>
             <div className="flex justify-center">
-              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !font-semibold hover:!brightness-110 !transition" />
+              <WalletMultiButton className="!w-full sm:!w-auto !bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-3 !font-semibold hover:!brightness-110 !transition" />
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5 px-6 pb-7">
+          <form onSubmit={handleSubmit} className="space-y-5 px-4 sm:px-6 pb-6 sm:pb-7">
             <div>
               <label className="block text-sm font-medium mb-1 text-white/70">Investment Amount (SOL)</label>
               <Input
@@ -283,7 +283,7 @@ export function InvestInFundModal({
               <div>
                 <label className="block text-sm font-medium mb-1 text-white/70">Get invite codes for friends</label>
                 <div className="flex items-center gap-2">
-                  <Input type="number" min={0} max={canRequestInviteCodesCount} value={requestCodes} onChange={(e) => setRequestCodes(Math.max(0, Math.min(Number(e.target.value || 0), canRequestInviteCodesCount)))} className="w-24 rounded-lg bg-white/5 border border-white/15 text-sm" />
+                  <Input type="number" min={0} max={canRequestInviteCodesCount} value={requestCodes} onChange={(e) => setRequestCodes(Math.max(0, Math.min(Number(e.target.value || 0), canRequestInviteCodesCount)))} className="w-20 sm:w-24 rounded-lg bg-white/5 border border-white/15 text-sm" />
                   <span className="text-xs text-white/50">Request up to {canRequestInviteCodesCount} codes.</span>
                 </div>
               </div>
@@ -308,19 +308,19 @@ export function InvestInFundModal({
                 </div>
               </div>
             </div>
-            <div className="flex gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isLoading}
-                className="flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Investing...' : `Invest ${amount ? amount.replace(/,/g, '.') : ''} SOL`}
               </button>

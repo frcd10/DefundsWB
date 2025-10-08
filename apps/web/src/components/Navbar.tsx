@@ -140,7 +140,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={toggleMobileMenu}
-            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-sol-800/50 border border-sol-600 text-sol-accent hover:bg-sol-700/50 transition-colors z-[110]"
+            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 border border-white/10 text-white/80 hover:bg-white/10 hover:text-white transition-colors z-[110]"
             aria-label="Toggle mobile menu"
           >
             <Menu className="w-6 h-6 text-white" />

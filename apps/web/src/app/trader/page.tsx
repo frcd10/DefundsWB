@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SwapPanel } from '../../components/trader/SwapPanel';
-import { RwaPayoutPanel } from '../../components/trader/RwaPayoutPanel';
 import { FundPayoutPanel } from '../../components/trader/FundPayoutPanel';
 import { FundAccessCodesPanel } from '../../components/trader/FundAccessCodesPanel';
 import { RwaAccessCodesPanel } from '../../components/trader/RwaAccessCodesPanel';
@@ -92,25 +90,11 @@ export default function TraderPage() {
         <h1 className="text-3xl font-extrabold mb-6">Trader Area</h1>
 
         <div className="rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
-          <Tabs defaultValue="swap">
+          <Tabs defaultValue="funds">
             <TabsList className="bg-black/40 border border-white/10 rounded-xl p-1">
-              <TabsTrigger value="swap" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Swap</TabsTrigger>
-              <TabsTrigger value="rwa" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">RWA Payout</TabsTrigger>
               <TabsTrigger value="funds" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Funds Payout</TabsTrigger>
               <TabsTrigger value="access" className="data-[state=active]:bg-brand-yellow data-[state=active]:text-brand-black rounded-lg px-4 py-2 text-white/70 data-[state=inactive]:hover:bg-white/5 transition">Created Products</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="swap" className="mt-4">
-              <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
-                <SwapPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="rwa" className="mt-4">
-              <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
-                <RwaPayoutPanel rwas={rwas} managerWallet={wallet.publicKey!.toString()} />
-              </div>
-            </TabsContent>
 
             <TabsContent value="funds" className="mt-4">
               <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">

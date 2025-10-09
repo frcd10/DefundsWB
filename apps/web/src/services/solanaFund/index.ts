@@ -13,11 +13,32 @@ export class SolanaFundServiceModular {
   private connection: Connection;
   constructor(rpcUrl?: string) {
     const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || 'mainnet-beta';
-    const url =
-      rpcUrl ||
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-      (cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com');
-    this.connection = new Connection(url, 'confirmed');
+    const isBrowser = typeof window !== 'undefined';
+    // In the browser, use the client-exposed URL or the proxy for mainnet.
+    // On the server (SSR/prerender), use absolute server-side URLs (Helius or public) — never a relative path.
+    const url = (() => {
+      if (isBrowser) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        return (
+          rpcUrl ||
+          process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+          (cluster === 'mainnet-beta' ? `${origin}/api/rpc` : 'https://api.devnet.solana.com')
+        );
+      }
+      return (
+        rpcUrl ||
+        process.env.SOLANA_RPC_URL ||
+        process.env.ANCHOR_PROVIDER_URL ||
+        process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+        (cluster === 'mainnet-beta' ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com')
+      );
+    })();
+    const wsEndpoint = (() => {
+      const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (backend) return `${backend.replace(/\/$/, '')}/ws/rpc`;
+      return process.env.NEXT_PUBLIC_SOLANA_WS_URL || undefined;
+    })();
+    this.connection = new Connection(url, { commitment: 'confirmed', wsEndpoint });
   }
 
   createFund(wallet: WalletContextState, params: CreateFundParams) {
@@ -43,6 +64,8 @@ export class SolanaFundServiceModular {
   defundSwap(wallet: WalletContextState, params: DefundSwapParams): Promise<DefundSwapResult> {
     return defundSwapCpi(this.connection, wallet, params);
   }
+  
+  // Recovery helpers removed per request
 }
 
 export const solanaFundServiceModular = new SolanaFundServiceModular();

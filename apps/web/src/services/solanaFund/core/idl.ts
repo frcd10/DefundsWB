@@ -31,8 +31,11 @@ export async function loadIdl(): Promise<Idl> {
       throw new Error(`Failed to load program IDL from /managed_funds.json status=${res.status}`);
     }
     const idl = (await res.json()) as Idl;
-    // Always prefer env-provided program ID if present
-    if (PROGRAM_ID_STR) {
+    // Prefer the IDL's own address; only fall back to env if IDL lacks address
+    // This avoids accidental mismatches that cause InvalidProgramId/Unsupported program id.
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    if (!idl.address && PROGRAM_ID_STR) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       idl.address = PROGRAM_ID_STR;

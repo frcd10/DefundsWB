@@ -10,6 +10,7 @@ import { tradeRoutes } from './routes/trades';
 import { analyticsRoutes } from './routes/analytics';
 import { solanaService } from './services/solana';
 import { websocketHandler } from './websocket/handler';
+import { rpcProxyHandler } from './websocket/rpcProxy';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { updateHourlyPoints } from './services/points';
@@ -66,8 +67,19 @@ app.get('/api/admin/points/status', async (req, res) => {
   }
 });
 
-// WebSocket handler
-wss.on('connection', websocketHandler);
+// WebSocket handlers: route by URL
+wss.on('connection', (ws, req) => {
+  try {
+    if (req.url && req.url.startsWith('/ws/rpc')) {
+      rpcProxyHandler(ws);
+    } else {
+      websocketHandler(ws);
+    }
+  } catch (e) {
+    console.error('WS connection handler error', e);
+    try { ws.close(1011, 'Server error'); } catch {}
+  }
+});
 
 // Error handling
 app.use(errorHandler);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
 import { Connection, PublicKey } from '@solana/web3.js';
+import getClientPromiseDebug from '@/lib/mongodb';
 
 // Validation function
 function validateCreateFundRequest(body: Record<string, any>) {
@@ -119,48 +120,7 @@ export async function POST(req: NextRequest) {
       maxPerInvestor
     } = body;
 
-    // Verify the transaction on Solana (idempotent path supported)
-    console.log('Verifying transaction:', signature);
-    let verified: boolean;
-    if (signature === 'already-processed') {
-      try {
-  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-        const connection = new Connection(rpcUrl, 'confirmed');
-        const info = await connection.getAccountInfo(new PublicKey(fundId));
-        verified = info !== null;
-        if (!verified) {
-          return NextResponse.json({ success: false, error: 'Fund not found on-chain yet. Please retry shortly.' }, { status: 409 });
-        }
-      } catch (e) {
-        console.error('Idempotent verification failed:', e);
-        return NextResponse.json({ success: false, error: 'Failed to verify fund account' }, { status: 500 });
-      }
-    } else {
-      verified = await verifyTransaction(signature);
-    }
-    console.log('Transaction verified:', verified);
-    if (!verified) {
-      console.log('Transaction verification failed');
-      return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
-    }
-
-    // Store fund in MongoDB
-    console.log('Connecting to MongoDB...');
-    const client = await getClientPromise();
-    const db = client.db('Defunds');
-    const collection = db.collection('Funds');
-
-    // Check if fund already exists
-    console.log('Checking for existing fund with ID:', fundId);
-    const existingFund = await collection.findOne({ fundId });
-    if (existingFund) {
-      console.log('Fund already exists');
-      return NextResponse.json({
-        success: false,
-        error: 'Fund already exists',
-      }, { status: 409 });
-    }
-
+    // Prepare fund data first (needed for both main insert and recovery log)
     console.log('Creating fund data...');
     const docId = signature === 'already-processed' ? fundId : signature;
     const fundData = {
@@ -194,15 +154,15 @@ export async function POST(req: NextRequest) {
         return { type: 'public' };
       })(),
       maxPerInvestor: maxPerInvestor ? Number(maxPerInvestor) : undefined,
-  perInvestorInviteCodes: (typeof body.perInvestorInviteCodes === 'number') ? body.perInvestorInviteCodes : 0,
+      perInvestorInviteCodes: (typeof body.perInvestorInviteCodes === 'number') ? body.perInvestorInviteCodes : 0,
       signature,
       
       // Financial tracking
       totalDeposits: initialDeposit, // Total SOL deposited (TVL)
       totalShares: initialDeposit,   // Total shares issued
       currentValue: initialDeposit,  // Current vault value (will change with trading)
-  // Track explicit SOL holdings for trader UI accounting (reduced by swaps / increased by deposits)
-  solBalance: initialDeposit,    // Initialize SOL balance equal to initial deposit
+      // Track explicit SOL holdings for trader UI accounting (reduced by swaps / increased by deposits)
+      solBalance: initialDeposit,    // Initialize SOL balance equal to initial deposit
       
       // Investment tracking
       investments: initialDeposit > 0 ? [{
@@ -243,6 +203,64 @@ export async function POST(req: NextRequest) {
         topLosses: []
       }
     };
+
+    // Persist full fund data into mainnetdebug IMMEDIATELY (keyed by signature), before any verification
+    try {
+      const client = await getClientPromise();
+      const db = client.db('Defunds');
+      const debugCol = db.collection('mainnetdebug');
+      const fundDataForDebug = { ...fundData, _id: signature };
+      await debugCol.replaceOne(
+        { _id: signature } as any,
+        fundDataForDebug as any,
+        { upsert: true } as any
+      );
+      console.log('Exact fund data logged to mainnetdebug immediately (keyed by signature)');
+    } catch (e) {
+      console.warn('Failed to write early recovery log (continuing anyway):', e);
+    }
+
+    // Verify the transaction on Solana (idempotent path supported)
+    console.log('Verifying transaction:', signature);
+    let verified: boolean;
+    if (signature === 'already-processed') {
+      try {
+        const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+        const connection = new Connection(rpcUrl, 'confirmed');
+        const info = await connection.getAccountInfo(new PublicKey(fundId));
+        verified = info !== null;
+        if (!verified) {
+          return NextResponse.json({ success: false, error: 'Fund not found on-chain yet. Please retry shortly.' }, { status: 409 });
+        }
+      } catch (e) {
+        console.error('Idempotent verification failed:', e);
+        return NextResponse.json({ success: false, error: 'Failed to verify fund account' }, { status: 500 });
+      }
+    } else {
+      verified = await verifyTransaction(signature);
+    }
+    console.log('Transaction verified:', verified);
+    if (!verified) {
+      console.log('Transaction verification failed');
+      return NextResponse.json({ success: false, error: 'Invalid transaction signature' }, { status: 400 });
+    }
+
+  // Store fund in MongoDB
+    console.log('Connecting to MongoDB...');
+    const client = await getClientPromise();
+    const db = client.db('Defunds');
+    const collection = db.collection('Funds');
+
+    // Check if fund already exists
+    console.log('Checking for existing fund with ID:', fundId);
+    const existingFund = await collection.findOne({ fundId });
+    if (existingFund) {
+      console.log('Fund already exists');
+      return NextResponse.json({
+        success: false,
+        error: 'Fund already exists',
+      }, { status: 409 });
+    }
 
     console.log('Inserting fund into database...');
     await collection.insertOne(fundData);

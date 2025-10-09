@@ -6,12 +6,17 @@ import logo from '../images/logo.png';
 import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+// removed recovery helpers
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const wallet = useWallet();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [isTraderEligible, setIsTraderEligible] = useState(false);
   const [cluster, setCluster] = useState<'devnet' | 'mainnet' | 'localnet' | 'unknown'>('unknown');
+
+  // Removed RECOVER and RETURN FUNDS controls
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -28,11 +33,12 @@ export default function Navbar() {
       setCluster(envCluster as typeof cluster);
       return;
     }
-    const endpoint = (process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || '').toLowerCase();
-    if (endpoint.includes('devnet')) setCluster('devnet');
-    else if (endpoint.includes('mainnet')) setCluster('mainnet');
-    else if (endpoint.includes('localhost') || endpoint.includes('127.0.0.1')) setCluster('localnet');
-    else setCluster('devnet'); // default for development convenience
+    // Prefer the actual public RPC URL var used across the app
+    const rpcUrl = (process.env.NEXT_PUBLIC_SOLANA_RPC_URL || '').toLowerCase();
+    if (rpcUrl.includes('devnet')) setCluster('devnet');
+    else if (rpcUrl.includes('mainnet')) setCluster('mainnet');
+    else if (rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')) setCluster('localnet');
+    else setCluster('unknown');
   }, []);
 
   // Prevent body scroll when menu is open (non-destructive restore)
@@ -124,11 +130,14 @@ export default function Navbar() {
           {/* Leaderboard Button */}
           
 
-          {/* Wallet + Devnet Faucet */}
+          {/* Wallet + Devnet Faucet + Recovery (whitelist) */}
           <div className="hidden sm:flex items-center gap-3">
-            <div className="wallet-trigger">
-              <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium !border-0 !shadow-none !bg-none hover:!brightness-110 !transition" />
-            </div>
+            {mounted && (
+              <div className="wallet-trigger">
+                <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-3.5 !py-1.5 !h-auto !text-xs !font-medium !border-0 !shadow-none !bg-none hover:!brightness-110 !transition" />
+              </div>
+            )}
+            {/* Recovery/Return controls removed as requested */}
             {cluster === 'devnet' && (
               <a
                 href="https://faucet.solana.com/"
@@ -275,9 +284,12 @@ export default function Navbar() {
               {/* Mobile CTA Buttons */}
               <div className="space-y-4 pt-8 mt-8">
                 {/* Mobile Wallet Button */}
-                <div className="flex justify-center wallet-trigger">
-                  <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-4 !h-auto !text-lg !font-semibold !border-0 !shadow-none !bg-none hover:!brightness-110 !transition w-full" />
-                </div>
+                {mounted && (
+                  <div className="flex justify-center wallet-trigger">
+                    <WalletMultiButton className="!bg-brand-yellow !text-brand-black !rounded-full !px-6 !py-4 !h-auto !text-lg !font-semibold !border-0 !shadow-none !bg-none hover:!brightness-110 !transition w-full" />
+                  </div>
+                )}
+                {/* Recovery/Return controls removed as requested */}
                 {cluster === 'devnet' && (
                   <a
                     href="https://faucet.solana.com/"

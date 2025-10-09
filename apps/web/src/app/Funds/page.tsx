@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { usePublicProfiles } from '@/lib/hooks/usePublicProfiles';
 import { PublicProfileModal } from '@/components/PublicProfileModal';
@@ -565,7 +565,7 @@ function FundsTable({
               return { ...p, pnl, pnlPercentage: ((p.nav - base) / base) * 100 };
             });
             return (
-              <>
+              <React.Fragment key={`row-${f.id}`}>
                 <tr
                   key={f.id}
                   className="group transition bg-brand-surface hover:bg-brand-yellow/5 hover:shadow-[0_0_0_1px_rgba(255,219,41,0.25)] hover:-translate-y-[1px] duration-200 ease-out"
@@ -706,7 +706,7 @@ function FundsTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
           {funds.length === 0 && (

@@ -127,12 +127,5 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         investor_position.last_activity_at = clock.unix_timestamp;
     }
 
-    msg!(
-        "Deposited {} tokens to fund '{}', minted {} shares",
-        amount,
-        fund.name,
-        shares_to_mint
-    );
-
     Ok(())
 }

@@ -120,12 +120,5 @@ pub fn withdraw(ctx: Context<Withdraw>, shares_to_burn: u64) -> Result<()> {
     investor_position.total_withdrawn = investor_position.total_withdrawn.checked_add(withdrawal_amount).ok_or(FundError::MathOverflow)?;
     investor_position.last_activity_at = clock.unix_timestamp;
 
-    msg!(
-        "Withdrew {} tokens from fund '{}', burned {} shares",
-        withdrawal_amount,
-        fund.name,
-        shares_to_burn
-    );
-
     Ok(())
 }

@@ -49,11 +49,7 @@ pub fn update_fund(
         fund.performance_fee = new_performance_fee;
     }
 
-    msg!(
-        "Fund '{}' updated by manager: {}",
-        fund.name,
-        fund.manager
-    );
+    log!("fund updated");
 
     Ok(())
 }

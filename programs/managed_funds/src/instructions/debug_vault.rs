@@ -34,25 +34,25 @@ pub fn debug_vault(ctx: Context<DebugVault>) -> Result<()> {
     let owner = *vault_ai.owner;
     let lamports = vault_ai.lamports();
     let data_len = vault_ai.data_len();
-    msg!("[debug_vault] vault pubkey: {}", vault_ai.key());
-    msg!("[debug_vault] owner: {}", owner);
-    msg!("[debug_vault] lamports: {} data_len: {}", lamports, data_len);
+    log!("[debug_vault] vault pubkey: {}", vault_ai.key());
+    log!("[debug_vault] owner: {}", owner);
+    log!("[debug_vault] lamports: {} data_len: {}", lamports, data_len);
     // Try token decode
     if owner == anchor_spl::token::ID {
         if data_len == 165 {
             if let Ok(token_acc) = anchor_spl::token::TokenAccount::try_deserialize(&mut &**vault_ai.data.borrow()) {
-                msg!("[debug_vault] token.mint: {} token.owner: {} amount: {}", token_acc.mint, token_acc.owner, token_acc.amount);
+                log!("[debug_vault] token.mint: {} token.owner: {} amount: {}", token_acc.mint, token_acc.owner, token_acc.amount);
             } else {
-                msg!("[debug_vault] failed to deserialize token account despite owner match");
+                log!("[debug_vault] failed to deserialize token account despite owner match");
             }
         } else {
-            msg!("[debug_vault] owner is token program but unexpected size {}", data_len);
+            log!("[debug_vault] owner is token program but unexpected size {}", data_len);
         }
     } else {
-        msg!("[debug_vault] owner is NOT token program (expected {}), raw first 8 bytes (hex):", anchor_spl::token::ID);
+        log!("[debug_vault] owner is NOT token program (expected {}), raw first 8 bytes (hex):", anchor_spl::token::ID);
         let slice = &vault_ai.data.borrow();
         let preview: Vec<String> = slice.iter().take(8).map(|b| format!("{:02x}", b)).collect();
-        msg!("[debug_vault] data preview: {}", preview.join(""));
+        log!("[debug_vault] data preview: {}", preview.join(""));
     }
     Ok(())
 }

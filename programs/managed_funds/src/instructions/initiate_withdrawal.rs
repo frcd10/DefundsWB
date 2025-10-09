@@ -67,12 +67,5 @@ pub fn initiate_withdrawal(
         bump: ctx.bumps.withdrawal_state,
     };
 
-    msg!(
-        "Initiated withdrawal for investor {} from fund {}, shares: {}",
-        ctx.accounts.investor.key(),
-        fund.key(),
-        shares_to_withdraw
-    );
-
     Ok(())
 }

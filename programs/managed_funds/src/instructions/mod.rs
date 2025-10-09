@@ -1,27 +1,16 @@
 pub mod initialize_fund;
 pub mod deposit;
-pub mod withdraw;
-pub mod execute_trade;
-pub mod update_fund;
 pub mod initiate_withdrawal;
 pub mod liquidate_positions;
 pub mod finalize_withdrawal;
-pub mod pay_rwa_investors;
 pub mod pay_fund_investors;
-pub mod investor_fund_withdrawal;
-pub mod debug_vault;
 pub mod swap;
 
+// Re-export everything for Anchor codegen and client convenience
 pub use initialize_fund::*;
 pub use deposit::*;
-pub use withdraw::*;
-pub use execute_trade::*;
-pub use update_fund::*;
 pub use initiate_withdrawal::*;
 pub use liquidate_positions::*;
 pub use finalize_withdrawal::*;
-pub use pay_rwa_investors::*;
 pub use pay_fund_investors::*;
-pub use investor_fund_withdrawal::*;
-pub use debug_vault::*;
 pub use swap::*;

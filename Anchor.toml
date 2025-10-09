@@ -6,13 +6,15 @@ resolution = true
 skip-lint = false
 
 [programs.mainnet]
-managed_funds = "DefUNDgVXcK1P6QA3mgWCXpRxaXo1v3BrBb9UF3tK7HW"
+managed_funds = "DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd"
+
+[programs.devnet]
+managed_funds = "DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-# Use Helius mainnet RPC for all Anchor operations
 cluster = "https://mainnet.helius-rpc.com/?api-key=19e2e36f-3222-481a-af0d-4271e77bb9b2"
 wallet = "~/.config/solana/id_mainnet.json"
 

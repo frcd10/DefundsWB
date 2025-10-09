@@ -81,14 +81,7 @@ pub fn execute_trade(
     let tx_signature = ctx.accounts.manager.to_account_info().key().to_string();
     trade.signature = tx_signature[..std::cmp::min(tx_signature.len(), 88)].to_string();
 
-    msg!(
-        "Trade recorded for fund '{}': {} {} -> {} {}",
-        fund.name,
-        amount_in,
-        input_mint,
-        simulated_amount_out,
-        output_mint
-    );
+    log!("trade recorded");
 
     Ok(())
 }

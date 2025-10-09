@@ -1,5 +1,5 @@
 {
-  "address": "5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB",
+  "address": "DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd",
   "metadata": {
     "name": "managed_funds",
     "version": "0.1.0",
@@ -8,19 +8,19 @@
   },
   "instructions": [
     {
-      "name": "authorize_defund_swap",
+      "name": "defund_swap",
       "docs": [
-        "Authorize a Jupiter swap: approve manager as delegate on the vault for amount_in."
+        "DEFUNSWAP: Manager-only vault swap via Jupiter (skeleton)"
       ],
       "discriminator": [
-        140,
-        86,
-        101,
-        151,
-        183,
-        161,
-        120,
-        176
+        225,
+        33,
+        109,
+        175,
+        139,
+        237,
+        224,
+        135
       ],
       "accounts": [
         {
@@ -51,147 +51,52 @@
           }
         },
         {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
           "name": "manager",
-          "writable": true,
+          "docs": [
+            "Manager signs to authorize swaps"
+          ],
           "signer": true,
           "relations": [
             "fund"
           ]
+        },
+        {
+          "name": "destination_account",
+          "docs": [
+            "If SPL token, must be a TokenAccount owned by token program; if SOL, a system account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "jupiter_program"
         },
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "input_mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "amount_in",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "debug_vault",
-      "docs": [
-        "Debug vault state (manager only). Prints owner, size, token fields if possible."
-      ],
-      "discriminator": [
-        67,
-        35,
-        119,
-        52,
-        81,
-        102,
-        31,
-        188
-      ],
-      "accounts": [
-        {
-          "name": "manager",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "fund"
-          ]
-        },
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "docs": [
-            "Vault PDA (may or may not be a valid token account)"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "base_mint",
-          "docs": [
-            "Base mint for context"
-          ]
         },
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "minimum_amount_out",
+          "type": "u64"
+        },
+        {
+          "name": "output_mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "route_data",
+          "type": "bytes"
+        }
+      ]
     },
     {
       "name": "deposit",
@@ -429,137 +334,6 @@
       "args": [
         {
           "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "execute_trade",
-      "docs": [
-        "Execute a trade (only fund manager)"
-      ],
-      "discriminator": [
-        77,
-        16,
-        192,
-        135,
-        13,
-        0,
-        106,
-        97
-      ],
-      "accounts": [
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "trade",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  97,
-                  100,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              },
-              {
-                "kind": "arg",
-                "path": "input_mint"
-              },
-              {
-                "kind": "arg",
-                "path": "output_mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "manager",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "fund"
-          ]
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "input_mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "output_mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "amount_in",
-          "type": "u64"
-        },
-        {
-          "name": "minimum_amount_out",
           "type": "u64"
         }
       ]
@@ -1001,133 +775,6 @@
       ]
     },
     {
-      "name": "investor_fund_withdrawal",
-      "docs": [
-        "Investor withdraws full participation (SOL-only devnet path), taking platform and performance fees."
-      ],
-      "discriminator": [
-        165,
-        14,
-        180,
-        222,
-        163,
-        115,
-        240,
-        32
-      ],
-      "accounts": [
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "investor_position"
-          ]
-        },
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          },
-          "relations": [
-            "investor_position"
-          ]
-        },
-        {
-          "name": "investor_position",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "investor"
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault_sol_account",
-          "docs": [
-            "PDA that holds SOL for the fund"
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116,
-                  95,
-                  115,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "manager",
-          "writable": true
-        },
-        {
-          "name": "treasury",
-          "writable": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "liquidate_positions_batch",
       "docs": [
         "Liquidate positions in batches during withdrawal"
@@ -1366,353 +1013,6 @@
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "pay_rwa_investors",
-      "docs": [
-        "Pay RWA investors with a single CPI fan-out from manager signer"
-      ],
-      "discriminator": [
-        153,
-        150,
-        48,
-        178,
-        251,
-        111,
-        229,
-        90
-      ],
-      "accounts": [
-        {
-          "name": "manager",
-          "docs": [
-            "Manager must authorize payouts (matches current client flow; funds come from manager wallet)"
-          ],
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "docs": [
-            "System program for lamports transfer CPI"
-          ],
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "amounts",
-          "type": {
-            "vec": "u64"
-          }
-        }
-      ]
-    },
-    {
-      "name": "revoke_defund_swap",
-      "docs": [
-        "Revoke Jupiter swap authorization: remove delegate from the vault."
-      ],
-      "discriminator": [
-        225,
-        81,
-        242,
-        46,
-        188,
-        211,
-        73,
-        14
-      ],
-      "accounts": [
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "manager",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "fund"
-          ]
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "update_fund",
-      "docs": [
-        "Update fund settings (only fund manager)"
-      ],
-      "discriminator": [
-        132,
-        171,
-        13,
-        83,
-        34,
-        122,
-        82,
-        155
-      ],
-      "accounts": [
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "manager",
-          "signer": true,
-          "relations": [
-            "fund"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "name",
-          "type": {
-            "option": "string"
-          }
-        },
-        {
-          "name": "description",
-          "type": {
-            "option": "string"
-          }
-        },
-        {
-          "name": "management_fee",
-          "type": {
-            "option": "u16"
-          }
-        },
-        {
-          "name": "performance_fee",
-          "type": {
-            "option": "u16"
-          }
-        }
-      ]
-    },
-    {
-      "name": "withdraw",
-      "docs": [
-        "Withdraw from a fund"
-      ],
-      "discriminator": [
-        183,
-        18,
-        70,
-        156,
-        148,
-        109,
-        161,
-        34
-      ],
-      "accounts": [
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          },
-          "relations": [
-            "investor_position"
-          ]
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "shares_mint",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  104,
-                  97,
-                  114,
-                  101,
-                  115
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor_position",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "investor"
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor_token_account",
-          "writable": true
-        },
-        {
-          "name": "investor_shares_account",
-          "writable": true
-        },
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "investor_position"
-          ]
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -1743,19 +1043,6 @@
       ]
     },
     {
-      "name": "Trade",
-      "discriminator": [
-        132,
-        139,
-        123,
-        31,
-        157,
-        196,
-        244,
-        190
-      ]
-    },
-    {
       "name": "WithdrawalState",
       "discriminator": [
         147,
@@ -1769,137 +1056,54 @@
       ]
     }
   ],
-  "events": [
-    {
-      "name": "DefundSwapAuthorized",
-      "discriminator": [
-        231,
-        171,
-        204,
-        134,
-        19,
-        178,
-        94,
-        19
-      ]
-    },
-    {
-      "name": "DefundSwapRevoked",
-      "discriminator": [
-        250,
-        155,
-        6,
-        109,
-        18,
-        135,
-        219,
-        176
-      ]
-    }
-  ],
   "errors": [
     {
       "code": 6000,
-      "name": "Unauthorized",
-      "msg": "Unauthorized: Only fund manager can perform this action"
+      "name": "InvalidFee",
+      "msg": "Invalid fee"
     },
     {
       "code": 6001,
-      "name": "InvalidFee",
-      "msg": "Invalid fee: Fee exceeds maximum allowed"
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds"
     },
     {
       "code": 6002,
-      "name": "InsufficientFunds",
-      "msg": "Insufficient funds in vault"
+      "name": "InvalidAmount",
+      "msg": "Invalid amount"
     },
     {
       "code": 6003,
-      "name": "InvalidAmount",
-      "msg": "Invalid amount: Amount must be greater than zero"
+      "name": "InvalidShares",
+      "msg": "Invalid shares"
     },
     {
       "code": 6004,
-      "name": "InvalidShares",
-      "msg": "Invalid shares: Shares amount is invalid"
+      "name": "InvalidMint",
+      "msg": "Invalid mint"
     },
     {
       "code": 6005,
-      "name": "FundPaused",
-      "msg": "Fund is paused"
-    },
-    {
-      "code": 6006,
-      "name": "InvalidMint",
-      "msg": "Invalid mint: Token mint is not supported"
-    },
-    {
-      "code": 6007,
-      "name": "SlippageExceeded",
-      "msg": "Slippage exceeded: Minimum amount out not met"
-    },
-    {
-      "code": 6008,
-      "name": "TradeFailed",
-      "msg": "Trade failed: External trade execution failed"
-    },
-    {
-      "code": 6009,
       "name": "MathOverflow",
       "msg": "Math overflow"
     },
     {
-      "code": 6010,
+      "code": 6006,
+      "name": "SlippageExceeded",
+      "msg": "Slippage exceeded"
+    },
+    {
+      "code": 6007,
       "name": "InvalidWithdrawalStatus",
       "msg": "Invalid withdrawal status"
     },
     {
-      "code": 6011,
+      "code": 6008,
       "name": "InvalidInput",
-      "msg": "Invalid input parameters"
+      "msg": "Invalid input"
     }
   ],
   "types": [
-    {
-      "name": "DefundSwapAuthorized",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "fund",
-            "type": "pubkey"
-          },
-          {
-            "name": "manager",
-            "type": "pubkey"
-          },
-          {
-            "name": "input_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount_in",
-            "type": "u64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "DefundSwapRevoked",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "fund",
-            "type": "pubkey"
-          },
-          {
-            "name": "manager",
-            "type": "pubkey"
-          }
-        ]
-      }
-    },
     {
       "name": "Fund",
       "type": {
@@ -2004,68 +1208,6 @@
           {
             "name": "last_activity_at",
             "type": "i64"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Trade",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "fund",
-            "type": "pubkey"
-          },
-          {
-            "name": "trader",
-            "type": "pubkey"
-          },
-          {
-            "name": "trade_type",
-            "type": {
-              "defined": {
-                "name": "TradeType"
-              }
-            }
-          },
-          {
-            "name": "input_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "output_mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount_in",
-            "type": "u64"
-          },
-          {
-            "name": "amount_out",
-            "type": "u64"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
-          },
-          {
-            "name": "signature",
-            "type": "string"
-          }
-        ]
-      }
-    },
-    {
-      "name": "TradeType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Buy"
-          },
-          {
-            "name": "Sell"
           }
         ]
       }

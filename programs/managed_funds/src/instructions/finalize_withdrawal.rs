@@ -165,12 +165,5 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     // Update withdrawal state
     withdrawal_state.status = WithdrawalStatus::Completed;
 
-    msg!(
-        "Finalized withdrawal: {} SOL to investor, {} SOL to trader, {} SOL to treasury",
-        final_withdrawal_amount,
-        trader_performance_fee,
-        total_platform_fees
-    );
-
     Ok(())
 }

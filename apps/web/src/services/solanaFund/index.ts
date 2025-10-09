@@ -3,11 +3,11 @@ import { WalletContextState } from '@solana/wallet-adapter-react';
 import { createFund } from './fund/createFund';
 import { depositToFund } from './deposit/depositToFund';
 import { payFundInvestors } from './payout/payFundInvestors';
-import { debugVault } from './debug/debugVault';
 import { getFund } from './fund/getFund';
 import { getUserFunds } from './fund/getUserFunds';
 import { withdrawFromFund } from './withdraw/withdrawFromFund';
 import { CreateFundParams } from './types';
+import { defundSwap as defundSwapCpi, DefundSwapParams, DefundSwapResult } from './trade/defundSwap';
 
 export class SolanaFundServiceModular {
   private connection: Connection;
@@ -32,16 +32,19 @@ export class SolanaFundServiceModular {
   payFundInvestors(wallet: WalletContextState, fundId: string, totalAmountSol: number, investorWallets: string[], treasuryWallet?: string) {
     return payFundInvestors(this.connection, wallet, fundId, totalAmountSol, investorWallets, treasuryWallet);
   }
-  debugVault(wallet: WalletContextState, fundId: string) {
-    return debugVault(this.connection, wallet, fundId);
-  }
   getFund(fundId: string) {
     return getFund(this.connection, fundId);
   }
   getUserFunds(wallet: WalletContextState) {
     return getUserFunds(wallet);
   }
+
+  // Manager-only: Execute a CPI swap inside the vault via Jupiter router
+  defundSwap(wallet: WalletContextState, params: DefundSwapParams): Promise<DefundSwapResult> {
+    return defundSwapCpi(this.connection, wallet, params);
+  }
 }
 
 export const solanaFundServiceModular = new SolanaFundServiceModular();
 export * from './types';
+export * from './trade/defundSwap';

@@ -37,6 +37,8 @@ export async function loadIdl(): Promise<Idl> {
       // @ts-ignore
       idl.address = PROGRAM_ID_STR;
     }
+
+    // The hosted IDL should already include defund_swap; no client-side augmentation needed anymore.
     cachedIdl = idl;
     return idl;
   } catch (e) {

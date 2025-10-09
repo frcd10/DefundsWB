@@ -1,13 +1,27 @@
+#![allow(ambiguous_glob_reexports)]
 use anchor_lang::prelude::*;
 
 pub mod instructions;
 pub mod state;
 pub mod errors;
 
-// Re-export instructions module contents for client code; required for Anchor codegen to locate context structs.
+// Re-export context/account types so Anchor can find them at crate root
 pub use instructions::*;
 
-declare_id!("5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB");
+declare_id!("DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd");
+
+// Gated logging: use `log!()` instead of `msg!()`. Enable via `--features onchain-logs`.
+#[cfg(feature = "onchain-logs")]
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => { anchor_lang::prelude::msg!($($arg)*); };
+}
+
+#[cfg(not(feature = "onchain-logs"))]
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => {};
+}
 
 #[program]
 pub mod managed_funds {
@@ -29,32 +43,7 @@ pub mod managed_funds {
         instructions::deposit(ctx, amount)
     }
 
-    /// Withdraw from a fund
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        instructions::withdraw(ctx, amount)
-    }
-
-    /// Execute a trade (only fund manager)
-    pub fn execute_trade(
-        ctx: Context<ExecuteTrade>,
-        input_mint: Pubkey,
-        output_mint: Pubkey,
-        amount_in: u64,
-        minimum_amount_out: u64,
-    ) -> Result<()> {
-        instructions::execute_trade(ctx, input_mint, output_mint, amount_in, minimum_amount_out)
-    }
-
-    /// Update fund settings (only fund manager)
-    pub fn update_fund(
-        ctx: Context<UpdateFund>,
-        name: Option<String>,
-        description: Option<String>,
-        management_fee: Option<u16>,
-        performance_fee: Option<u16>,
-    ) -> Result<()> {
-        instructions::update_fund(ctx, name, description, management_fee, performance_fee)
-    }
+    // Removed legacy withdraw, execute_trade, and update_fund instructions (unused in production)
 
     /// Initiate a withdrawal with position liquidation
     pub fn initiate_withdrawal(
@@ -78,29 +67,7 @@ pub mod managed_funds {
         instructions::finalize_withdrawal(ctx)
     }
 
-    /// Pay RWA investors with a single CPI fan-out from manager signer
-    pub fn pay_rwa_investors<'info>(
-        ctx: Context<'_, '_, '_, 'info, PayRwaInvestors<'info>>,
-        amounts: Vec<u64>,
-    ) -> Result<()> {
-        require!(!amounts.is_empty(), errors::FundError::InvalidInput);
-        require!(ctx.remaining_accounts.len() == amounts.len(), errors::FundError::InvalidInput);
-
-        for (i, recipient_ai) in ctx.remaining_accounts.iter().enumerate() {
-            let amount = amounts[i];
-            if amount == 0 { continue; }
-
-            let from_ai = ctx.accounts.manager.to_account_info();
-            let to_ai = recipient_ai.clone();
-            let program_ai = ctx.accounts.system_program.to_account_info();
-
-            let cpi_accounts = anchor_lang::system_program::Transfer { from: from_ai, to: to_ai };
-            let cpi_ctx = anchor_lang::prelude::CpiContext::new(program_ai, cpi_accounts);
-            anchor_lang::system_program::transfer(cpi_ctx, amount)?;
-        }
-
-        Ok(())
-    }
+    // Removed pay_rwa_investors (deferred for future implementation)
 
     /// Distribute SOL from vault to investors by share percentage, taking platform and performance fees.
     pub fn pay_fund_investors<'info>(
@@ -110,27 +77,17 @@ pub mod managed_funds {
         instructions::pay_fund_investors(ctx, total_amount)
     }
 
-    /// Debug vault state (manager only). Prints owner, size, token fields if possible.
-    pub fn debug_vault(ctx: Context<DebugVault>) -> Result<()> {
-        instructions::debug_vault(ctx)
-    }
+    // Removed debug_vault (no longer needed in production)
+    // Removed investor_fund_withdrawal and swap authorize/revoke (unused in production)
 
-    /// Investor withdraws full participation (SOL-only devnet path), taking platform and performance fees.
-    pub fn investor_fund_withdrawal(ctx: Context<InvestorFundWithdrawal>) -> Result<()> {
-        instructions::investor_fund_withdrawal(ctx)
-    }
-
-    /// Authorize a Jupiter swap: approve manager as delegate on the vault for amount_in.
-    pub fn authorize_defund_swap(
-        ctx: Context<AuthorizeDefundSwap>,
-        input_mint: Pubkey,
+    /// DEFUNSWAP: Manager-only vault swap via Jupiter (skeleton)
+    pub fn defund_swap(
+        ctx: Context<DefundSwap>,
         amount_in: u64,
+        minimum_amount_out: u64,
+        output_mint: Pubkey,
+        route_data: Vec<u8>,
     ) -> Result<()> {
-        instructions::authorize_defund_swap(ctx, input_mint, amount_in)
-    }
-
-    /// Revoke Jupiter swap authorization: remove delegate from the vault.
-    pub fn revoke_defund_swap(ctx: Context<RevokeDefundSwap>) -> Result<()> {
-        instructions::revoke_defund_swap(ctx)
+        instructions::defund_swap(ctx, amount_in, minimum_amount_out, output_mint, route_data)
     }
 }

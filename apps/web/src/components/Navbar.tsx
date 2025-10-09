@@ -109,6 +109,11 @@ export default function Navbar() {
               </Link>
             </li>
           )}
+          {isTraderEligible && (
+            <li>
+              <Link href="/swap" className="hover:text-brand-yellow transition-colors">Swap</Link>
+            </li>
+          )}
       <li><Link href="/news" className="hover:text-brand-yellow transition-colors">News</Link></li>
         </ul>
 
@@ -233,6 +238,17 @@ export default function Navbar() {
                       onClick={closeMobileMenu}
                     >
                       Trader
+                    </Link>
+                  </li>
+                )}
+                {isTraderEligible && (
+                  <li>
+                    <Link 
+                      href="/swap" 
+                      className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
+                      onClick={closeMobileMenu}
+                    >
+                      Swap
                     </Link>
                   </li>
                 )}

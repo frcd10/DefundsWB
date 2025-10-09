@@ -63,7 +63,6 @@ pub fn pay_fund_investors<'info>(
     total_amount: u64,
 ) -> Result<()> {
     require!(total_amount > 0, FundError::InvalidAmount);
-    msg!("pay_fund_investors: total_amount={} lamports", total_amount);
 
     let fund = &ctx.accounts.fund;
     let perf_bps = fund.performance_fee; // 0..=5000 (0-50%)
@@ -93,7 +92,6 @@ pub fn pay_fund_investors<'info>(
 
     // Ensure the SOL vault PDA account exists (system-owned, zero data) — create on first use with 0 lamports
     if ctx.accounts.vault_sol_account.data_is_empty() && ctx.accounts.vault_sol_account.lamports() == 0 {
-        msg!("creating vault_sol_account (system-owned PDA) with 0 lamports");
         let cpi_accounts = anchor_lang::system_program::CreateAccount {
             from: ctx.accounts.manager.to_account_info(),
             to: ctx.accounts.vault_sol_account.to_account_info(),
@@ -111,7 +109,6 @@ pub fn pay_fund_investors<'info>(
     // Branch: use SOL PDA if sufficient balance; otherwise, WSOL fallback.
     let vault_sol_balance = ctx.accounts.vault_sol_account.lamports();
     if vault_sol_balance < total_amount {
-        msg!("WSOL fallback path: vault SOL balance {} < total {}", vault_sol_balance, total_amount);
         // Fall back to distributing WSOL tokens from SPL vault.
             // Expect remaining accounts layout: For each investor -> [InvestorPosition, Investor System, Investor WSOL ATA]
             // and at the END two accounts: [Treasury WSOL ATA, Manager WSOL ATA]
@@ -140,7 +137,6 @@ pub fn pay_fund_investors<'info>(
 
             // 1) Pay treasury in WSOL
             if treasury_total > 0 {
-                msg!("WSOL: transferring {} to treasury ATA", treasury_total);
                 let cpi_ctx = CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
                     Transfer {
@@ -155,7 +151,6 @@ pub fn pay_fund_investors<'info>(
 
             // 2) Pay manager performance share in WSOL
             if manager_perf_share > 0 {
-                msg!("WSOL: transferring {} to manager ATA", manager_perf_share);
                 let cpi_ctx = CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
                     Transfer {
@@ -198,7 +193,6 @@ pub fn pay_fund_investors<'info>(
                 };
 
                 if share_amount > 0 {
-                    msg!("WSOL: transferring {} to investor {} of {} recipients", share_amount, i + 1, recipients.len());
                     let cpi_ctx = CpiContext::new_with_signer(
                         ctx.accounts.token_program.to_account_info(),
                         Transfer {
@@ -215,7 +209,6 @@ pub fn pay_fund_investors<'info>(
 
             // Decrease fund total_assets to reflect the payout leaving the fund
             let fund_mut = &mut ctx.accounts.fund;
-            msg!("WSOL: decreasing fund.total_assets by {}", total_amount);
             fund_mut.total_assets = fund_mut
                 .total_assets
                 .checked_sub(total_amount)
@@ -246,14 +239,12 @@ pub fn pay_fund_investors<'info>(
     require!(batch_total_shares > 0, FundError::InvalidShares);
 
     // Helper to perform SOL transfer from vault PDA using seeds (SOL path)
-    msg!("SOL path: vault SOL balance sufficient");
 
     // 1) Pay treasury: base fee + 20% of performance fee
     let treasury_total = base_fee
         .checked_add(treasury_perf_share)
         .ok_or(FundError::MathOverflow)?;
     if treasury_total > 0 {
-        msg!("SOL: transferring {} to treasury", treasury_total);
         let cpi_accounts = anchor_lang::system_program::Transfer {
             from: ctx.accounts.vault_sol_account.to_account_info(),
             to: ctx.accounts.treasury.to_account_info(),
@@ -269,7 +260,6 @@ pub fn pay_fund_investors<'info>(
 
     // 2) Pay manager performance share
     if manager_perf_share > 0 {
-        msg!("SOL: transferring {} to manager", manager_perf_share);
         let cpi_accounts = anchor_lang::system_program::Transfer {
             from: ctx.accounts.vault_sol_account.to_account_info(),
             to: ctx.accounts.manager.to_account_info(),
@@ -299,7 +289,6 @@ pub fn pay_fund_investors<'info>(
         };
 
         if share_amount > 0 {
-            msg!("SOL: transferring {} to investor {} of {} recipients", share_amount, i + 1, recipients.len());
             let cpi_accounts = anchor_lang::system_program::Transfer {
                 from: ctx.accounts.vault_sol_account.to_account_info(),
                 to: (*investor_ai).clone(),
@@ -317,7 +306,6 @@ pub fn pay_fund_investors<'info>(
 
     // Decrease fund total_assets to reflect the payout leaving the fund
     let fund_mut = &mut ctx.accounts.fund;
-    msg!("SOL: decreasing fund.total_assets by {}", total_amount);
     fund_mut.total_assets = fund_mut
         .total_assets
         .checked_sub(total_amount)

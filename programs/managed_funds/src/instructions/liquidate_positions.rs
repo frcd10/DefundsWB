@@ -61,11 +61,5 @@ pub fn liquidate_positions_batch(
         withdrawal_state.status = WithdrawalStatus::ReadyToFinalize;
     }
 
-    msg!(
-        "Liquidated {} positions, total SOL accumulated: {}",
-        liquidated_positions,
-        withdrawal_state.sol_accumulated
-    );
-
     Ok(())
 }

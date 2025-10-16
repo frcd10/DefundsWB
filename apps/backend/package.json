@@ -14,6 +14,8 @@
     "ping:test": "tsx src/scripts/testPing.ts",
     "swap:vault:test": "tsx src/scripts/tokenVaultSwap.ts",
   "swap:vault:to-sol": "tsx src/scripts/tokenVaultSwapToSol.ts",
+    "withdraw:investor": "tsx src/scripts/investorWithdraw.ts",
+    "deposit:investor": "tsx src/scripts/investorDeposit.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf dist"

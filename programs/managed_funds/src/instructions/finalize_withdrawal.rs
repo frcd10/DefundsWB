@@ -46,13 +46,7 @@ pub struct FinalizeWithdrawal<'info> {
     )]
     pub withdrawal_state: Account<'info, WithdrawalState>,
 
-    #[account(
-        mut,
-        seeds = [b"vault_sol", fund.key().as_ref()],
-        bump
-    )]
-    /// CHECK: This is the vault's SOL account, a PDA that holds SOL
-    pub vault_sol_account: AccountInfo<'info>,
+    // We will pay SOL directly from the fund PDA lamports
 
     #[account(mut)]
     pub investor: Signer<'info>,
@@ -81,7 +75,7 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
         withdrawal_state.sol_accumulated
     } else {
         // Calculate from vault SOL balance (for SOL-only funds)
-        let vault_balance = ctx.accounts.vault_sol_account.lamports();
+        let vault_balance = fund.to_account_info().lamports();
         let share_percentage = shares_to_burn as f64 / investor_position.shares as f64;
         (vault_balance as f64 * share_percentage) as u64
     };
@@ -117,7 +111,7 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     let final_withdrawal_amount = base_withdrawal_amount - performance_fee - platform_withdrawal_fee;
 
     // Verify vault has enough SOL
-    let vault_balance = ctx.accounts.vault_sol_account.lamports();
+    let vault_balance = fund.to_account_info().lamports();
     require!(
         vault_balance >= base_withdrawal_amount,
         FundError::InsufficientFunds
@@ -135,7 +129,7 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     token::burn(burn_ctx, shares_to_burn)?;
 
     // Transfer SOL to investor
-    let vault_sol_account = &ctx.accounts.vault_sol_account;
+    let vault_sol_account = &fund.to_account_info();
     let investor_account = &ctx.accounts.investor;
 
     **vault_sol_account.try_borrow_mut_lamports()? -= final_withdrawal_amount;

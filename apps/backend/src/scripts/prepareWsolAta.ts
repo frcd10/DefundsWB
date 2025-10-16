@@ -25,6 +25,7 @@ import { fundPda, wallet, connection, idl, programId, execTx } from './helper'
     { pubkey: EXISTING_WSOL_TA, isWritable: true, isSigner: false },
     { pubkey: ata, isWritable: true, isSigner: false },
     { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
+    { pubkey: wallet.publicKey, isWritable: false, isSigner: true }, // manager signer
   ]
   const progIx = new (require('@solana/web3.js') as any).TransactionInstruction({ programId, keys, data })
   ixs.push(progIx)

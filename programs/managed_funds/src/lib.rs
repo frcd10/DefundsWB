@@ -4,7 +4,6 @@ use anchor_lang::prelude::*;
 pub mod instructions;
 pub mod state;
 pub mod errors;
-pub mod version; // central build tag / version constants
 
 // Re-export context/account types so Anchor can find them at crate root
 pub use instructions::*;
@@ -57,10 +56,10 @@ pub mod managed_funds {
     /// Liquidate positions in batches during withdrawal
     pub fn liquidate_positions_batch(
         ctx: Context<LiquidatePositionsBatch>,
-        position_indices: Vec<u8>,
-        minimum_amounts_out: Vec<u64>,
+        unwrap_wsol: bool,
+        min_lamports: u64,
     ) -> Result<()> {
-        instructions::liquidate_positions_batch(ctx, position_indices, minimum_amounts_out)
+        instructions::liquidate_positions_batch(ctx, unwrap_wsol, min_lamports)
     }
 
     /// Finalize withdrawal and distribute SOL
@@ -81,10 +80,7 @@ pub mod managed_funds {
     // Removed debug_vault (no longer needed in production)
     // Removed investor_fund_withdrawal and swap authorize/revoke (unused in production)
 
-    /// Ping to log build tag/version for verification
-    pub fn ping_build(ctx: Context<PingBuild>) -> Result<()> {
-        instructions::ping_build(ctx)
-    }
+    // Removed ping_build (no longer needed)
 
     /// Shared accounts model swap (program-owned vaults) via Jupiter
     // removed swap_tokens_shared
@@ -103,11 +99,28 @@ pub mod managed_funds {
         instructions::token_swap_vault(ctx, data, tmp)
     }
 
+    /// Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps
+    pub fn withdraw_swap_router<'info>(
+        ctx: Context<'_, '_, 'info, 'info, WithdrawSwapRouter<'info>>,
+        in_amount: u64,
+        min_out_amount: u64,
+        router_data: Vec<u8>,
+        is_ledger: bool,
+    ) -> Result<()> {
+        instructions::withdraw_swap_router(ctx, in_amount, min_out_amount, router_data, is_ledger)
+    }
+
     /// Transfer SPL tokens between Fund PDA-owned token accounts (same mint)
     pub fn pda_token_transfer(
         ctx: Context<PdaTokenTransfer>,
         amount: u64,
     ) -> Result<()> {
         instructions::pda_token_transfer(ctx, amount)
+    }
+
+    /// One-time: set the NAV attestor for this fund (manager only)
+    /// Investor-provided NAV attestation write (uses configured attestor key)
+    pub fn nav_attest_write(ctx: Context<NavAttestWrite>, nav_value: u64, expires_at: i64) -> Result<()> {
+        instructions::nav_attest_write(ctx, nav_value, expires_at)
     }
 }

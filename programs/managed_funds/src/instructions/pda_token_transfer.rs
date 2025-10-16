@@ -18,9 +18,14 @@ pub struct PdaTokenTransfer<'info> {
     pub to: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+
+    // Enforce only the fund manager can trigger transfers
+    pub manager: Signer<'info>,
 }
 
 pub fn pda_token_transfer(ctx: Context<PdaTokenTransfer>, amount: u64) -> Result<()> {
+    // Require manager signer to match fund.manager
+    require_keys_eq!(ctx.accounts.manager.key(), ctx.accounts.fund.manager);
     // Validate both accounts are owned by the fund PDA and have the same mint
     require_keys_eq!(ctx.accounts.from.owner, ctx.accounts.fund.key());
     require_keys_eq!(ctx.accounts.to.owner, ctx.accounts.fund.key());

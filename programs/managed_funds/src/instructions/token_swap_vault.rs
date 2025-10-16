@@ -31,6 +31,9 @@ pub struct TokenSwapVault<'info> {
     )]
     pub fund: Account<'info, Fund>,
 
+    // Require the fund manager to sign any swap initiated through this instruction
+    pub manager: Signer<'info>,
+
     /// CHECK: Jupiter router program id; validated at runtime
     pub jupiter_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
@@ -51,6 +54,8 @@ pub fn token_swap_vault<'info>(
     data: Vec<u8>,
     _tmp: Vec<u8>, // kept for parity with example; logged or ignored
 ) -> Result<()> {
+    // Enforce that the provided signer is the Fund's manager
+    require_keys_eq!(ctx.accounts.manager.key(), ctx.accounts.fund.manager);
     // Optional: validate first 8 bytes correspond to a Jupiter router discriminator
     // We skip strict validation to keep this generic pass-through per example.
 

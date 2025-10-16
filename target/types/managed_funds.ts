@@ -387,32 +387,6 @@ export type ManagedFunds = {
           }
         },
         {
-          "name": "vaultSolAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116,
-                  95,
-                  115,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
           "name": "investor",
           "writable": true,
           "signer": true,
@@ -806,18 +780,115 @@ export type ManagedFunds = {
           "relations": [
             "withdrawalState"
           ]
+        },
+        {
+          "name": "wsolMint"
+        },
+        {
+          "name": "fundWsolAta",
+          "writable": true
+        },
+        {
+          "name": "fundSolDestination",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "positionIndices",
-          "type": "bytes"
+          "name": "unwrapWsol",
+          "type": "bool"
         },
         {
-          "name": "minimumAmountsOut",
-          "type": {
-            "vec": "u64"
+          "name": "minLamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "navAttestWrite",
+      "docs": [
+        "One-time: set the NAV attestor for this fund (manager only)",
+        "Investor-provided NAV attestation write (uses configured attestor key)"
+      ],
+      "discriminator": [
+        251,
+        149,
+        104,
+        238,
+        125,
+        43,
+        242,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
           }
+        },
+        {
+          "name": "navAttestation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  97,
+                  118
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "navValue",
+          "type": "u64"
+        },
+        {
+          "name": "expiresAt",
+          "type": "i64"
         }
       ]
     },
@@ -1020,6 +1091,10 @@ export type ManagedFunds = {
         {
           "name": "tokenProgram",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
         }
       ],
       "args": [
@@ -1028,24 +1103,6 @@ export type ManagedFunds = {
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "pingBuild",
-      "docs": [
-        "Ping to log build tag/version for verification"
-      ],
-      "discriminator": [
-        235,
-        55,
-        248,
-        23,
-        64,
-        219,
-        63,
-        82
-      ],
-      "accounts": [],
-      "args": []
     },
     {
       "name": "tokenSwapVault",
@@ -1091,6 +1148,10 @@ export type ManagedFunds = {
           }
         },
         {
+          "name": "manager",
+          "signer": true
+        },
+        {
           "name": "jupiterProgram"
         },
         {
@@ -1110,6 +1171,162 @@ export type ManagedFunds = {
         {
           "name": "tmp",
           "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "withdrawSwapRouter",
+      "docs": [
+        "Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps"
+      ],
+      "discriminator": [
+        137,
+        229,
+        57,
+        96,
+        14,
+        41,
+        202,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "withdrawalState",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "investor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "investor",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "withdrawalState"
+          ]
+        },
+        {
+          "name": "jupiterProgram"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "fundSourceTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "inputMint"
+        },
+        {
+          "name": "progress",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  97,
+                  108,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "withdrawalState"
+              },
+              {
+                "kind": "account",
+                "path": "inputMint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "inAmount",
+          "type": "u64"
+        },
+        {
+          "name": "minOutAmount",
+          "type": "u64"
+        },
+        {
+          "name": "routerData",
+          "type": "bytes"
+        },
+        {
+          "name": "isLedger",
+          "type": "bool"
         }
       ]
     }
@@ -1139,6 +1356,32 @@ export type ManagedFunds = {
         40,
         195,
         88
+      ]
+    },
+    {
+      "name": "navAttestation",
+      "discriminator": [
+        214,
+        157,
+        55,
+        181,
+        34,
+        104,
+        92,
+        224
+      ]
+    },
+    {
+      "name": "withdrawalMintProgress",
+      "discriminator": [
+        162,
+        108,
+        180,
+        53,
+        126,
+        182,
+        117,
+        218
       ]
     },
     {
@@ -1317,6 +1560,58 @@ export type ManagedFunds = {
       }
     },
     {
+      "name": "navAttestation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fund",
+            "type": "pubkey"
+          },
+          {
+            "name": "navValue",
+            "type": "u64"
+          },
+          {
+            "name": "expiresAt",
+            "type": "i64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "withdrawalMintProgress",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdrawal",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amountLiquidated",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "withdrawalState",
       "type": {
         "kind": "struct",
@@ -1331,6 +1626,18 @@ export type ManagedFunds = {
           },
           {
             "name": "sharesToWithdraw",
+            "type": "u64"
+          },
+          {
+            "name": "totalSharesSnapshot",
+            "type": "u64"
+          },
+          {
+            "name": "fractionBps",
+            "type": "u32"
+          },
+          {
+            "name": "wsolUnwrapped",
             "type": "u64"
           },
           {

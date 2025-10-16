@@ -381,32 +381,6 @@
           }
         },
         {
-          "name": "vault_sol_account",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116,
-                  95,
-                  115,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              }
-            ]
-          }
-        },
-        {
           "name": "investor",
           "writable": true,
           "signer": true,
@@ -800,18 +774,115 @@
           "relations": [
             "withdrawal_state"
           ]
+        },
+        {
+          "name": "wsol_mint"
+        },
+        {
+          "name": "fund_wsol_ata",
+          "writable": true
+        },
+        {
+          "name": "fund_sol_destination",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         }
       ],
       "args": [
         {
-          "name": "position_indices",
-          "type": "bytes"
+          "name": "unwrap_wsol",
+          "type": "bool"
         },
         {
-          "name": "minimum_amounts_out",
-          "type": {
-            "vec": "u64"
+          "name": "min_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "nav_attest_write",
+      "docs": [
+        "One-time: set the NAV attestor for this fund (manager only)",
+        "Investor-provided NAV attestation write (uses configured attestor key)"
+      ],
+      "discriminator": [
+        251,
+        149,
+        104,
+        238,
+        125,
+        43,
+        242,
+        67
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
           }
+        },
+        {
+          "name": "nav_attestation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  97,
+                  118
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nav_value",
+          "type": "u64"
+        },
+        {
+          "name": "expires_at",
+          "type": "i64"
         }
       ]
     },
@@ -1014,6 +1085,10 @@
         {
           "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
         }
       ],
       "args": [
@@ -1022,24 +1097,6 @@
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "ping_build",
-      "docs": [
-        "Ping to log build tag/version for verification"
-      ],
-      "discriminator": [
-        235,
-        55,
-        248,
-        23,
-        64,
-        219,
-        63,
-        82
-      ],
-      "accounts": [],
-      "args": []
     },
     {
       "name": "token_swap_vault",
@@ -1085,6 +1142,10 @@
           }
         },
         {
+          "name": "manager",
+          "signer": true
+        },
+        {
           "name": "jupiter_program"
         },
         {
@@ -1104,6 +1165,162 @@
         {
           "name": "tmp",
           "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_swap_router",
+      "docs": [
+        "Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps"
+      ],
+      "discriminator": [
+        137,
+        229,
+        57,
+        96,
+        14,
+        41,
+        202,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "withdrawal_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  97,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "investor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "investor",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "withdrawal_state"
+          ]
+        },
+        {
+          "name": "jupiter_program"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "fund_source_token_account",
+          "writable": true
+        },
+        {
+          "name": "input_mint"
+        },
+        {
+          "name": "progress",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  105,
+                  116,
+                  104,
+                  100,
+                  114,
+                  97,
+                  119,
+                  97,
+                  108,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "withdrawal_state"
+              },
+              {
+                "kind": "account",
+                "path": "input_mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "in_amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_out_amount",
+          "type": "u64"
+        },
+        {
+          "name": "router_data",
+          "type": "bytes"
+        },
+        {
+          "name": "is_ledger",
+          "type": "bool"
         }
       ]
     }
@@ -1133,6 +1350,32 @@
         40,
         195,
         88
+      ]
+    },
+    {
+      "name": "NavAttestation",
+      "discriminator": [
+        214,
+        157,
+        55,
+        181,
+        34,
+        104,
+        92,
+        224
+      ]
+    },
+    {
+      "name": "WithdrawalMintProgress",
+      "discriminator": [
+        162,
+        108,
+        180,
+        53,
+        126,
+        182,
+        117,
+        218
       ]
     },
     {
@@ -1311,6 +1554,58 @@
       }
     },
     {
+      "name": "NavAttestation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "fund",
+            "type": "pubkey"
+          },
+          {
+            "name": "nav_value",
+            "type": "u64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "updated_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawalMintProgress",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "withdrawal",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_liquidated",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
       "name": "WithdrawalState",
       "type": {
         "kind": "struct",
@@ -1325,6 +1620,18 @@
           },
           {
             "name": "shares_to_withdraw",
+            "type": "u64"
+          },
+          {
+            "name": "total_shares_snapshot",
+            "type": "u64"
+          },
+          {
+            "name": "fraction_bps",
+            "type": "u32"
+          },
+          {
+            "name": "wsol_unwrapped",
             "type": "u64"
           },
           {

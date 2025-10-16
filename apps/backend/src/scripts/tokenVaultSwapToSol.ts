@@ -8,6 +8,22 @@ import { fundPda, wallet, jupiterProgramId as JUPITER_PROGRAM, connection, getAd
   const anchor = require('@coral-xyz/anchor') as any
   const coder = new anchor.BorshCoder(idl)
 
+  // Preflight: ensure the current wallet is the fund manager
+  const provider = new anchor.AnchorProvider(connection, wallet, { commitment: 'processed' })
+  const program = new anchor.Program(idl as any, programId, provider)
+  try {
+    const fundAcc = await program.account.fund.fetch(fundPda)
+    const onChainMgr = fundAcc.manager.toBase58 ? fundAcc.manager.toBase58() : String(fundAcc.manager)
+    const localMgr = wallet.publicKey.toBase58()
+    if (onChainMgr !== localMgr) {
+      console.error('Manager mismatch. On-chain manager =', onChainMgr, 'local wallet =', localMgr)
+      process.exit(1)
+    }
+  } catch (e) {
+    console.error('Failed to fetch fund account for preflight check:', (e as any)?.message || e)
+    process.exit(1)
+  }
+
   // Mints
   const SOL = new PublicKey('So11111111111111111111111111111111111111112')
   const USDC = new PublicKey('2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv')
@@ -89,6 +105,7 @@ import { fundPda, wallet, jupiterProgramId as JUPITER_PROGRAM, connection, getAd
   const toProgramIx = (innerIx: any, innerData: Buffer) => {
     const keys = [
       { pubkey: fundPda, isWritable: true, isSigner: false },
+      { pubkey: wallet.publicKey, isWritable: false, isSigner: true }, // manager signer
       { pubkey: JUPITER_PROGRAM, isWritable: false, isSigner: false },
       { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
       { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },

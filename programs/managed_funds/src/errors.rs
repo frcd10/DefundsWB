@@ -23,7 +23,7 @@ pub enum FundError {
     #[msg("Slp excd")]
     SlippageExceeded,
     
-    #[msg("Er withdrawal status")]
+    #[msg("Er withdrawal")]
     InvalidWithdrawalStatus,
     
     #[msg("Er input")]

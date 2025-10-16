@@ -38,6 +38,21 @@ const LITE_API = process.env.JUPITER_QUOTE_API || 'https://lite-api.jup.ag/'
   const anchor = require('@coral-xyz/anchor') as any
   const coder = new anchor.BorshCoder(idl)
 
+  // Preflight: ensure the current wallet is the fund manager
+  const program = new anchor.Program(idl as any, programId, provider)
+  try {
+    const fundAcc = await program.account.fund.fetch(fundPda)
+    const onChainMgr = fundAcc.manager.toBase58 ? fundAcc.manager.toBase58() : String(fundAcc.manager)
+    const localMgr = wallet.publicKey.toBase58()
+    if (onChainMgr !== localMgr) {
+      console.error('Manager mismatch. On-chain manager =', onChainMgr, 'local wallet =', localMgr)
+      process.exit(1)
+    }
+  } catch (e) {
+    console.error('Failed to fetch fund account for preflight check:', (e as any)?.message || e)
+    process.exit(1)
+  }
+
   // Params
   const inLamports = Number(process.env.INPUT_AMOUNT || '100000') // default 0.0001 in base units
 
@@ -75,6 +90,7 @@ const LITE_API = process.env.JUPITER_QUOTE_API || 'https://lite-api.jup.ag/'
             { pubkey: FUND_EXISTING_SOURCE_TA, isWritable: true, isSigner: false },
             { pubkey: sourceAta, isWritable: true, isSigner: false },
             { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
+            { pubkey: wallet.publicKey, isWritable: false, isSigner: true }, // manager signer
           ]
           const progIx = new (require('@solana/web3.js') as any).TransactionInstruction({ programId, keys, data })
           setupIxs.push(progIx)
@@ -92,6 +108,7 @@ const LITE_API = process.env.JUPITER_QUOTE_API || 'https://lite-api.jup.ag/'
             { pubkey: FUND_EXISTING_SOURCE_TA, isWritable: true, isSigner: false },
             { pubkey: sourceAta, isWritable: true, isSigner: false },
             { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
+            { pubkey: wallet.publicKey, isWritable: false, isSigner: true }, // manager signer
           ]
           const progIx = new (require('@solana/web3.js') as any).TransactionInstruction({ programId, keys, data })
           setupIxs.push(progIx)
@@ -184,6 +201,7 @@ const LITE_API = process.env.JUPITER_QUOTE_API || 'https://lite-api.jup.ag/'
   const toProgramIx = (innerIx: any, innerData: Buffer) => {
     const keys = [
       { pubkey: fundPda, isWritable: true, isSigner: false },
+      { pubkey: wallet.publicKey, isWritable: false, isSigner: true }, // manager signer
       { pubkey: JUPITER_PROGRAM, isWritable: false, isSigner: false },
       { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
       { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },

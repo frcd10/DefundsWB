@@ -9,6 +9,7 @@ import { fundRoutes } from './routes/funds';
 import { tradeRoutes } from './routes/trades';
 import { analyticsRoutes } from './routes/analytics';
 import { solanaService } from './services/solana';
+import { swapRoutes } from './routes/swap';
 import { websocketHandler } from './websocket/handler';
 import { rpcProxyHandler } from './websocket/rpcProxy';
 import { errorHandler } from './middleware/errorHandler';
@@ -23,11 +24,20 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 3001;
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
 // Middleware
 app.use(helmet());
+const corsOrigins = (() => {
+  if (process.env.CORS_ALLOW_ALL === 'true' || IS_DEV) return true;
+  const fromEnv = process.env.CORS_ORIGINS || process.env.FRONTEND_URL;
+  if (!fromEnv) return 'http://localhost:3000';
+  const list = fromEnv.split(',').map(s => s.trim()).filter(Boolean);
+  return list.length === 1 ? list[0] : list;
+})();
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: corsOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -38,10 +48,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Basic ping useful for dev debugging
+app.get('/api/ping', (req, res) => {
+  res.json({ ok: true, service: 'backend', port: PORT, time: Date.now() });
+});
+
 // API Routes
 app.use('/api/funds', fundRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/swap', swapRoutes);
 // Points maintenance (admin-lite): trigger on-demand update
 app.post('/api/admin/points/run', async (req, res) => {
   try {

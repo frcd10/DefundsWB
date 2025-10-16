@@ -4,13 +4,17 @@ pub mod initiate_withdrawal;
 pub mod liquidate_positions;
 pub mod finalize_withdrawal;
 pub mod pay_fund_investors;
-pub mod swap;
+pub mod ping;
+pub mod token_swap_vault;
+pub mod pda_token_transfer;
 
-// Re-export everything for Anchor codegen and client convenience
+// Re-export active instructions for Anchor codegen and client convenience
 pub use initialize_fund::*;
 pub use deposit::*;
 pub use initiate_withdrawal::*;
 pub use liquidate_positions::*;
 pub use finalize_withdrawal::*;
 pub use pay_fund_investors::*;
-pub use swap::*;
+pub use ping::*;
+pub use token_swap_vault::*;
+pub use pda_token_transfer::*;

@@ -2,30 +2,33 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum FundError {
-    #[msg("Invalid fee")]
+    #[msg("Er fee")]
     InvalidFee,
     
-    #[msg("Insufficient funds")]
+    #[msg("Er funds")]
     InsufficientFunds,
     
-    #[msg("Invalid amount")]
+    #[msg("Er amount")]
     InvalidAmount,
     
-    #[msg("Invalid shares")]
+    #[msg("Er shares")]
     InvalidShares,
     
-    #[msg("Invalid mint")]
+    #[msg("Er mint")]
     InvalidMint,
     
-    #[msg("Math overflow")]
+    #[msg("Math Er")]
     MathOverflow,
     
-    #[msg("Slippage exceeded")]
+    #[msg("Slp excd")]
     SlippageExceeded,
     
-    #[msg("Invalid withdrawal status")]
+    #[msg("Er withdrawal status")]
     InvalidWithdrawalStatus,
     
-    #[msg("Invalid input")]
+    #[msg("Er input")]
     InvalidInput,
+
+    #[msg("Inv Er")]
+    InvocationFailed,
 }

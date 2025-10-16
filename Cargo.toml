@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "programs/*",
+]
+resolver = "2"
+
+# Optional: Common settings can be added here if needed later
+# [workspace.package]
+# edition = "2021"
+
+[profile.release]
+overflow-checks = true

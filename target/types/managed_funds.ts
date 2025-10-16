@@ -14,97 +14,6 @@ export type ManagedFunds = {
   },
   "instructions": [
     {
-      "name": "defundSwap",
-      "docs": [
-        "DEFUNSWAP: Manager-only vault swap via Jupiter (skeleton)"
-      ],
-      "discriminator": [
-        225,
-        33,
-        109,
-        175,
-        139,
-        237,
-        224,
-        135
-      ],
-      "accounts": [
-        {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "manager",
-          "docs": [
-            "Manager signs to authorize swaps"
-          ],
-          "signer": true,
-          "relations": [
-            "fund"
-          ]
-        },
-        {
-          "name": "destinationAccount",
-          "docs": [
-            "If SPL token, must be a TokenAccount owned by token program; if SOL, a system account."
-          ],
-          "writable": true
-        },
-        {
-          "name": "jupiterProgram"
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "amountIn",
-          "type": "u64"
-        },
-        {
-          "name": "minimumAmountOut",
-          "type": "u64"
-        },
-        {
-          "name": "outputMint",
-          "type": "pubkey"
-        },
-        {
-          "name": "routeData",
-          "type": "bytes"
-        }
-      ]
-    },
-    {
       "name": "deposit",
       "docs": [
         "Deposit into a fund"
@@ -656,6 +565,43 @@ export type ManagedFunds = {
       ]
     },
     {
+      "name": "initializeVault",
+      "docs": [
+        "Shared accounts model swap (program-owned vaults) via Jupiter",
+        "Initialize vault PDA used by the standalone vault-based Jupiter CPI path"
+      ],
+      "discriminator": [
+        48,
+        191,
+        163,
+        44,
+        71,
+        129,
+        63,
+        164
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initiateWithdrawal",
       "docs": [
         "Initiate a withdrawal with position liquidation"
@@ -1019,6 +965,153 @@ export type ManagedFunds = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "pdaTokenTransfer",
+      "docs": [
+        "Transfer SPL tokens between Fund PDA-owned token accounts (same mint)"
+      ],
+      "discriminator": [
+        223,
+        224,
+        77,
+        250,
+        161,
+        216,
+        116,
+        183
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "from",
+          "writable": true
+        },
+        {
+          "name": "to",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pingBuild",
+      "docs": [
+        "Ping to log build tag/version for verification"
+      ],
+      "discriminator": [
+        235,
+        55,
+        248,
+        23,
+        64,
+        219,
+        63,
+        82
+      ],
+      "accounts": [],
+      "args": []
+    },
+    {
+      "name": "tokenSwapVault",
+      "docs": [
+        "Forward Jupiter router instruction using vault PDA as program authority signer"
+      ],
+      "discriminator": [
+        173,
+        210,
+        151,
+        135,
+        211,
+        60,
+        62,
+        8
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "jupiterProgram"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "data",
+          "type": "bytes"
+        },
+        {
+          "name": "tmp",
+          "type": "bytes"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1066,47 +1159,52 @@ export type ManagedFunds = {
     {
       "code": 6000,
       "name": "invalidFee",
-      "msg": "Invalid fee"
+      "msg": "Er fee"
     },
     {
       "code": 6001,
       "name": "insufficientFunds",
-      "msg": "Insufficient funds"
+      "msg": "Er funds"
     },
     {
       "code": 6002,
       "name": "invalidAmount",
-      "msg": "Invalid amount"
+      "msg": "Er amount"
     },
     {
       "code": 6003,
       "name": "invalidShares",
-      "msg": "Invalid shares"
+      "msg": "Er shares"
     },
     {
       "code": 6004,
       "name": "invalidMint",
-      "msg": "Invalid mint"
+      "msg": "Er mint"
     },
     {
       "code": 6005,
       "name": "mathOverflow",
-      "msg": "Math overflow"
+      "msg": "Math Er"
     },
     {
       "code": 6006,
       "name": "slippageExceeded",
-      "msg": "Slippage exceeded"
+      "msg": "Slp excd"
     },
     {
       "code": 6007,
       "name": "invalidWithdrawalStatus",
-      "msg": "Invalid withdrawal status"
+      "msg": "Er withdrawal status"
     },
     {
       "code": 6008,
       "name": "invalidInput",
-      "msg": "Invalid input"
+      "msg": "Er input"
+    },
+    {
+      "code": 6009,
+      "name": "invocationFailed",
+      "msg": "Inv Er"
     }
   ],
   "types": [

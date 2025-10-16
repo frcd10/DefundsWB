@@ -1,0 +1,14 @@
+/home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/deps/libserde-6641eeeeb99b4972.rmeta: /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/lib.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/integer128.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/mod.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/de.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/ser.rs /home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/build/serde-c7a8be2ee9cfbdee/out/private.rs
+
+/home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/deps/libserde-6641eeeeb99b4972.rlib: /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/lib.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/integer128.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/mod.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/de.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/ser.rs /home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/build/serde-c7a8be2ee9cfbdee/out/private.rs
+
+/home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/deps/serde-6641eeeeb99b4972.d: /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/lib.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/integer128.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/mod.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/de.rs /home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/ser.rs /home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/build/serde-c7a8be2ee9cfbdee/out/private.rs
+
+/home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/lib.rs:
+/home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/integer128.rs:
+/home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/mod.rs:
+/home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/de.rs:
+/home/felip/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde-1.0.228/src/private/ser.rs:
+/home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/build/serde-c7a8be2ee9cfbdee/out/private.rs:
+
+# env-dep:OUT_DIR=/home/felip/dev/DefundsWB/programs/jupiter_cpi_local/target/sbpf-solana-solana/release/build/serde-c7a8be2ee9cfbdee/out

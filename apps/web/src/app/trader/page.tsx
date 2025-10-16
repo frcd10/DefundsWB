@@ -45,6 +45,7 @@ export default function TraderPage() {
     run();
   }, [wallet.publicKey]);
 
+
   if (!wallet.connected) {
     return (
       <div className="min-h-screen bg-brand-black text-white">

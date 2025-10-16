@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub mod instructions;
 pub mod state;
 pub mod errors;
+pub mod version; // central build tag / version constants
 
 // Re-export context/account types so Anchor can find them at crate root
 pub use instructions::*;
@@ -80,15 +81,33 @@ pub mod managed_funds {
     // Removed debug_vault (no longer needed in production)
     // Removed investor_fund_withdrawal and swap authorize/revoke (unused in production)
 
-    /// DEFUNSWAP: Manager-only vault swap via Jupiter (skeleton)
-    pub fn defund_swap(
-        ctx: Context<DefundSwap>,
-        amount_in: u64,
-        minimum_amount_out: u64,
-        output_mint: Pubkey,
-        route_data: Vec<u8>,
-    ) -> Result<()> {
-        instructions::defund_swap(ctx, amount_in, minimum_amount_out, output_mint, route_data)
+    /// Ping to log build tag/version for verification
+    pub fn ping_build(ctx: Context<PingBuild>) -> Result<()> {
+        instructions::ping_build(ctx)
     }
 
+    /// Shared accounts model swap (program-owned vaults) via Jupiter
+    // removed swap_tokens_shared
+
+    /// Initialize vault PDA used by the standalone vault-based Jupiter CPI path
+    pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
+        instructions::initialize_vault(ctx)
+    }
+
+    /// Forward Jupiter router instruction using vault PDA as program authority signer
+    pub fn token_swap_vault<'info>(
+        ctx: Context<'_, '_, 'info, 'info, TokenSwapVault<'info>>,
+        data: Vec<u8>,
+        tmp: Vec<u8>,
+    ) -> Result<()> {
+        instructions::token_swap_vault(ctx, data, tmp)
+    }
+
+    /// Transfer SPL tokens between Fund PDA-owned token accounts (same mint)
+    pub fn pda_token_transfer(
+        ctx: Context<PdaTokenTransfer>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_token_transfer(ctx, amount)
+    }
 }

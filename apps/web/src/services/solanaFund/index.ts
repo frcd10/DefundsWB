@@ -7,7 +7,7 @@ import { getFund } from './fund/getFund';
 import { getUserFunds } from './fund/getUserFunds';
 import { withdrawFromFund } from './withdraw/withdrawFromFund';
 import { CreateFundParams } from './types';
-import { defundSwap as defundSwapCpi, DefundSwapParams, DefundSwapResult } from './trade/defundSwap';
+// Swap removed: do not import defundSwap
 
 export class SolanaFundServiceModular {
   private connection: Connection;
@@ -60,14 +60,11 @@ export class SolanaFundServiceModular {
     return getUserFunds(wallet);
   }
 
-  // Manager-only: Execute a CPI swap inside the vault via Jupiter router
-  defundSwap(wallet: WalletContextState, params: DefundSwapParams): Promise<DefundSwapResult> {
-    return defundSwapCpi(this.connection, wallet, params);
-  }
+  // Swap removed
   
   // Recovery helpers removed per request
 }
 
 export const solanaFundServiceModular = new SolanaFundServiceModular();
 export * from './types';
-export * from './trade/defundSwap';
+// Swap removed: no re-export

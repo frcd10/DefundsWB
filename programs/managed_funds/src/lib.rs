@@ -126,9 +126,29 @@ pub mod managed_funds {
         instructions::pda_lamports_transfer(ctx, amount)
     }
 
+    /// Approve manager as delegate on a Fund-owned token account for a given amount
+    pub fn pda_token_approve(
+        ctx: Context<PdaTokenApprove>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_token_approve(ctx, amount)
+    }
+
+    /// Revoke any delegate on a Fund-owned token account
+    pub fn pda_token_revoke(
+        ctx: Context<PdaTokenRevoke>,
+    ) -> Result<()> {
+        instructions::pda_token_revoke(ctx)
+    }
+
     /// One-time: set the NAV attestor for this fund (manager only)
     /// Investor-provided NAV attestation write (uses configured attestor key)
     pub fn nav_attest_write(ctx: Context<NavAttestWrite>, nav_value: u64, expires_at: i64) -> Result<()> {
         instructions::nav_attest_write(ctx, nav_value, expires_at)
+    }
+
+    /// Close any number of zero-balance Fund-owned SPL token accounts and send lamports to the Fund WSOL ATA
+    pub fn close_zero_token_accounts<'info>(ctx: Context<'_, '_, 'info, 'info, CloseZeroTokenAccounts<'info>>) -> Result<()> {
+        instructions::close_zero_token_accounts(ctx)
     }
 }

@@ -14,6 +14,63 @@ export type ManagedFunds = {
   },
   "instructions": [
     {
+      "name": "closeZeroTokenAccounts",
+      "docs": [
+        "Close any number of zero-balance Fund-owned SPL token accounts and send lamports to the Fund WSOL ATA"
+      ],
+      "discriminator": [
+        178,
+        243,
+        199,
+        173,
+        254,
+        52,
+        67,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fundState"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fundState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fundWsolAta",
+          "docs": [
+            "Destination for recovered lamports; typically the Fund's WSOL ATA"
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "deposit",
       "docs": [
         "Deposit into a fund"
@@ -1098,6 +1155,127 @@ export type ManagedFunds = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "pdaTokenApprove",
+      "docs": [
+        "Approve manager as delegate on a Fund-owned token account for a given amount"
+      ],
+      "discriminator": [
+        127,
+        39,
+        114,
+        26,
+        177,
+        42,
+        77,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pdaTokenRevoke",
+      "docs": [
+        "Revoke any delegate on a Fund-owned token account"
+      ],
+      "discriminator": [
+        44,
+        81,
+        219,
+        41,
+        153,
+        128,
+        150,
+        226
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": []
     },
     {
       "name": "pdaTokenTransfer",

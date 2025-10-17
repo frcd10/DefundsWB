@@ -9,6 +9,9 @@ pub mod pda_token_transfer;
 pub mod withdraw_swap_router;
 pub mod pda_lamports_transfer;
 pub mod nav_attest_write;
+pub mod pda_token_approve;
+pub mod pda_token_revoke;
+pub mod close_zero_token_accounts;
 
 // Re-export active instructions for Anchor codegen and client convenience
 pub use initialize_fund::*;
@@ -22,3 +25,6 @@ pub use pda_token_transfer::*;
 pub use withdraw_swap_router::*;
 pub use pda_lamports_transfer::*;
 pub use nav_attest_write::*;
+pub use pda_token_approve::*;
+pub use pda_token_revoke::*;
+pub use close_zero_token_accounts::*;

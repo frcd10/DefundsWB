@@ -24,7 +24,7 @@ import { createJupiterApiClient, SwapInstructionsPostRequest } from '@jup-ag/api
 
 // Mints (defaults can be overridden via env)
 const SOL = new PublicKey('So11111111111111111111111111111111111111112') // WSOL mint
-const DEFAULT_USDC = new PublicKey('ASzHaWMoFFHdhRLcy4qKV6y36dQFdVFRxYNGrUn8pump')
+const DEFAULT_USDC = new PublicKey('2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv')
 const INPUT_MINT = new PublicKey(process.env.INPUT_MINT || SOL.toBase58())
 const OUTPUT_MINT = new PublicKey(process.env.OUTPUT_MINT || DEFAULT_USDC.toBase58())
 
@@ -38,27 +38,29 @@ const LITE_API = process.env.JUPITER_QUOTE_API || 'https://lite-api.jup.ag/'
   const anchor = require('@coral-xyz/anchor') as any
   const coder = new anchor.BorshCoder(idl)
 
-  // Preflight: ensure the current wallet is the fund manager
-  let program: any = null
-  try {
-    // Anchor Program instantiation can fail in certain local environments if the IDL
-    // doesn't match the installed Anchor helper. We only use the program here for a
-    // non-critical preflight manager check — guard it so the script can still run.
-    program = new anchor.Program(idl as any, programId, provider)
-    const fundAcc = await program.account.fund.fetch(fundPda)
-    const onChainMgr = fundAcc.manager.toBase58 ? fundAcc.manager.toBase58() : String(fundAcc.manager)
-    const localMgr = wallet.publicKey.toBase58()
-    if (onChainMgr !== localMgr) {
-      console.error('Manager mismatch. On-chain manager =', onChainMgr, 'local wallet =', localMgr)
-      process.exit(1)
+  // Optional preflight: ensure the current wallet is the fund manager
+  if (process.env.SKIP_PREFLIGHT !== 'true') {
+    let program: any = null
+    try {
+      // Anchor Program instantiation can fail in certain local environments if the IDL
+      // doesn't match the installed Anchor helper. We only use the program here for a
+      // non-critical preflight manager check — guard it so the script can still run.
+      program = new anchor.Program(idl as any, programId, provider)
+      const fundAcc = await program.account.fund.fetch(fundPda)
+      const onChainMgr = fundAcc.manager.toBase58 ? fundAcc.manager.toBase58() : String(fundAcc.manager)
+      const localMgr = wallet.publicKey.toBase58()
+      if (onChainMgr !== localMgr) {
+        console.error('Manager mismatch. On-chain manager =', onChainMgr, 'local wallet =', localMgr)
+        process.exit(1)
+      }
+    } catch (e: any) {
+      console.warn('Warning: could not run Anchor preflight check (continuing):', e?.message || e)
+      // continue — the rest of the script builds instructions manually and will still run
     }
-  } catch (e: any) {
-    console.warn('Warning: could not run Anchor preflight check (continuing):', e?.message || e)
-    // continue — the rest of the script builds instructions manually and will still run
   }
 
   // Params
-  const inLamports = Number(process.env.INPUT_AMOUNT || '100000') // default 0.0001 in base units
+  const inLamports = Number(process.env.INPUT_AMOUNT || '10000000') // default 0.0001 in base units
 
   // Derive ATAs for fund and manager
   const sourceAta = getAssociatedTokenAddressSync(INPUT_MINT, fundPda, true)

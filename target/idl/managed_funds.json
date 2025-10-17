@@ -8,6 +8,63 @@
   },
   "instructions": [
     {
+      "name": "close_zero_token_accounts",
+      "docs": [
+        "Close any number of zero-balance Fund-owned SPL token accounts and send lamports to the Fund WSOL ATA"
+      ],
+      "discriminator": [
+        178,
+        243,
+        199,
+        173,
+        254,
+        52,
+        67,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "FundState"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "FundState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fund_wsol_ata",
+          "docs": [
+            "Destination for recovered lamports; typically the Fund's WSOL ATA"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "deposit",
       "docs": [
         "Deposit into a fund"
@@ -1092,6 +1149,127 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "pda_token_approve",
+      "docs": [
+        "Approve manager as delegate on a Fund-owned token account for a given amount"
+      ],
+      "discriminator": [
+        127,
+        39,
+        114,
+        26,
+        177,
+        42,
+        77,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pda_token_revoke",
+      "docs": [
+        "Revoke any delegate on a Fund-owned token account"
+      ],
+      "discriminator": [
+        44,
+        81,
+        219,
+        41,
+        153,
+        128,
+        150,
+        226
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": []
     },
     {
       "name": "pda_token_transfer",

@@ -100,7 +100,6 @@ export default function Navbar() {
         {/* Desktop Menu ---------------------------------------------------- */}
         <ul className="hidden lg:flex items-center gap-4 xl:gap-6 text-white text-sm xl:text-base">
           <li><Link href="/Funds" className="hover:text-brand-yellow transition-colors">Funds</Link></li>
-          <li><Link href="/rwa" className="hover:text-brand-yellow transition-colors">RWA</Link></li>
           <li><Link href="/leaderboard" className="hover:text-brand-yellow transition-colors">Leaderboard</Link></li>
           {wallet.connected && (
             <li><Link href="/portfolio" className="hover:text-brand-yellow transition-colors">Portfolio</Link></li>
@@ -199,15 +198,6 @@ export default function Navbar() {
                     onClick={closeMobileMenu}
                   >
                     Funds
-                  </Link>
-                </li>
-                <li>
-                  <Link 
-                    href="/rwa" 
-                    className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
-                    onClick={closeMobileMenu}
-                  >
-                    RWA
                   </Link>
                 </li>
                 <li>

@@ -28,7 +28,10 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
     const remainingAccounts: { pubkey: PublicKey; isWritable: boolean; isSigner: boolean }[] = [];
     const preIxs: TransactionInstruction[] = [];
 
-  for (const w of investorWallets) {
+  // Deduplicate investor addresses so duplicates in the investments list
+  // don't cause multiple transfers to the same recipient on-chain.
+  const uniqueInvestorAddrs = Array.from(new Set(investorWallets.map((w) => w.toString())));
+  for (const w of uniqueInvestorAddrs) {
       const investorPk = new PublicKey(w);
       const [positionPda] = deriveInvestorPositionPda(program.programId, investorPk, fundPda);
       const investorWsolAta = await getAssociatedTokenAddress(NATIVE_MINT, investorPk);

@@ -1,20 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FundPayoutPanel } from '../../components/trader/FundPayoutPanel';
 import { FundAccessCodesPanel } from '../../components/trader/FundAccessCodesPanel';
 import { RwaAccessCodesPanel } from '../../components/trader/RwaAccessCodesPanel';
+import { TOKEN_PROGRAM_ID, createCloseAccountInstruction } from '@solana/spl-token';
+import { ParsedAccountData, PublicKey, Transaction } from '@solana/web3.js';
+import { toast } from 'sonner';
 
 export default function TraderPage() {
   const wallet = useWallet();
+  const { connection } = useConnection();
   const [eligible, setEligible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [funds, setFunds] = useState<Array<Record<string, unknown>>>([]);
   const [rwas, setRwas] = useState<Array<Record<string, unknown>>>([]);
   const [accessView, setAccessView] = useState<'funds' | 'rwa'>('funds');
+  const [closingMgr, setClosingMgr] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -44,6 +49,109 @@ export default function TraderPage() {
     };
     run();
   }, [wallet.publicKey]);
+
+  const closeManagerZeroBalances = async () => {
+    try {
+      if (!wallet.publicKey) {
+        toast.error('Connect your wallet first');
+        return;
+      }
+      setClosingMgr(true);
+      // Helper: HTTP-based confirmation to avoid WS timeouts
+      const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+      const confirmWithHttp = async (
+        sig: string,
+        timeoutMs = 20000,
+        pollIntervalMs = 600
+      ): Promise<boolean> => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          try {
+            const st = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true } as any);
+            const s = st?.value?.[0];
+            if (s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized' || s?.confirmations === 0) {
+              return true;
+            }
+          } catch {
+            // ignore and retry
+          }
+          await sleep(pollIntervalMs);
+        }
+        return false;
+      };
+      const before = await connection.getBalance(wallet.publicKey, { commitment: 'confirmed' } as any);
+      const resp = await connection.getParsedTokenAccountsByOwner(wallet.publicKey, { programId: TOKEN_PROGRAM_ID });
+      const zeroAccounts = resp.value
+        .filter((acc): acc is (typeof resp.value[number] & { account: { data: ParsedAccountData } }) => acc.account.data instanceof Object)
+        .filter((acc) => {
+          const info: any = (acc.account.data as ParsedAccountData).parsed.info;
+          const amount = info.tokenAmount?.amount as string | undefined;
+          const delegate = info.delegate as string | undefined;
+          return amount === '0' && !delegate; // skip delegated/frozen
+        })
+        .map((acc) => acc.pubkey);
+
+      if (zeroAccounts.length === 0) {
+        toast.success('No zero-balance accounts to close');
+        setClosingMgr(false);
+        return;
+      }
+
+      const BATCH_SIZE = 8;
+      let closed = 0;
+      let lastSig: string | null = null;
+      for (let i = 0; i < zeroAccounts.length; i += BATCH_SIZE) {
+        const slice = zeroAccounts.slice(i, i + BATCH_SIZE);
+        const tx = new Transaction();
+        slice.forEach((accPk: PublicKey) => {
+          tx.add(createCloseAccountInstruction(accPk, wallet.publicKey!, wallet.publicKey!));
+        });
+        // Prefer signing locally and sending via RPC proxy to ensure custom RPC usage
+        let sig: string;
+        if ((wallet as any).signTransaction) {
+          tx.feePayer = wallet.publicKey!;
+          const { blockhash } = await connection.getLatestBlockhash();
+          tx.recentBlockhash = blockhash;
+          const signed = await (wallet as any).signTransaction(tx);
+          const raw = signed.serialize();
+          const txBase64 = Buffer.from(raw).toString('base64');
+          const res = await fetch('/api/rpc/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txBase64, options: { skipPreflight: false, maxRetries: 3 } }),
+          });
+          const body = await res.json();
+          if (!res.ok || body?.error) throw new Error(body?.error?.message || `RPC send failed (${res.status})`);
+          sig = body?.signature || body?.result || body?.txid;
+          if (!sig) throw new Error('RPC send returned no signature');
+          // Confirm via HTTP polling (no WS) with timeout; don't block indefinitely
+          await confirmWithHttp(sig, 20000);
+        } else {
+          // Fallback to adapter’s sendTransaction (uses its configured connection)
+          sig = await wallet.sendTransaction(tx, connection);
+          await confirmWithHttp(sig, 20000);
+        }
+        lastSig = sig;
+        closed += slice.length;
+      }
+      // Small delay to let rent refunds reflect
+      await sleep(500);
+      const after = await connection.getBalance(wallet.publicKey, { commitment: 'processed' } as any);
+      const deltaLamports = Math.max(0, after - before);
+      const deltaSol = deltaLamports / 1_000_000_000;
+      const msg = `Closed ${closed} account(s). ~${deltaSol.toFixed(6)} SOL was sent to your wallet.`;
+      if (lastSig) {
+        toast.success(`${msg} View: https://solscan.io/tx/${lastSig}`);
+      } else {
+        toast.success(msg);
+      }
+    } catch (e: any) {
+      console.error('closeManagerZeroBalances error:', e);
+      toast.error(e?.message || 'Failed to close zero-balance accounts');
+    } finally {
+      setClosingMgr(false);
+    }
+  };
 
 
   if (!wallet.connected) {
@@ -99,6 +207,17 @@ export default function TraderPage() {
 
             <TabsContent value="funds" className="mt-4">
               <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <h2 className="text-lg font-semibold text-white">Funds Payout</h2>
+                  <button
+                    type="button"
+                    onClick={closeManagerZeroBalances}
+                    disabled={closingMgr}
+                    className="px-4 py-2 rounded-lg bg-brand-yellow text-brand-black text-sm font-medium hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {closingMgr ? 'Closing…' : 'Close manager zero-balance accounts'}
+                  </button>
+                </div>
                 <FundPayoutPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
               </div>
             </TabsContent>

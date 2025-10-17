@@ -1,7 +1,11 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Connection, VersionedTransaction } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddress } from '@solana/spl-token';
+import { toast } from 'sonner';
+import { getProgram } from '@/services/solanaFund/core/program';
+import { findTokenByMint } from '@/data/tokenlist';
 
 // Minimal, single client component (deduplicated) to fix build
 type Token = { mint: string; symbol: string; decimals: number };
@@ -13,7 +17,7 @@ const TOKENS: Token[] = [
 // Basic picklist options for convenience; fields still show mint addresses
 const PICKLIST = TOKENS.filter(t => t.symbol === 'SOL' || t.symbol === 'USDC');
 
-const SLIPPAGE_PRESETS = [1, 5, 10, 50];
+const SLIPPAGE_PRESETS = [2.5, 5, 20, 75];
 
 function clsx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -59,6 +63,7 @@ function bytesToB64(bytes: Uint8Array): string {
 
 export default function SwapPage() {
   const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
 
   // Fund/Vault selection (manager may have more than one)
   const defaultFund = (process.env.NEXT_PUBLIC_FUND_PUBKEY || "").trim();
@@ -72,7 +77,12 @@ export default function SwapPage() {
         const data = await res.json();
         if (data?.success) {
           const fs = (data.data?.funds || []) as Array<any>;
-          setManagerFunds(fs.map(f => ({ fundId: f.fundId, name: f.name })));
+          const mapped = fs.map(f => ({ fundId: String(f.fundId || '').trim(), name: f.name }));
+          setManagerFunds(mapped);
+          // Auto-select if 
+          if (!fundPubkey && mapped.length === 1 && mapped[0].fundId) {
+            setFundPubkey(mapped[0].fundId);
+          }
         } else setManagerFunds([]);
       } catch {
         setManagerFunds([]);
@@ -84,7 +94,7 @@ export default function SwapPage() {
   const [inputMint, setInputMint] = useState<string>(TOKENS[0].mint);
   const [outputMint, setOutputMint] = useState<string>(TOKENS[1].mint);
   const [amount, setAmount] = useState<string>("");
-  const [slippage, setSlippage] = useState<number>(1);
+  const [slippage, setSlippage] = useState<number>(5);
   const [quoteOut, setQuoteOut] = useState<number | null>(null);
   const [minOut, setMinOut] = useState<number | null>(null);
   const [quoteLoading, setQuoteLoading] = useState<boolean>(false);
@@ -92,6 +102,97 @@ export default function SwapPage() {
   const [lastSig, setLastSig] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState<boolean>(false);
   const lastClickRef = useRef<number>(0);
+
+  // Vault balances & tokens view
+  const [fundSolLamports, setFundSolLamports] = useState<number | null>(null);
+  const [wsolUi, setWsolUi] = useState<number>(0);
+  const [vaultTokens, setVaultTokens] = useState<Array<{ ata: string; mint: string; uiAmount: number; raw: string; decimals: number; hasDelegate: boolean }>>([]);
+  const [zeroCount, setZeroCount] = useState<number>(0);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  const [prices, setPrices] = useState<Record<string, { priceBaseUnits: string; updatedAt: number; name?: string }>>({});
+  const [refreshTimes, setRefreshTimes] = useState<number[]>([]);
+
+  // Fetch vault positions when a fund is selected
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setFundSolLamports(null);
+        setWsolUi(0);
+        setVaultTokens([]);
+        setZeroCount(0);
+        if (!fundPubkey || !fundPubkey.trim()) return;
+        let fundPk: PublicKey;
+        try {
+          fundPk = new PublicKey(fundPubkey.trim());
+        } catch {
+          console.warn('[vault] Invalid fund pubkey:', fundPubkey);
+          return;
+        }
+        // Log for debugging if needed
+        // eslint-disable-next-line no-console
+        console.log('[vault] fetching positions for', fundPk.toBase58());
+        const [lamports, parsed] = await Promise.all([
+          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
+          connection.getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID })
+        ]);
+        if (cancelled) return;
+        setFundSolLamports(lamports);
+        const rows: Array<{ ata: string; mint: string; uiAmount: number; raw: string; decimals: number; hasDelegate: boolean }> = [];
+        let wsolBalance = 0;
+        let zeros = 0;
+        for (const { pubkey, account } of parsed.value) {
+          const anyData: any = account.data;
+          if (!anyData || anyData.program !== 'spl-token') continue;
+          const info = (anyData.parsed?.info || {}) as any;
+          const mint: string = info.mint;
+          const amountRaw: string = info.tokenAmount?.amount ?? '0';
+          const decimals: number = Number(info.tokenAmount?.decimals ?? 0);
+          const uiAmount: number = Number(info.tokenAmount?.uiAmount ?? 0);
+          const delegate = info.delegate as string | undefined;
+          if (mint === NATIVE_MINT.toBase58()) {
+            wsolBalance = uiAmount;
+          }
+          if (amountRaw === '0' && !delegate) zeros++;
+          rows.push({ ata: pubkey.toBase58(), mint, uiAmount, raw: amountRaw, decimals, hasDelegate: Boolean(delegate) });
+        }
+        if (!cancelled) {
+          setWsolUi(wsolBalance);
+          // Sort by balance desc, then mint
+          rows.sort((a, b) => b.uiAmount - a.uiAmount || a.mint.localeCompare(b.mint));
+          setVaultTokens(rows);
+          setZeroCount(zeros);
+          setPage(1);
+          // Fetch token prices and names from backend cache (will upsert via Helius)
+          try {
+            const uniqueMints = Array.from(new Set(rows.map(r => r.mint)));
+            if (uniqueMints.length) {
+              const url = '/api/prices?' + uniqueMints.map(m => `mints=${encodeURIComponent(m)}`).join('&');
+              const resp = await fetch(url, { cache: 'no-store' });
+              const data = await resp.json();
+              if (resp.ok && Array.isArray(data?.items)) {
+                setPrices((prev) => {
+                  const next = { ...prev } as any;
+                  for (const it of data.items) next[it.mint] = { priceBaseUnits: String(it.priceBaseUnits || '0'), updatedAt: Number(it.updatedAt || 0), name: it.name };
+                  return next;
+                });
+              }
+            }
+          } catch {}
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setFundSolLamports(0);
+          setWsolUi(0);
+          setVaultTokens([]);
+          setZeroCount(0);
+        }
+      }
+    };
+    if (fundPubkey && fundPubkey.length > 0) run();
+    return () => { cancelled = true; };
+  }, [fundPubkey, connection]);
 
   const inputToken = useMemo(() => TOKENS.find(t => t.mint === inputMint), [inputMint]);
   // Note: we don't use outputToken object for decimals anymore; we fetch on-chain below
@@ -235,7 +336,7 @@ export default function SwapPage() {
   return (
     <main className="min-h-screen bg-brand-black text-white">
       <section className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-extrabold mb-6">Vault Swap</h1>
+        <h1 className="text-3xl font-extrabold mb-6">Vault Swap - V1</h1>
         {/* Fund selector */}
         <div className="mb-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-4">
           <label className="block text-sm text-white/80 mb-2">Fund (Vault)</label>
@@ -243,7 +344,7 @@ export default function SwapPage() {
             <select
               className="rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10 text-white/90"
               value={fundPubkey}
-              onChange={(e) => setFundPubkey(e.target.value)}
+              onChange={(e) => setFundPubkey(e.target.value.trim())}
             >
               <option value="">Select Fund</option>
               {managerFunds.map((f) => (
@@ -259,101 +360,323 @@ export default function SwapPage() {
             />
           </div>
           <p className="text-xs text-white/60 mt-2">Manager funds are loaded from the database. Selecting a fund sets its fundId (PDA).</p>
+          {fundPubkey?.trim() && (
+            <div className="mt-2 text-[11px] text-white/50 font-mono break-all">Selected fund: {fundPubkey.trim()}</div>
+          )}
         </div>
 
-        <div className="space-y-4 rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-white/80 mb-1">From Mint</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={inputMint}
-                  onChange={(e) => setInputMint(e.target.value.trim())}
-                  placeholder="Mint address"
-                  className="w-full rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10 font-mono"
-                />
-                <select
-                  className="rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10"
-                  onChange={(e) => setInputMint(e.target.value)}
-                  value=""
-                >
-                  <option value="" disabled>Pick</option>
-                  {PICKLIST.map((t) => (
-                    <option key={t.mint} value={t.mint}>{t.symbol}</option>
-                  ))}
-                </select>
+        {/* Vault balances overview */}
+        {Boolean(fundPubkey?.trim()) && (
+          <div className="mb-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-4 space-y-3">
+            <h2 className="text-base font-semibold text-white">Vault Balances</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-lg bg-black/30 border border-white/10 p-3">
+                <div className="text-xs text-white/60">SOL balance</div>
+                <div className="text-lg font-semibold">{fundSolLamports == null ? '—' : (fundSolLamports/1_000_000_000).toFixed(6)} SOL</div>
+              </div>
+              <div className="rounded-lg bg-black/30 border border-white/10 p-3">
+                <div className="text-xs text-white/60">WSOL balance</div>
+                <div className="text-lg font-semibold">{wsolUi.toFixed(6)} WSOL</div>
+              </div>
+              <div className="rounded-lg bg-black/30 border border-white/10 p-3">
+                <div className="text-xs text-white/60">0-balance token accounts</div>
+                <div className="text-lg font-semibold">{zeroCount}</div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm text-white/80 mb-1">To Mint</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={outputMint}
-                  onChange={(e) => setOutputMint(e.target.value.trim())}
-                  placeholder="Mint address"
-                  className="w-full rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10 font-mono"
-                />
-                <select
-                  className="rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10"
-                  onChange={(e) => setOutputMint(e.target.value)}
-                  value=""
-                >
-                  <option value="" disabled>Pick</option>
-                  {PICKLIST.map((t) => (
-                    <option key={t.mint} value={t.mint}>{t.symbol}</option>
-                  ))}
-                </select>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-white/60">Tokens held by the vault (page {page})</div>
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  className="text-xs rounded-md px-3 py-1 bg-white/10 border border-white/15 hover:bg-white/15"
+                  onClick={() => {
+                    const now = Date.now();
+                    setRefreshTimes((prev) => {
+                      const filtered = prev.filter(t => now - t <= 3600_000);
+                      const perSec = filtered.filter(t => now - t <= 1000).length;
+                      const perMin = filtered.filter(t => now - t <= 60_000).length;
+                      if (perSec >= 1) { toast.info('Please wait a second before refreshing again'); return filtered; }
+                      if (perMin >= 10) { toast.info('Refresh limit: 10 times per minute'); return filtered; }
+                      if (filtered.length >= 120) { toast.info('Refresh limit: 120 times per hour'); return filtered; }
+                      // re-run fetch by calling effect body inline
+                      (async () => {
+                        try {
+                          if (!fundPubkey?.trim()) return;
+                          const pk = new PublicKey(fundPubkey.trim());
+                          const [lam2, parsed2] = await Promise.all([
+                            connection.getBalance(pk, { commitment: 'processed' } as any).catch(() => 0),
+                            connection.getParsedTokenAccountsByOwner(pk, { programId: TOKEN_PROGRAM_ID })
+                          ]);
+                          setFundSolLamports(lam2);
+                          const rows2: any[] = [];
+                          let w2 = 0; let z2 = 0;
+                          for (const { pubkey, account } of parsed2.value) {
+                            const anyData: any = account.data;
+                            if (!anyData || anyData.program !== 'spl-token') continue;
+                            const info = (anyData.parsed?.info || {}) as any;
+                            const mint: string = info.mint;
+                            const amountRaw: string = info.tokenAmount?.amount ?? '0';
+                            const uiAmount: number = Number(info.tokenAmount?.uiAmount ?? 0);
+                            const decimals: number = Number(info.tokenAmount?.decimals ?? 0);
+                            const delegate = info.delegate as string | undefined;
+                            if (mint === NATIVE_MINT.toBase58()) w2 = uiAmount;
+                            if (amountRaw === '0' && !delegate) z2++;
+                            rows2.push({ ata: pubkey.toBase58(), mint, uiAmount, raw: amountRaw, decimals, hasDelegate: Boolean(delegate) });
+                          }
+                          rows2.sort((a: any, b: any) => b.uiAmount - a.uiAmount || a.mint.localeCompare(b.mint));
+                          setVaultTokens(rows2);
+                          setWsolUi(w2);
+                          setZeroCount(z2);
+                          try {
+                            const uniqueMints = Array.from(new Set(rows2.map((r: any) => r.mint)));
+                            if (uniqueMints.length) {
+                              const url = '/api/prices?' + uniqueMints.map((m: string) => `mints=${encodeURIComponent(m)}`).join('&');
+                              const resp = await fetch(url, { cache: 'no-store' });
+                              const data = await resp.json();
+                              if (resp.ok && Array.isArray(data?.items)) {
+                                setPrices((prev) => {
+                                  const next = { ...prev } as any;
+                                  for (const it of data.items) next[it.mint] = { priceBaseUnits: String(it.priceBaseUnits || '0'), updatedAt: Number(it.updatedAt || 0), name: it.name };
+                                  return next;
+                                });
+                              }
+                            }
+                          } catch {}
+                        } catch (e) { console.warn('refresh failed', e); }
+                      })();
+                      return [...filtered, now];
+                    });
+                  }}
+                >Refresh</button>
+                <button
+                  type="button"
+                  className="text-xs rounded-md px-3 py-1 bg-white/10 border border-white/15 hover:bg-white/15 disabled:opacity-50"
+                  onClick={() => setPage(p => Math.max(1, p-1))}
+                  disabled={page <= 1}
+                >Prev</button>
+                <button
+                  type="button"
+                  className="text-xs rounded-md px-3 py-1 bg-white/10 border border-white/15 hover:bg-white/15 disabled:opacity-50"
+                  onClick={() => setPage(p => (p*PAGE_SIZE >= vaultTokens.length ? p : p+1))}
+                  disabled={page*PAGE_SIZE >= vaultTokens.length}
+                >Next</button>
               </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-white/80 mb-1">Amount (From)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0.0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="w-full rounded-lg bg-black/40 px-3 py-2 text-lg focus:outline-none border border-white/10"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-white/80">Slippage</label>
+            <div className="overflow-x-auto rounded-xl border border-white/10">
+              <table className="w-full text-sm">
+                <thead className="bg-brand-surface">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-white/60 font-semibold">Name</th>
+                    <th className="px-4 py-2 text-left text-white/60 font-semibold w-[180px]">Mint</th>
+                    <th className="px-4 py-2 text-left text-white/60 font-semibold">Balance</th>
+                    <th className="px-4 py-2 text-left text-white/60 font-semibold">USD value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {vaultTokens
+                    .filter(row => row.mint !== NATIVE_MINT.toBase58())
+                    .slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
+                    .map((row, idx) => {
+                    const info = findTokenByMint(row.mint);
+                    const p = prices[row.mint];
+                    const usd = p ? (row.uiAmount * (Number(p.priceBaseUnits || '0') / 1_000_000)) : 0;
+                    return (
+                      <tr key={`${row.mint}-${idx}`} className="hover:bg-white/5">
+                        <td className="px-4 py-2 text-white">{p?.name || info?.name || info?.symbol || 'Token'}</td>
+                        <td className="px-4 py-2 text-white/80 font-mono">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono" title={row.mint}>{row.mint.slice(0,5)}…</span>
+                            <button
+                              type="button"
+                              className="text-[11px] rounded-md px-2 py-1 bg-white/10 border border-white/15 hover:bg-white/15"
+                              onClick={async () => { try { await navigator.clipboard.writeText(row.mint); toast.success('Mint copied'); } catch {} }}
+                            >Copy</button>
+                            <div className="ml-2 hidden sm:flex items-center gap-1">
+                              {[1, 0.5, 0.25, 0.1].map((pct) => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  className="text-[11px] rounded-md px-2 py-1 bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30"
+                                  onClick={async () => {
+                                    if (!fundPubkey) { toast.error('Select a fund'); return; }
+                                    const qty = row.uiAmount * pct;
+                                    if (!qty) { toast.info('Nothing to sell'); return; }
+                                    // Quick-sell to SOL
+                                    try {
+                                      const amt = Number(qty.toFixed(9));
+                                      const payload = { amountLamports: '', payer: publicKey?.toBase58(), inputMint: row.mint, outputMint: TOKENS[0].mint, slippagePercent: slippage, fundPda: fundPubkey };
+                                      // Use existing doSwap path via form state is complex; reuse current swap flow inline
+                                      // Ensure decimals to compute lamports
+                                      await ensureDecimals(row.mint);
+                                      const inDec = getDecimals(row.mint);
+                                      const base = BigInt(Math.round(amt * 10 ** inDec));
+                                      payload.amountLamports = base.toString();
+                                      const res = await fetch(`/api/swap/vault/prepare`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                                      const ct = res.headers.get('content-type') || '';
+                                      const data = ct.includes('application/json') ? await res.json() : await res.text();
+                                      if (!res.ok) throw new Error(typeof data === 'string' ? data : data?.error || 'Prepare failed');
+                                      const bytes = b64ToBytes((data as any).txBase64);
+                                      const tx = VersionedTransaction.deserialize(bytes);
+                                      const signed = await (signTransaction as any)(tx);
+                                      const rawB64 = bytesToB64(signed.serialize());
+                                      const rpcRes = await fetch('/api/rpc/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ txBase64: rawB64, options: { skipPreflight: true, preflightCommitment: 'processed' } }) });
+                                      const rpcBody = await rpcRes.json().catch(() => ({} as any));
+                                      if (!rpcRes.ok || rpcBody?.error || rpcBody?.ok === false) throw new Error(rpcBody?.error || `RPC ${rpcRes.status}`);
+                                      const sig: string = rpcBody?.signature || rpcBody?.result || rpcBody?.txid;
+                                      if (sig) toast.success(`Sell submitted. View: https://solscan.io/tx/${sig}`);
+                                    } catch (e: any) {
+                                      console.error('quick sell error', e);
+                                      toast.error(e?.message || 'Sell failed');
+                                    }
+                                  }}
+                                  disabled={busy}
+                                  title={`Sell ${pct*100}% to SOL`}
+                                >{pct*100}%</button>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-white">{row.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
+                        <td className="px-4 py-2 text-emerald-400">{usd ? `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              {/* Slippage presets moved here and shared across buy/sell */}
               <div className="flex items-center gap-2">
+                <span className="text-xs text-white/70">Slippage:</span>
                 {SLIPPAGE_PRESETS.map((pct) => (
                   <button
                     key={pct}
                     type="button"
                     onClick={() => setSlippage(pct)}
                     className={clsx(
-                      "rounded-md border px-2 py-1 text-xs",
+                      "text-xs rounded-md px-2 py-1 border",
                       pct === slippage ? "border-brand-yellow/60 bg-brand-yellow/15 text-brand-yellow" : "border-white/10 text-white/80 hover:border-white/20"
                     )}
-                  >
-                    {pct}%
-                  </button>
+                  >{pct}%</button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="mt-1 sm:mt-0 inline-flex items-center gap-2 rounded-lg bg-brand-yellow text-brand-black font-semibold px-4 py-2 hover:brightness-110"
+                onClick={async () => {
+                  try {
+                    if (!publicKey || !signTransaction) { toast.error('Connect wallet'); return; }
+                    if (!fundPubkey) { toast.error('Select a fund'); return; }
+                    const fundPk = new PublicKey(fundPubkey);
+                    const zeroAtas = vaultTokens.filter(r => r.raw === '0' && !r.hasDelegate).map(r => new PublicKey(r.ata));
+                    if (zeroAtas.length === 0) { toast.info('No zero-balance token accounts to close'); return; }
+                    // Compute fund WSOL ATA (destination of lamports)
+                    const wsolAta = await getAssociatedTokenAddress(NATIVE_MINT, fundPk, true);
+                    const program = await getProgram(connection as unknown as Connection, { publicKey, signTransaction } as any);
+                    const ix = await (program as any).methods
+                      .closeZeroTokenAccounts()
+                      .accounts({ fund: fundPk, fundWsolAta: wsolAta, tokenProgram: TOKEN_PROGRAM_ID })
+                      .remainingAccounts(zeroAtas.map((pk: PublicKey) => ({ pubkey: pk, isWritable: true, isSigner: false })))
+                      .instruction();
+                    const tx = new Transaction().add(ix);
+                    const { blockhash } = await connection.getLatestBlockhash('finalized');
+                    tx.recentBlockhash = blockhash;
+                    tx.feePayer = publicKey;
+                    const signed = await signTransaction(tx);
+                    const raw = signed.serialize();
+                    const txBase64 = (typeof Buffer !== 'undefined' ? Buffer.from(raw).toString('base64') : btoa(String.fromCharCode(...raw)));
+                    const res = await fetch('/api/rpc/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txBase64, options: { skipPreflight: false, maxRetries: 3 } }) });
+                    const body = await res.json();
+                    if (!res.ok || body?.error) throw new Error(body?.error?.message || `RPC send failed (${res.status})`);
+                    const sig: string = body?.signature || body?.result || body?.txid;
+                    toast.success(`Close-zero submitted. View: https://solscan.io/tx/${sig}`);
+                    // Refresh balances shortly after
+                    setTimeout(() => {
+                      // trigger effect by setting page (no-op) and resetting fundPubkey to itself
+                      setPage(p => p);
+                      // Re-run fetch
+                      (async () => {
+                        try {
+                          const fundPk2 = new PublicKey(fundPubkey);
+                          const [lam2, parsed2] = await Promise.all([
+                            connection.getBalance(fundPk2, { commitment: 'processed' } as any).catch(() => 0),
+                            connection.getParsedTokenAccountsByOwner(fundPk2, { programId: TOKEN_PROGRAM_ID })
+                          ]);
+                          setFundSolLamports(lam2);
+                          const rows2: any[] = [];
+                          let w2 = 0; let z2 = 0;
+                          for (const { pubkey, account } of parsed2.value) {
+                            const anyData: any = account.data;
+                            if (!anyData || anyData.program !== 'spl-token') continue;
+                            const info = (anyData.parsed?.info || {}) as any;
+                            const mint: string = info.mint;
+                            const amountRaw: string = info.tokenAmount?.amount ?? '0';
+                            const decimals: number = Number(info.tokenAmount?.decimals ?? 0);
+                            const uiAmount: number = Number(info.tokenAmount?.uiAmount ?? 0);
+                            const delegate = info.delegate as string | undefined;
+                            if (mint === NATIVE_MINT.toBase58()) w2 = uiAmount;
+                            if (amountRaw === '0' && !delegate) z2++;
+                            rows2.push({ ata: pubkey.toBase58(), mint, uiAmount, raw: amountRaw, decimals, hasDelegate: Boolean(delegate) });
+                          }
+                          rows2.sort((a: any, b: any) => b.uiAmount - a.uiAmount || a.mint.localeCompare(b.mint));
+                          setVaultTokens(rows2);
+                          setWsolUi(w2);
+                          setZeroCount(z2);
+                        } catch {}
+                      })();
+                    }, 800);
+                  } catch (e: any) {
+                    console.error('close vault zero balances error:', e);
+                    toast.error(e?.message || 'Failed to close zero-balance token accounts');
+                  }
+                }}
+              >Close vault zero-balance ATAs</button>
             </div>
-            <div className="relative">
+          </div>
+        )}
+
+        <div className="space-y-4 rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
+          {/* Buy form: From is always SOL; To is paste mint */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-white/80 mb-1">From</label>
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-black/40 px-3 py-2 text-sm border border-white/10">SOL</div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-white/80 mb-1">To Mint</label>
+              <input
+                type="text"
+                value={outputMint}
+                onChange={(e) => setOutputMint(e.target.value.trim())}
+                placeholder="Paste token mint address"
+                className="w-full rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10 font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/80 mb-1">Amount (SOL)</label>
+            <div className="flex items-center gap-2">
               <input
                 type="text"
                 inputMode="decimal"
-                value={String(slippage)}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9.]/g, "");
-                  const n = parseFloat(v);
-                  if (!Number.isNaN(n)) setSlippage(n);
-                  else if (v === "") setSlippage(0);
-                }}
-                className="w-full rounded-lg bg-black/40 px-3 py-2 pr-10 focus:outline-none border border-white/10"
+                placeholder="0.0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                className="w-40 rounded-lg bg-black/40 px-3 py-2 text-lg focus:outline-none border border-white/10"
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-white/60">%</span>
+              <div className="flex flex-wrap gap-2">
+                {[0.10, 0.25, 1, 2, 5, 10].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    className="text-xs rounded-md px-2 py-1 bg-white/10 border border-white/15 hover:bg-white/15"
+                    onClick={() => setAmount(String(v))}
+                  >{v}</button>
+                ))}
+              </div>
             </div>
           </div>
 

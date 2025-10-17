@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Transaction, ParsedAccountData } from '@solana/web3.js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +10,14 @@ import { ArrowUpRight, ArrowDownRight, TrendingUp, DollarSign } from 'lucide-rea
 import { JupiterService } from '@/lib/services/jupiter.service';
 import { useProgram } from '@/lib/hooks/useProgram';
 import { toast } from 'sonner';
+import { TOKEN_PROGRAM_ID, createCloseAccountInstruction } from '@solana/spl-token';
+
+declare global {
+  interface Window {
+    Jupiter?: any;
+    solana?: any;
+  }
+}
 
 interface Position {
   mint: string;
@@ -94,7 +102,7 @@ export function TraderDashboard({ vaultId }: TraderDashboardProps) {
   
   const handleTrade = () => {
     // Open Jupiter Terminal or custom trade modal
-    window.Jupiter.init({
+  window.Jupiter?.init({
       displayMode: 'integrated',
       integratedTargetId: 'jupiter-terminal',
   endpoint: (process.env.NEXT_PUBLIC_SOLANA_CLUSTER === 'mainnet-beta') ? 'https://api.mainnet-beta.solana.com' : 'https://api.devnet.solana.com',
@@ -104,6 +112,67 @@ export function TraderDashboard({ vaultId }: TraderDashboardProps) {
         initialAmount: '1000000000', // 1 SOL in lamports
       },
     });
+  };
+
+  const closeManagerZeroBalances = async () => {
+    try {
+      if (!publicKey) {
+        toast.error('Connect your wallet first');
+        return;
+      }
+  const connection = provider.connection;
+      setLoading(true);
+      toast.info('Scanning your token accounts for zero balances...');
+
+      const resp = await connection.getParsedTokenAccountsByOwner(publicKey, { programId: TOKEN_PROGRAM_ID });
+      const zeroAccounts = resp.value
+        .filter((acc): acc is (typeof resp.value[number] & { account: { data: ParsedAccountData } }) => acc.account.data instanceof Object)
+        .filter((acc: typeof resp.value[number] & { account: { data: ParsedAccountData } }) => {
+          const info: any = acc.account.data.parsed.info;
+          const amount = info.tokenAmount?.amount as string | undefined;
+          const delegate = info.delegate as string | undefined;
+          return amount === '0' && !delegate; // skip delegated accounts
+        })
+        .map((acc: typeof resp.value[number]) => acc.pubkey);
+
+      if (zeroAccounts.length === 0) {
+        toast.success('No zero-balance accounts to close');
+        return;
+      }
+
+      // Chunk into batches to avoid tx size limits
+      const BATCH_SIZE = 8;
+      let closed = 0;
+      for (let i = 0; i < zeroAccounts.length; i += BATCH_SIZE) {
+        const slice = zeroAccounts.slice(i, i + BATCH_SIZE);
+        const tx = new Transaction();
+        slice.forEach((accPk: PublicKey) => {
+          tx.add(createCloseAccountInstruction(accPk, publicKey, publicKey));
+        });
+        const sig = await (window as any).solana.signAndSendTransaction
+          ? (async () => {
+              // fallback for Phantom-style API if adapter not present
+              tx.feePayer = publicKey;
+              const { blockhash } = await connection.getLatestBlockhash();
+              tx.recentBlockhash = blockhash;
+              const signed = await (window as any).solana.signTransaction(tx);
+              const raw = signed.serialize();
+              return await connection.sendRawTransaction(raw, { skipPreflight: false, maxRetries: 3 });
+            })()
+          : (async () => {
+              // wallet-adapter path
+              return await (provider.wallet as any).sendTransaction(tx, connection);
+            })();
+        await connection.confirmTransaction(sig, 'confirmed');
+        closed += slice.length;
+      }
+      toast.success(`Requested closing ${closed} zero-balance accounts. Lamports returned to your wallet.`);
+    } catch (e: any) {
+      console.error('closeManagerZeroBalances error:', e);
+      toast.error(e?.message || 'Failed to close zero-balance accounts');
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (
@@ -151,6 +220,9 @@ export function TraderDashboard({ vaultId }: TraderDashboardProps) {
           <div className="space-y-4">
             <Button onClick={handleTrade} className="w-full">
               Open Trading Terminal
+            </Button>
+            <Button variant="secondary" onClick={closeManagerZeroBalances} disabled={loading} className="w-full">
+              Close manager zero-balance accounts
             </Button>
             <div id="jupiter-terminal" className="min-h-[500px]" />
           </div>

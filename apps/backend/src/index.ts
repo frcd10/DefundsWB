@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { fundRoutes } from './routes/funds';
 import { tradeRoutes } from './routes/trades';
 import { analyticsRoutes } from './routes/analytics';
+import { pricesRoutes } from './routes/prices';
 import { solanaService } from './services/solana';
 import { swapRoutes } from './routes/swap';
 import { websocketHandler } from './websocket/handler';
@@ -57,6 +58,7 @@ app.get('/api/ping', (req, res) => {
 app.use('/api/funds', fundRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/prices', pricesRoutes);
 app.use('/api/swap', swapRoutes);
 // Points maintenance (admin-lite): trigger on-demand update
 app.post('/api/admin/points/run', async (req, res) => {

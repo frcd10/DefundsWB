@@ -8,6 +8,63 @@
   },
   "instructions": [
     {
+      "name": "close_zero_token_accounts",
+      "docs": [
+        "Close any number of zero-balance Fund-owned SPL token accounts and send lamports to the Fund WSOL ATA"
+      ],
+      "discriminator": [
+        178,
+        243,
+        199,
+        173,
+        254,
+        52,
+        67,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "FundState"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "FundState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fund_wsol_ata",
+          "docs": [
+            "Destination for recovered lamports; typically the Fund's WSOL ATA"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "deposit",
       "docs": [
         "Deposit into a fund"
@@ -1032,6 +1089,189 @@
       ]
     },
     {
+      "name": "pda_lamports_transfer",
+      "docs": [
+        "Move lamports from the Fund PDA to a system account (manager-controlled)"
+      ],
+      "discriminator": [
+        32,
+        55,
+        163,
+        165,
+        195,
+        25,
+        75,
+        150
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "to_system",
+          "writable": true
+        },
+        {
+          "name": "manager",
+          "docs": [
+            "Manager must sign to authorize lamports movement"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pda_token_approve",
+      "docs": [
+        "Approve manager as delegate on a Fund-owned token account for a given amount"
+      ],
+      "discriminator": [
+        127,
+        39,
+        114,
+        26,
+        177,
+        42,
+        77,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pda_token_revoke",
+      "docs": [
+        "Revoke any delegate on a Fund-owned token account"
+      ],
+      "discriminator": [
+        44,
+        81,
+        219,
+        41,
+        153,
+        128,
+        150,
+        226
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "source",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "manager",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "pda_token_transfer",
       "docs": [
         "Transfer SPL tokens between Fund PDA-owned token accounts (same mint)"
@@ -1395,53 +1635,13 @@
   "errors": [
     {
       "code": 6000,
-      "name": "InvalidFee",
-      "msg": "Er fee"
+      "name": "InsufficientFunds",
+      "msg": "Insufficient lamports in fund PDA"
     },
     {
       "code": 6001,
-      "name": "InsufficientFunds",
-      "msg": "Er funds"
-    },
-    {
-      "code": 6002,
-      "name": "InvalidAmount",
-      "msg": "Er amount"
-    },
-    {
-      "code": 6003,
-      "name": "InvalidShares",
-      "msg": "Er shares"
-    },
-    {
-      "code": 6004,
-      "name": "InvalidMint",
-      "msg": "Er mint"
-    },
-    {
-      "code": 6005,
       "name": "MathOverflow",
-      "msg": "Math Er"
-    },
-    {
-      "code": 6006,
-      "name": "SlippageExceeded",
-      "msg": "Slp excd"
-    },
-    {
-      "code": 6007,
-      "name": "InvalidWithdrawalStatus",
-      "msg": "Er withdrawal status"
-    },
-    {
-      "code": 6008,
-      "name": "InvalidInput",
-      "msg": "Er input"
-    },
-    {
-      "code": 6009,
-      "name": "InvocationFailed",
-      "msg": "Inv Er"
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [

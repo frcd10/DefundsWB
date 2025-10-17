@@ -5,6 +5,7 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useEffect } from "react";
+import { Toaster } from "sonner";
 
 function WalletConnectSaver({ children }: { children: React.ReactNode }) {
   const wallet = useWallet();
@@ -58,6 +59,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   <ConnectionProvider endpoint={endpoint} config={{ commitment: 'confirmed', wsEndpoint }}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
+          {/* Global toast container */}
+          <Toaster richColors position="top-right" closeButton expand={false} />
           <WalletConnectSaver>{children}</WalletConnectSaver>
         </WalletModalProvider>
       </WalletProvider>

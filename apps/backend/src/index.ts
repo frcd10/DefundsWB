@@ -9,6 +9,7 @@ import { fundRoutes } from './routes/funds';
 import { tradeRoutes } from './routes/trades';
 import { analyticsRoutes } from './routes/analytics';
 import { pricesRoutes } from './routes/prices';
+import { withdrawRoutes } from './routes/withdraw';
 import { solanaService } from './services/solana';
 import { swapRoutes } from './routes/swap';
 import { websocketHandler } from './websocket/handler';
@@ -60,6 +61,7 @@ app.use('/api/trades', tradeRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/prices', pricesRoutes);
 app.use('/api/swap', swapRoutes);
+app.use('/api/withdraw', withdrawRoutes);
 // Points maintenance (admin-lite): trigger on-demand update
 app.post('/api/admin/points/run', async (req, res) => {
   try {

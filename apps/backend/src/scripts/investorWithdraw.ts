@@ -2,7 +2,7 @@ import 'dotenv/config'
 import bs58 from 'bs58'
 import fetch from 'node-fetch'
 import { PublicKey, SystemProgram, TransactionMessage, VersionedTransaction, ComputeBudgetProgram } from '@solana/web3.js'
-import { AnchorProvider, Wallet, BN } from '@coral-xyz/anchor'
+import { AnchorProvider, Wallet, BN, BorshCoder } from '@coral-xyz/anchor'
 import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import fs from 'fs'
 import path from 'path'
@@ -24,21 +24,23 @@ const investorKeypair = (() => {
 })()
 const investorWallet = new Wallet(investorKeypair)
 const provider = new AnchorProvider(connection, investorWallet, { commitment: 'processed' })
-const anchor: any = require('@coral-xyz/anchor')
-const program = new anchor.Program(idl as any, programId, provider)
+const coder = new BorshCoder(idl as any)
 
 const SOL = new PublicKey('So11111111111111111111111111111111111111112')
 const USDC = new PublicKey(process.env.USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+const WITHDRAW_SHARES_BASE_UNITS = process.env.WITHDRAW_SHARES_BASE_UNITS
 
 async function getFractionBps(withdrawalStatePk: PublicKey) {
-  const ws = await program.account.withdrawalState.fetch(withdrawalStatePk)
-  return { fraction_bps: Number(ws.fractionBps), total_shares_snapshot: Number(ws.totalSharesSnapshot) }
+  const info = await connection.getAccountInfo(withdrawalStatePk)
+  if (!info?.data) throw new Error('WithdrawalState not found')
+  const ws: any = coder.accounts.decode('WithdrawalState', info.data)
+  return { fraction_bps: Number(ws.fraction_bps ?? ws.fractionBps), total_shares_snapshot: Number(ws.total_shares_snapshot ?? ws.totalSharesSnapshot) }
 }
 
 async function getProgressPda(withdrawalStatePk: PublicKey, mint: PublicKey) {
   const [pda] = await PublicKey.findProgramAddress(
     [Buffer.from('withdrawal_mint'), withdrawalStatePk.toBuffer(), mint.toBuffer()],
-    program.programId,
+    programId,
   )
   return pda
 }
@@ -46,12 +48,53 @@ async function getProgressPda(withdrawalStatePk: PublicKey, mint: PublicKey) {
 async function getWithdrawalStatePk(investor: PublicKey) {
   const [pda] = await PublicKey.findProgramAddress(
     [Buffer.from('withdrawal'), fundPda.toBuffer(), investor.toBuffer()],
-    program.programId,
+    programId,
   )
   return pda
 }
 
+async function ensureWithdrawalInitialized(investor: PublicKey, withdrawalStatePk: PublicKey) {
+  const exists = await connection.getAccountInfo(withdrawalStatePk)
+  if (exists?.data) return
+
+  // Derive investor position PDA
+  const [investorPositionPk] = await PublicKey.findProgramAddress(
+    [Buffer.from('position'), investor.toBuffer(), fundPda.toBuffer()],
+    programId,
+  )
+  const posInfo = await connection.getAccountInfo(investorPositionPk)
+  if (!posInfo?.data) throw new Error('Investor position not found; cannot initiate withdrawal')
+  const pos: any = coder.accounts.decode('InvestorPosition', posInfo.data)
+  const shares: bigint = BigInt(pos.shares?.toString?.() ?? pos.shares ?? 0)
+  const desired = WITHDRAW_SHARES_BASE_UNITS ? BigInt(WITHDRAW_SHARES_BASE_UNITS) : shares
+  if (desired <= 0n) throw new Error('No shares to withdraw')
+
+  const { TransactionInstruction } = require('@solana/web3.js')
+  const data = (coder as any).instruction.encode('initiate_withdrawal', {
+    shares_to_withdraw: new BN(desired.toString()),
+  })
+  const keys = [
+    { pubkey: fundPda, isWritable: true, isSigner: false },
+    { pubkey: investorPositionPk, isWritable: false, isSigner: false },
+    { pubkey: withdrawalStatePk, isWritable: true, isSigner: false },
+    { pubkey: investor, isWritable: true, isSigner: true },
+    { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+  ]
+  const ix = new TransactionInstruction({ programId, keys, data })
+  const bh = await connection.getLatestBlockhash()
+  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
+  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })
+  const msg = new TransactionMessage({ payerKey: investor, recentBlockhash: bh.blockhash, instructions: [addPriorityFee, modifyComputeUnits, ix] }).compileToV0Message()
+  const tx = new VersionedTransaction(msg)
+  tx.sign([investorKeypair])
+  const { execTx } = await import('./helper')
+  await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
+}
+
 async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount: number) {
+  if (inputMint.equals(outputMint)) {
+    return { noop: true }
+  }
   // Quote
   const qUrl = new URL('/swap/v1/quote', LITE_API)
   qUrl.searchParams.set('inputMint', inputMint.toBase58())
@@ -60,7 +103,32 @@ async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount:
   qUrl.searchParams.set('slippageBps', '2000') // 20% slippage ceiling for safety in volatile routes
   qUrl.searchParams.set('onlyDirectRoutes', 'true')
   const quote = await fetch(qUrl.toString()).then(r => r.json())
-  if (!quote || !quote.routePlan?.length) throw new Error('No Jupiter route')
+  if (!quote || !quote.routePlan?.length) {
+    // fallback to allow multi-hop if direct route not available
+    const q2 = new URL('/swap/v1/quote', LITE_API)
+    q2.searchParams.set('inputMint', inputMint.toBase58())
+    q2.searchParams.set('outputMint', outputMint.toBase58())
+    q2.searchParams.set('amount', String(inAmount))
+    q2.searchParams.set('slippageBps', '2000')
+    q2.searchParams.set('onlyDirectRoutes', 'false')
+    const quote2 = await fetch(q2.toString()).then(r => r.json())
+    if (!quote2 || !quote2.routePlan?.length) throw new Error('No Jupiter route')
+    return await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteResponse: quote2,
+        userPublicKey: fundPda.toBase58(),
+        payer: investorWallet.publicKey.toBase58(),
+        userSourceTokenAccount: getAssociatedTokenAddressSync(inputMint, fundPda, true).toBase58(),
+        userDestinationTokenAccount: getAssociatedTokenAddressSync(outputMint, fundPda, true).toBase58(),
+        wrapAndUnwrapSol: true,
+        useTokenLedger: true,
+        useSharedAccounts: false,
+        skipUserAccountsRpcCalls: true,
+        skipAtaCreation: true,
+      }),
+    }).then(r => r.json())
+  }
 
   const userSourceTokenAccount = getAssociatedTokenAddressSync(inputMint, fundPda, true)
   const userDestinationTokenAccount = getAssociatedTokenAddressSync(outputMint, fundPda, true)
@@ -107,7 +175,8 @@ async function quoteToUsdc(inputMint: PublicKey, inAmount: number): Promise<numb
 }
 
 async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: PublicKey, inAmount: number, jup: any) {
-  const ledgerIx = jup.tokenLedgerInstruction
+  if ((jup as any).noop) return null
+  const ledgerIx = (jup as any).tokenLedgerInstruction
   const routeIx = jup.swapInstruction
   const addressLookupTableAddresses = jup.addressLookupTableAddresses || []
 
@@ -127,13 +196,13 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
     // Append Jupiter router accounts as remaining_accounts
     const routerAccounts = inner.accounts.map((a: any) => ({ pubkey: new PublicKey(a.pubkey), isWritable: !!a.isWritable, isSigner: false }))
     keys.push(...routerAccounts)
-    const data = (program.coder as any).instruction.encode('withdraw_swap_router', {
+    const data = (coder as any).instruction.encode('withdraw_swap_router', {
       in_amount: new BN(inAmount),
       min_out_amount: new BN(0),
       router_data: routerData,
       is_ledger: isLedger,
     })
-    return new TransactionInstruction({ programId: program.programId, keys, data })
+      return new TransactionInstruction({ programId, keys, data })
   }
 
   const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
@@ -165,7 +234,8 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
   const tx = new VersionedTransaction(msg)
   tx.sign([investorKeypair])
   const { execTx } = await import('./helper')
-  await execTx(tx, { blockhash: blockhash.blockhash, lastValidBlockHeight: blockhash.lastValidBlockHeight })
+  const sig = await execTx(tx, { blockhash: blockhash.blockhash, lastValidBlockHeight: blockhash.lastValidBlockHeight })
+  return sig as string
 }
 
 ;(async () => {
@@ -182,12 +252,15 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
   }
   const investor = investorWallet.publicKey
   const withdrawalStatePk = await getWithdrawalStatePk(investor)
+  await ensureWithdrawalInitialized(investor, withdrawalStatePk)
   const { fraction_bps } = await getFractionBps(withdrawalStatePk)
 
   // Fetch Fund account to get shares mint and manager
-  const fundAcc = await program.account.fund.fetch(fundPda)
-  const sharesMint: PublicKey = fundAcc.sharesMint
-  const fundManager: PublicKey = fundAcc.manager
+  const fundInfo = await connection.getAccountInfo(fundPda)
+  if (!fundInfo?.data) throw new Error('Fund account not found')
+  const fundAcc: any = coder.accounts.decode('Fund', fundInfo.data)
+  const sharesMint: PublicKey = new PublicKey(fundAcc.shares_mint ?? fundAcc.sharesMint)
+  const fundManager: PublicKey = new PublicKey(fundAcc.manager)
   const TREASURY = process.env.TREASURY
   const treasuryPk = TREASURY ? new PublicKey(TREASURY) : fundManager
   if (!TREASURY) {
@@ -209,6 +282,7 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
   const mints: PublicKey[] = Array.from(mintSet.values()).map(v => v.mint)
   mints.sort((a, b) => (a.equals(SOL) ? -1 : b.equals(SOL) ? 1 : 0))
 
+  const perMintSigs: Array<{ mint: string; amount: string; sig: string }> = []
   for (const mint of mints) {
     const ata = getAssociatedTokenAddressSync(mint, fundPda, true)
     const bal = await connection.getTokenAccountBalance(ata).catch(() => null)
@@ -217,10 +291,10 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
     const progressPda = await getProgressPda(withdrawalStatePk, mint)
     const progressAcc = await connection.getAccountInfo(progressPda)
     let already = 0
-    if (progressAcc) {
+    if (progressAcc?.data) {
       try {
-        const acc = await program.account.withdrawalMintProgress.fetch(progressPda)
-        already = Number(acc.amountLiquidated ?? 0)
+        const acc: any = coder.accounts.decode('WithdrawalMintProgress', progressAcc.data)
+        already = Number(acc.amount_liquidated ?? acc.amountLiquidated ?? 0)
       } catch {}
     }
     const allowed = Math.floor((have * fraction_bps) / 1_000_000) - already
@@ -228,23 +302,33 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
 
     // Skip dust by USDC value: require >= $0.50 (500_000 base units for USDC with 6 decimals)
     const usdcOut = await quoteToUsdc(mint, allowed)
-    const minUsdCents = Number(process.env.MIN_USDC_DUST_BASE_UNITS || '500000')
+    const minUsdCents = Number(process.env.MIN_USDC_DUST_BASE_UNITS || '0')
     if (usdcOut < minUsdCents) {
       console.log(`Skipping dust by value for mint ${mint.toBase58()}: ~${usdcOut / 1e6} USDC < ${minUsdCents / 1e6} USDC`)
       continue
     }
 
-    const jup = await jupSwapIxs(mint, SOL, allowed)
-    await callWithdrawSwapRouter(withdrawalStatePk, mint, allowed, jup)
+    try {
+      const jup = await jupSwapIxs(mint, SOL, allowed)
+      if (!jup) {
+        console.log('No-op liquidation for mint (likely SOL):', mint.toBase58())
+        continue
+      }
+      const sig = await callWithdrawSwapRouter(withdrawalStatePk, mint, allowed, jup)
+      if (sig) perMintSigs.push({ mint: mint.toBase58(), amount: String(allowed), sig })
+    } catch (e) {
+      console.warn('Liquidation skipped for mint due to route error:', mint.toBase58(), (e as any)?.message || e)
+      continue
+    }
   }
 
   // Finalize withdrawal: burn shares and pay SOL/fees
   const positionSeeds = [Buffer.from('position'), investor.toBuffer(), fundPda.toBuffer()]
-  const [investorPositionPk] = await PublicKey.findProgramAddress(positionSeeds, program.programId)
+  const [investorPositionPk] = await PublicKey.findProgramAddress(positionSeeds, programId)
   const investorSharesAta = getAssociatedTokenAddressSync(sharesMint, investor, true)
 
   const { TransactionInstruction } = require('@solana/web3.js')
-  const finalizeData = (program.coder as any).instruction.encode('finalize_withdrawal', {})
+  const finalizeData = (coder as any).instruction.encode('finalize_withdrawal', {})
   const finKeys = [
     { pubkey: fundPda, isWritable: true, isSigner: false },
     { pubkey: investorPositionPk, isWritable: true, isSigner: false },
@@ -257,7 +341,7 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
     { pubkey: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isWritable: false, isSigner: false },
     { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
   ]
-  const finIx = new TransactionInstruction({ programId: program.programId, keys: finKeys, data: finalizeData })
+  const finIx = new TransactionInstruction({ programId, keys: finKeys, data: finalizeData })
 
   const bh = await connection.getLatestBlockhash()
   const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
@@ -266,7 +350,41 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
   const tx = new VersionedTransaction(msg)
   tx.sign([investorKeypair])
   const { execTx } = await import('./helper')
-  await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
+  const finalizeSig = await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
 
-  console.log('Investor withdrawal completed and finalized.')
+  // Attempt to fetch updated WithdrawalState to compute k and payout
+  let kApplied: number | null = null
+  let payoutLamports: string | null = null
+  try {
+    const info = await connection.getAccountInfo(withdrawalStatePk)
+    if (info?.data) {
+      const ws: any = coder.accounts.decode('WithdrawalState', info.data)
+      const allowed = BigInt(ws.input_allowed_total_sum ?? ws.inputAllowedTotalSum ?? 0)
+      const liq = BigInt(ws.input_liquidated_sum ?? ws.inputLiquidatedSum ?? 0)
+      kApplied = allowed === 0n ? 1 : Number(liq * 1_000_000n / allowed) / 1_000_000
+      payoutLamports = (ws.sol_accumulated ?? ws.solAccumulated ?? 0).toString()
+    }
+  } catch {}
+
+  // Persist to backend
+  try {
+    const base = process.env.BACKEND_URL || 'http://localhost:3001'
+    await fetch(`${base}/api/withdraw/record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        investor: investor.toBase58(),
+        fundId: fundPda.toBase58(),
+        amountSolLamports: payoutLamports,
+        finalizeSig,
+        swaps: perMintSigs,
+        kApplied,
+        at: new Date().toISOString(),
+      }),
+    }).then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(new Error(t))))
+  } catch (e) {
+    console.warn('Failed to persist withdraw record:', (e as any)?.message || e)
+  }
+
+  console.log('Investor withdrawal completed and finalized.', finalizeSig)
 })()

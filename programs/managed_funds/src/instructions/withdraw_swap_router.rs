@@ -91,17 +91,26 @@ pub fn withdraw_swap_router<'info>(
         require_keys_eq!(progress.mint, ctx.accounts.input_mint.key());
     }
 
+    // On first liquidation for this mint, add its total allowed to the withdrawal_state sum
+    if progress.amount_liquidated == 0 {
+        ws.input_allowed_total_sum = ws
+            .input_allowed_total_sum
+            .saturating_add(allowed_total as u64);
+    }
+
     let remaining_allowance = allowed_total.saturating_sub(progress.amount_liquidated as u128) as u64;
     require!(in_amount > 0 && in_amount <= remaining_allowance, FundError::InvalidAmount);
 
     // Forward Jupiter CPI (ledger or route) using remaining_accounts in the exact order Jupiter returned.
     let infos: Vec<AccountInfo> = ctx.remaining_accounts.iter().map(|acc| acc.to_account_info()).collect();
+    // Ensure the fund PDA (user) is treated as a signer in the forwarded metas
+    let user_key = ctx.accounts.fund.key();
     let metas: Vec<anchor_lang::solana_program::instruction::AccountMeta> = ctx
         .remaining_accounts
         .iter()
         .map(|acc| anchor_lang::solana_program::instruction::AccountMeta {
             pubkey: *acc.key,
-            is_signer: acc.is_signer,
+            is_signer: if acc.key == &user_key { true } else { acc.is_signer },
             is_writable: acc.is_writable,
         })
         .collect();
@@ -122,6 +131,7 @@ pub fn withdraw_swap_router<'info>(
     // Only update progress after the route (not during ledger pre-withdraw)
     if !is_ledger {
         progress.amount_liquidated = progress.amount_liquidated.saturating_add(in_amount);
+        ws.input_liquidated_sum = ws.input_liquidated_sum.saturating_add(in_amount);
         ws.status = WithdrawalStatus::Liquidating;
     }
 

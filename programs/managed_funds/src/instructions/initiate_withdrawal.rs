@@ -69,6 +69,8 @@ pub fn initiate_withdrawal(
         positions_liquidated: 0,
         total_positions,
         sol_accumulated: 0,
+        input_allowed_total_sum: 0,
+        input_liquidated_sum: 0,
         status: WithdrawalStatus::Initiated,
         created_at: clock.unix_timestamp,
         bump: ctx.bumps.withdrawal_state,

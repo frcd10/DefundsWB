@@ -115,4 +115,5 @@ export const execTx = async (
       console.error('failed to fetch fallback status:', inner)
     }
   }
+  return txid
 }

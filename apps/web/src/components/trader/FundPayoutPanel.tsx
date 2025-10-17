@@ -232,7 +232,7 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
                       <div>Total: <span className="text-emerald-400">{p.totalValue.toFixed(4)} SOL</span></div>
                     </div>
                     <div className="text-sm">
-                      <SolscanLink signature={p.signature} cluster="devnet" />
+                      <SolscanLink signature={p.signature}/>
                     </div>
                   </div>
                   <div className="overflow-x-auto">

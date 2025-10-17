@@ -11,6 +11,8 @@ pub struct WithdrawalState {
     pub positions_liquidated: u8,  // Number of positions already liquidated
     pub total_positions: u8,       // Total positions to liquidate
     pub sol_accumulated: u64,      // SOL accumulated from liquidations
+    pub input_allowed_total_sum: u64, // Sum of intended input across mints (base units)
+    pub input_liquidated_sum: u64,    // Sum of actually liquidated input across mints (base units)
     pub status: WithdrawalStatus,  // Current status
     pub created_at: i64,           // Withdrawal request timestamp
     pub bump: u8,                  // PDA bump
@@ -36,6 +38,8 @@ impl WithdrawalState {
         1 + // positions_liquidated
         1 + // total_positions
         8 + // sol_accumulated
+        8 + // input_allowed_total_sum
+        8 + // input_liquidated_sum
         1 + // status
         8 + // created_at
         1; // bump

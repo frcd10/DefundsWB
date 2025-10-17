@@ -1641,13 +1641,53 @@ export type ManagedFunds = {
   "errors": [
     {
       "code": 6000,
-      "name": "insufficientFunds",
-      "msg": "Insufficient lamports in fund PDA"
+      "name": "invalidFee",
+      "msg": "Er fee"
     },
     {
       "code": 6001,
+      "name": "insufficientFunds",
+      "msg": "Er funds"
+    },
+    {
+      "code": 6002,
+      "name": "invalidAmount",
+      "msg": "Er amount"
+    },
+    {
+      "code": 6003,
+      "name": "invalidShares",
+      "msg": "Er shares"
+    },
+    {
+      "code": 6004,
+      "name": "invalidMint",
+      "msg": "Er mint"
+    },
+    {
+      "code": 6005,
       "name": "mathOverflow",
-      "msg": "Arithmetic overflow"
+      "msg": "Math Er"
+    },
+    {
+      "code": 6006,
+      "name": "slippageExceeded",
+      "msg": "Slp excd"
+    },
+    {
+      "code": 6007,
+      "name": "invalidWithdrawalStatus",
+      "msg": "Er withdrawal"
+    },
+    {
+      "code": 6008,
+      "name": "invalidInput",
+      "msg": "Er input"
+    },
+    {
+      "code": 6009,
+      "name": "invocationFailed",
+      "msg": "Inv Er"
     }
   ],
   "types": [
@@ -1850,6 +1890,14 @@ export type ManagedFunds = {
           },
           {
             "name": "solAccumulated",
+            "type": "u64"
+          },
+          {
+            "name": "inputAllowedTotalSum",
+            "type": "u64"
+          },
+          {
+            "name": "inputLiquidatedSum",
             "type": "u64"
           },
           {

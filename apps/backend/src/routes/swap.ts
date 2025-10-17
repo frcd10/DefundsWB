@@ -75,16 +75,144 @@ router.post('/vault/prepare', async (req, res) => {
     const sourceAta = getAssociatedTokenAddressSync(IN_MINT, FUND, true)
     const destAta = getAssociatedTokenAddressSync(OUT_MINT, FUND, true)
     const payerKey = new PublicKey(payer)
+    const isSolInput = IN_MINT.equals(WSOL_MINT)
     const [sourceInfo, destInfo] = await Promise.all([
       connection.getAccountInfo(sourceAta),
       connection.getAccountInfo(destAta),
     ])
   const setupIxs: any[] = []
-    if (!sourceInfo) {
-      setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, sourceAta, FUND, IN_MINT))
+    // For SOL input, do NOT create the Fund's WSOL source ATA; Jupiter will wrap/unwrap Sol under manager user
+    if (!isSolInput) {
+      if (!sourceInfo) {
+        setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, sourceAta, FUND, IN_MINT))
+      }
     }
     if (!destInfo) {
       setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, destAta, FUND, OUT_MINT))
+    }
+
+    // If selling SPL -> SOL (WSOL), use robust delegate fallback: approve manager, move to manager ATA, manager-as-user swap, revoke
+  // Determine flow types up-front
+  const isSellToSol = !isSolInput && OUT_MINT.equals(WSOL_MINT)
+
+    if (isSellToSol) {
+      // Prepare coder and SPL helpers
+  const { createTransferInstruction } = require('@solana/spl-token')
+
+      // Ensure ATAs exist for fund (source, dest) and manager (source)
+      const fundSourceAta = sourceAta
+      const fundDestAta = destAta // WSOL ATA for fund
+      const managerSourceAta = getAssociatedTokenAddressSync(IN_MINT, payerKey, false)
+
+      const [fundSrcInfo, fundDestInfo, mgrSrcInfo] = await Promise.all([
+        connection.getAccountInfo(fundSourceAta),
+        connection.getAccountInfo(fundDestAta),
+        connection.getAccountInfo(managerSourceAta),
+      ])
+  // Fund ATAs are already handled by the shared pre-check above; only ensure manager source ATA
+      if (!mgrSrcInfo) setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, managerSourceAta, payerKey, IN_MINT))
+
+      // Build quote with sensible defaults mirroring script
+      const LITE = LITE_API
+      const q = new URL('/swap/v1/quote', LITE)
+      q.searchParams.set('inputMint', IN_MINT.toBase58())
+      q.searchParams.set('outputMint', OUT_MINT.toBase58())
+      q.searchParams.set('amount', String(amountLamports))
+      q.searchParams.set('slippageBps', String(slippageBps))
+      q.searchParams.set('onlyDirectRoutes', 'false')
+      const excludeDexes = (process.env.EXCLUDE_DEXES || 'Simple').trim()
+      if (excludeDexes) q.searchParams.set('excludeDexes', excludeDexes)
+  const quoteSell: any = await fetch(q.toString()).then((r: any) => r.json())
+  if (!quoteSell?.routePlan?.length) return res.status(400).json({ error: 'no route for sell' })
+
+      // Request swap-instructions for manager-as-user delivering to Fund WSOL ATA
+      const body3: any = {
+        quoteResponse: quoteSell,
+        userPublicKey: payerKey.toBase58(),
+        payer: payerKey.toBase58(),
+        userSourceTokenAccount: managerSourceAta.toBase58(),
+        destinationTokenAccount: fundDestAta.toBase58(),
+        wrapAndUnwrapSol: false,
+        prioritizationFeeLamports: 'auto',
+        useTokenLedger: false,
+        useSharedAccounts: false,
+        skipUserAccountsRpcCalls: true,
+        skipAtaCreation: true,
+      }
+      const swapRes3 = await fetch(new URL('/swap/v1/swap-instructions', LITE).toString(), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body3)
+      })
+      if (!swapRes3.ok) {
+        const txt = await swapRes3.text()
+        return res.status(502).json({ error: 'swap-instructions (sell) failed', details: txt })
+      }
+  const j3: any = await swapRes3.json()
+  const alts3Addrs: string[] = j3.addressLookupTableAddresses || []
+      const alts3Infos = alts3Addrs.length ? await connection.getMultipleAccountsInfo(alts3Addrs.map(a => new PublicKey(a))) : []
+      const lookupAccounts3: AddressLookupTableAccount[] = alts3Infos.reduce((acc: AddressLookupTableAccount[], info, i) => {
+        if (info) acc.push(new AddressLookupTableAccount({ key: new PublicKey(alts3Addrs[i]), state: AddressLookupTableAccount.deserialize(info.data) }))
+        return acc
+      }, [])
+
+      // Approve manager as delegate on Fund source ATA for amount
+      const dataApprove = coder.instruction.encode('pda_token_approve', { amount: new (require('@coral-xyz/anchor')).BN(BigInt(amountLamports)) })
+      const keysApprove = [
+        { pubkey: FUND, isWritable: true, isSigner: false },
+        { pubkey: fundSourceAta, isWritable: true, isSigner: false },
+        { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
+        { pubkey: payerKey, isWritable: false, isSigner: true },
+      ]
+      const ixApprove = new (require('@solana/web3.js').TransactionInstruction)({ programId: PROGRAM_ID, keys: keysApprove, data: dataApprove })
+
+      // Delegated transfer: move tokens from Fund source ATA to manager's ATA
+      const delegatedMoveIx = createTransferInstruction(
+        fundSourceAta,
+        managerSourceAta,
+        payerKey,
+        BigInt(amountLamports)
+      )
+
+      // Cleanup: revoke delegate
+      const dataRevoke = coder.instruction.encode('pda_token_revoke', {})
+      const keysRevoke = [
+        { pubkey: FUND, isWritable: true, isSigner: false },
+        { pubkey: fundSourceAta, isWritable: true, isSigner: false },
+        { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
+        { pubkey: payerKey, isWritable: false, isSigner: true },
+      ]
+      const ixRevoke = new (require('@solana/web3.js').TransactionInstruction)({ programId: PROGRAM_ID, keys: keysRevoke, data: dataRevoke })
+
+      // Compute budget ixs
+      const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
+      const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+
+      // Decode Jupiter instructions
+  const decodeMany = (arr: any[]): any[] => (arr || []).map(instructionDataToTransactionInstruction).filter(Boolean)
+  const jupSetup = decodeMany(j3.setupInstructions || [])
+  const jupSwapIx = instructionDataToTransactionInstruction(j3.swapInstruction)
+  const cleanupRaw = j3.cleanupInstructions || (j3.cleanupInstruction ? [j3.cleanupInstruction] : [])
+  const jupCleanup = decodeMany(cleanupRaw)
+
+      // Build unsigned tx
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+      const msg = new TransactionMessage({
+        payerKey,
+        recentBlockhash: blockhash,
+        instructions: [
+          ...setupIxs,
+          ixApprove,
+          addPriorityFee,
+          modifyComputeUnits,
+          delegatedMoveIx,
+          ...jupSetup,
+          jupSwapIx!,
+          ...jupCleanup,
+          ixRevoke,
+        ],
+      }).compileToV0Message(lookupAccounts3)
+      const unsignedTx = new VersionedTransaction(msg)
+      const txBase64 = Buffer.from(unsignedTx.serialize()).toString('base64')
+      return res.json({ txBase64, addressLookupTableAddresses: alts3Addrs, blockhash, lastValidBlockHeight })
     }
 
     // 1) Quote
@@ -100,17 +228,21 @@ router.post('/vault/prepare', async (req, res) => {
   if (!quote?.routePlan?.length) return res.status(400).json({ error: 'no route' })
 
     // 2) Swap-instructions (non-ledger, explicit accounts)
-    const swapReqBody: any = {
-      quoteResponse: quote,
-      userPublicKey: FUND.toBase58(),
-      userSourceTokenAccount: sourceAta.toBase58(),
-      userDestinationTokenAccount: destAta.toBase58(),
-  payer: payer, // client wallet pays fees; required above
-      wrapAndUnwrapSol: false,
-      useSharedAccounts: false,
-      skipUserAccountsRpcCalls: true,
-      useTokenLedger: false,
-      skipAtaCreation: true,
+    // Build swap request based on input mint being SOL vs SPL
+    const swapReqBody: any = { quoteResponse: quote, payer, skipUserAccountsRpcCalls: true, useTokenLedger: false, skipAtaCreation: true }
+    if (isSolInput) {
+      // Manager-as-user path for SOL legs; Jupiter wraps from manager SOL and delivers output to Fund ATA
+      swapReqBody.userPublicKey = payer
+      swapReqBody.wrapAndUnwrapSol = true
+      swapReqBody.useSharedAccounts = false
+      swapReqBody.destinationTokenAccount = destAta.toBase58()
+    } else {
+      // SPL-only CPI path using Fund-owned ATAs
+      swapReqBody.userPublicKey = FUND.toBase58()
+      swapReqBody.userSourceTokenAccount = sourceAta.toBase58()
+      swapReqBody.userDestinationTokenAccount = destAta.toBase58()
+      swapReqBody.wrapAndUnwrapSol = false
+      swapReqBody.useSharedAccounts = false
     }
     const swapRes = await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
       method: 'POST',
@@ -129,17 +261,17 @@ router.post('/vault/prepare', async (req, res) => {
 
     // 3) Build our CPI-forwarding instruction
   const swapInstruction = instructionDataToTransactionInstruction(routerIx)!
-  // Ensure the Jupiter router sees the Fund PDA as the transfer authority signer (not the wallet),
-  // because inside CPI only PDA seeds can be used to "sign". Jupiter sometimes sets payer as transfer authority.
-  // Rewrite any signer account equal to the client payer to the FUND PDA, preserving writability.
-  for (const k of swapInstruction.keys) {
-    if (k.isSigner && k.pubkey.toBase58() === payerKey.toBase58()) {
-      k.pubkey = FUND
-      k.isSigner = true
-      // don't break; in edge cases there could be multiple; ensure all are rewritten
+  // For SPL-only path, ensure PDA is the signer inside CPI by rewriting any payer signer to FUND.
+  // For SOL input path, keep the manager (payer) as signer so System transfers are valid.
+  if (!isSolInput) {
+    for (const k of swapInstruction.keys) {
+      if (k.isSigner && k.pubkey.toBase58() === payerKey.toBase58()) {
+        k.pubkey = FUND
+        k.isSigner = true
+      }
     }
   }
-  // Also flip the user (fund PDA) meta to non-signer in the outer ix; our program will mark it signer when invoking Jupiter.
+  // Flip Fund user meta to non-signer in outer ix; program will sign via seeds during CPI
   const userKeyMeta = swapInstruction.keys.find((k: any) => k.pubkey.toBase58() === FUND.toBase58())
   if (userKeyMeta) userKeyMeta.isSigner = false
     const routerData = Buffer.from(routerIx.data, 'base64')

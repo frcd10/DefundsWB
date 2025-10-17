@@ -496,7 +496,7 @@ export default function SwapPage() {
                                 <button
                                   key={pct}
                                   type="button"
-                                  className="text-[11px] rounded-md px-2 py-1 bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30"
+                                  className="text-[11px] rounded-md px-2 py-1 bg-brand-yellow/20 border border-brand-yellow/40 text-brand-yellow hover:bg-brand-yellow/30"
                                   onClick={async () => {
                                     if (!fundPubkey) { toast.error('Select a fund'); return; }
                                     const qty = row.uiAmount * pct;
@@ -523,14 +523,14 @@ export default function SwapPage() {
                                       const rpcBody = await rpcRes.json().catch(() => ({} as any));
                                       if (!rpcRes.ok || rpcBody?.error || rpcBody?.ok === false) throw new Error(rpcBody?.error || `RPC ${rpcRes.status}`);
                                       const sig: string = rpcBody?.signature || rpcBody?.result || rpcBody?.txid;
-                                      if (sig) toast.success(`Sell submitted. View: https://solscan.io/tx/${sig}`);
+                                      if (sig) { setLastSig(sig); setShowConfirm(true); }
                                     } catch (e: any) {
                                       console.error('quick sell error', e);
                                       toast.error(e?.message || 'Sell failed');
                                     }
                                   }}
                                   disabled={busy}
-                                  title={`Sell ${pct*100}% to SOL`}
+                                  title={`Swap ${pct*100}% to SOL`}
                                 >{pct*100}%</button>
                               ))}
                             </div>
@@ -559,6 +559,22 @@ export default function SwapPage() {
                     )}
                   >{pct}%</button>
                 ))}
+                <div className="flex items-center gap-1 ml-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    value={Number.isFinite(slippage) ? slippage : 0}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (Number.isFinite(v)) setSlippage(Math.max(0, Math.min(100, v)));
+                    }}
+                    className="w-20 rounded-md bg-black/40 px-2 py-1 text-xs border border-white/10 text-white"
+                    placeholder="Custom %"
+                  />
+                  <span className="text-xs text-white/60">%</span>
+                </div>
               </div>
               <button
                 type="button"
@@ -633,6 +649,21 @@ export default function SwapPage() {
               >Close vault zero-balance ATAs</button>
             </div>
           </div>
+        )}
+
+        {/* Manual sell (between balances and buy) */}
+        {Boolean(fundPubkey?.trim()) && (
+          <ManualSell
+            slippage={slippage}
+            fundPubkey={fundPubkey}
+            vaultTokens={vaultTokens}
+            connection={connection}
+            publicKey={publicKey}
+            signTransaction={signTransaction}
+            ensureDecimals={ensureDecimals}
+            getDecimals={getDecimals}
+            onConfirm={(sig) => { setLastSig(sig); setShowConfirm(true); }}
+          />
         )}
 
         <div className="space-y-4 rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
@@ -761,5 +792,104 @@ export default function SwapPage() {
         </div>
       )}
     </main>
+  );
+}
+
+type ManualSellProps = {
+  slippage: number;
+  fundPubkey: string;
+  vaultTokens: Array<{ ata: string; mint: string; uiAmount: number; raw: string; decimals: number; hasDelegate: boolean }>;
+  connection: Connection;
+  publicKey: PublicKey | null;
+  signTransaction: ((tx: VersionedTransaction | Transaction) => Promise<VersionedTransaction | Transaction>) | undefined;
+  ensureDecimals: (mint: string) => Promise<void>;
+  getDecimals: (mint: string) => number;
+  onConfirm?: (sig: string) => void;
+}
+
+function ManualSell(props: ManualSellProps) {
+  const { slippage, fundPubkey, vaultTokens, publicKey, signTransaction, ensureDecimals, getDecimals, onConfirm } = props;
+  const [mint, setMint] = useState<string>("");
+  const [percent, setPercent] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  const sell = useCallback(async () => {
+    try {
+      if (!publicKey || !signTransaction) { toast.error('Connect wallet'); return; }
+      const m = mint.trim();
+      if (!m) { toast.error('Paste token mint'); return; }
+      const pct = parseFloat(percent || '0');
+      if (!pct || pct <= 0 || pct > 100) { toast.error('Enter % between 0 and 100'); return; }
+      const row = vaultTokens.find(r => r.mint === m);
+      if (!row || row.uiAmount <= 0) { toast.error('Vault has no balance for this mint'); return; }
+      setBusy(true);
+      await ensureDecimals(m);
+      const inDec = getDecimals(m);
+      const qty = row.uiAmount * (pct / 100);
+      const base = BigInt(Math.round(qty * 10 ** inDec));
+      const payload = { amountLamports: base.toString(), payer: publicKey.toBase58(), inputMint: m, outputMint: NATIVE_MINT.toBase58(), slippagePercent: slippage, fundPda: fundPubkey };
+      const res = await fetch(`/api/swap/vault/prepare`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const ct = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) throw new Error(typeof data === 'string' ? data : data?.error || 'Prepare failed');
+      const bytes = b64ToBytes((data as any).txBase64);
+      const tx = VersionedTransaction.deserialize(bytes);
+      const signed = await (signTransaction as any)(tx);
+      const rawB64 = bytesToB64(signed.serialize());
+      const rpcRes = await fetch('/api/rpc/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ txBase64: rawB64, options: { skipPreflight: true, preflightCommitment: 'processed' } }) });
+      const rpcBody = await rpcRes.json().catch(() => ({} as any));
+      if (!rpcRes.ok || rpcBody?.error || rpcBody?.ok === false) throw new Error(rpcBody?.error || `RPC ${rpcRes.status}`);
+      const sig: string = rpcBody?.signature || rpcBody?.result || rpcBody?.txid;
+      if (sig) {
+        if (onConfirm) onConfirm(sig);
+        else toast.success(`Manual sell submitted. View: https://solscan.io/tx/${sig}`);
+      }
+    } catch (e: any) {
+      console.error('manual sell error', e);
+      toast.error(e?.message || 'Sell failed');
+    } finally {
+      setBusy(false);
+    }
+  }, [mint, percent, slippage, fundPubkey, vaultTokens, publicKey, signTransaction, ensureDecimals, getDecimals]);
+
+  return (
+    <section className="max-w-3xl mx-auto px-4 mb-4">
+      <div className="rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 p-4">
+        <h2 className="text-base font-semibold text-white mb-2">Manual sell</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label className="block text-xs text-white/70 mb-1">Token mint</label>
+            <input
+              type="text"
+              value={mint}
+              onChange={(e) => setMint(e.target.value.trim())}
+              placeholder="Paste mint to sell"
+              className="w-full rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10 font-mono"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-white/70 mb-1">Amount (%)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="e.g. 50"
+              value={percent}
+              onChange={(e) => setPercent(e.target.value.replace(/[^0-9.]/g, ''))}
+              className="w-full rounded-lg bg-black/40 px-3 py-2 text-sm focus:outline-none border border-white/10"
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={() => { if (!busy) sell(); }}
+              className={clsx("w-full rounded-lg bg-brand-yellow text-brand-black font-semibold px-4 py-2 hover:brightness-110", busy && "opacity-60 pointer-events-none")}
+            >
+              {busy ? 'Swapping…' : 'Swap'}
+            </button>
+          </div>
+        </div>
+        <p className="text-[11px] text-white/60 mt-2">Uses the selected slippage ({slippage}%) and sends proceeds to the vault.</p>
+      </div>
+    </section>
   );
 }

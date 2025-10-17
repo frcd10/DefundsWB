@@ -1038,6 +1038,68 @@ export type ManagedFunds = {
       ]
     },
     {
+      "name": "pdaLamportsTransfer",
+      "docs": [
+        "Move lamports from the Fund PDA to a system account (manager-controlled)"
+      ],
+      "discriminator": [
+        32,
+        55,
+        163,
+        165,
+        195,
+        25,
+        75,
+        150
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "toSystem",
+          "writable": true
+        },
+        {
+          "name": "manager",
+          "docs": [
+            "Manager must sign to authorize lamports movement"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "pdaTokenTransfer",
       "docs": [
         "Transfer SPL tokens between Fund PDA-owned token accounts (same mint)"
@@ -1401,53 +1463,13 @@ export type ManagedFunds = {
   "errors": [
     {
       "code": 6000,
-      "name": "invalidFee",
-      "msg": "Er fee"
+      "name": "insufficientFunds",
+      "msg": "Insufficient lamports in fund PDA"
     },
     {
       "code": 6001,
-      "name": "insufficientFunds",
-      "msg": "Er funds"
-    },
-    {
-      "code": 6002,
-      "name": "invalidAmount",
-      "msg": "Er amount"
-    },
-    {
-      "code": 6003,
-      "name": "invalidShares",
-      "msg": "Er shares"
-    },
-    {
-      "code": 6004,
-      "name": "invalidMint",
-      "msg": "Er mint"
-    },
-    {
-      "code": 6005,
       "name": "mathOverflow",
-      "msg": "Math Er"
-    },
-    {
-      "code": 6006,
-      "name": "slippageExceeded",
-      "msg": "Slp excd"
-    },
-    {
-      "code": 6007,
-      "name": "invalidWithdrawalStatus",
-      "msg": "Er withdrawal status"
-    },
-    {
-      "code": 6008,
-      "name": "invalidInput",
-      "msg": "Er input"
-    },
-    {
-      "code": 6009,
-      "name": "invocationFailed",
-      "msg": "Inv Er"
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [

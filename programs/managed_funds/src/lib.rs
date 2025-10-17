@@ -118,6 +118,14 @@ pub mod managed_funds {
         instructions::pda_token_transfer(ctx, amount)
     }
 
+    /// Move lamports from the Fund PDA to a system account (manager-controlled)
+    pub fn pda_lamports_transfer(
+        ctx: Context<PdaLamportsTransfer>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_lamports_transfer(ctx, amount)
+    }
+
     /// One-time: set the NAV attestor for this fund (manager only)
     /// Investor-provided NAV attestation write (uses configured attestor key)
     pub fn nav_attest_write(ctx: Context<NavAttestWrite>, nav_value: u64, expires_at: i64) -> Result<()> {

@@ -7,6 +7,7 @@ pub mod pay_fund_investors;
 pub mod token_swap_vault;
 pub mod pda_token_transfer;
 pub mod withdraw_swap_router;
+pub mod pda_lamports_transfer;
 pub mod nav_attest_write;
 
 // Re-export active instructions for Anchor codegen and client convenience
@@ -19,4 +20,5 @@ pub use pay_fund_investors::*;
 pub use token_swap_vault::*;
 pub use pda_token_transfer::*;
 pub use withdraw_swap_router::*;
+pub use pda_lamports_transfer::*;
 pub use nav_attest_write::*;

@@ -62,10 +62,10 @@ router.post('/vault/prepare', async (req, res) => {
     if (slippagePct < 0 || slippagePct > 50) return res.status(400).json({ error: 'slippagePercent must be between 0 and 50' })
     const slippageBps = Math.round(slippagePct * 100) // convert percent to bps (e.g., 1 -> 100)
 
-    const connection = solanaService.getConnection()
+  const connection = solanaService.getConnection()
     const idl = getIdl()
     const coder = new (require('@coral-xyz/anchor').BorshCoder)(idl)
-  const { getAssociatedTokenAddressSync } = require('@solana/spl-token')
+    const { getAssociatedTokenAddressSync, createAssociatedTokenAccountInstruction } = require('@solana/spl-token')
   const IN_MINT = new PublicKey(inputMint)
   const OUT_MINT = new PublicKey(outputMint)
   const FUND = new PublicKey(fundPda)
@@ -74,12 +74,18 @@ router.post('/vault/prepare', async (req, res) => {
     // Source/dest token accounts (use Fund PDA WSOL ATA and USDC ATA)
     const sourceAta = getAssociatedTokenAddressSync(IN_MINT, FUND, true)
     const destAta = getAssociatedTokenAddressSync(OUT_MINT, FUND, true)
+    const payerKey = new PublicKey(payer)
     const [sourceInfo, destInfo] = await Promise.all([
       connection.getAccountInfo(sourceAta),
       connection.getAccountInfo(destAta),
     ])
-    if (!sourceInfo) return res.status(400).json({ error: 'Fund source ATA missing for inputMint' })
-    if (!destInfo) return res.status(400).json({ error: 'Fund USDC ATA missing' })
+  const setupIxs: any[] = []
+    if (!sourceInfo) {
+      setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, sourceAta, FUND, IN_MINT))
+    }
+    if (!destInfo) {
+      setupIxs.push(createAssociatedTokenAccountInstruction(payerKey, destAta, FUND, OUT_MINT))
+    }
 
     // 1) Quote
     const quoteUrl = new URL('/swap/v1/quote', LITE_API)
@@ -87,7 +93,7 @@ router.post('/vault/prepare', async (req, res) => {
   quoteUrl.searchParams.set('outputMint', OUT_MINT.toBase58())
     quoteUrl.searchParams.set('amount', String(amountLamports))
   quoteUrl.searchParams.set('slippageBps', String(slippageBps))
-    quoteUrl.searchParams.set('onlyDirectRoutes', 'true')
+  quoteUrl.searchParams.set('onlyDirectRoutes', 'false')
     const quoteRes = await fetch(quoteUrl.toString())
     if (!quoteRes.ok) return res.status(502).json({ error: 'quote failed' })
   const quote: any = await quoteRes.json()
@@ -96,7 +102,7 @@ router.post('/vault/prepare', async (req, res) => {
     // 2) Swap-instructions (non-ledger, explicit accounts)
     const swapReqBody: any = {
       quoteResponse: quote,
-  userPublicKey: FUND.toBase58(),
+      userPublicKey: FUND.toBase58(),
       userSourceTokenAccount: sourceAta.toBase58(),
       userDestinationTokenAccount: destAta.toBase58(),
   payer: payer, // client wallet pays fees; required above
@@ -117,17 +123,31 @@ router.post('/vault/prepare', async (req, res) => {
     }
   const swapIxs: any = await swapRes.json()
   const routerIx = swapIxs.swapInstruction
+  const setupIxsFromJup: any[] = swapIxs.setupInstructions || []
+  const cleanupIxsFromJup: any[] = swapIxs.cleanupInstructions || (swapIxs.cleanupInstruction ? [swapIxs.cleanupInstruction] : [])
   const addressLookupTableAddresses: string[] = swapIxs.addressLookupTableAddresses || []
 
     // 3) Build our CPI-forwarding instruction
-    const swapInstruction = instructionDataToTransactionInstruction(routerIx)!
-    // flip user (fund PDA) signer to false in outer ix
-    const userKeyMeta = swapInstruction.keys.find((k: any) => k.pubkey.toBase58() === FUND.toBase58())
-    if (userKeyMeta) userKeyMeta.isSigner = false
+  const swapInstruction = instructionDataToTransactionInstruction(routerIx)!
+  // Ensure the Jupiter router sees the Fund PDA as the transfer authority signer (not the wallet),
+  // because inside CPI only PDA seeds can be used to "sign". Jupiter sometimes sets payer as transfer authority.
+  // Rewrite any signer account equal to the client payer to the FUND PDA, preserving writability.
+  for (const k of swapInstruction.keys) {
+    if (k.isSigner && k.pubkey.toBase58() === payerKey.toBase58()) {
+      k.pubkey = FUND
+      k.isSigner = true
+      // don't break; in edge cases there could be multiple; ensure all are rewritten
+    }
+  }
+  // Also flip the user (fund PDA) meta to non-signer in the outer ix; our program will mark it signer when invoking Jupiter.
+  const userKeyMeta = swapInstruction.keys.find((k: any) => k.pubkey.toBase58() === FUND.toBase58())
+  if (userKeyMeta) userKeyMeta.isSigner = false
     const routerData = Buffer.from(routerIx.data, 'base64')
     const data = coder.instruction.encode('token_swap_vault', { data: routerData, tmp: Buffer.from('defunds') })
+    // Anchor accounts order for TokenSwapVault: fund (mut), manager (signer), jupiter_program, token_program, system_program
     const keys = [
       { pubkey: FUND, isWritable: true, isSigner: false },
+      { pubkey: payerKey, isWritable: false, isSigner: true }, // manager signer
       { pubkey: JUPITER_PROGRAM, isWritable: false, isSigner: false },
       { pubkey: TOKEN_PROGRAM_ID, isWritable: false, isSigner: false },
       { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
@@ -138,6 +158,13 @@ router.post('/vault/prepare', async (req, res) => {
     // 4) optional compute ixs
     const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
     const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+
+    // Decode any setup/cleanup instructions Jupiter returned (client-executed, not CPI)
+    const decodeMany = (arr: any[]): any[] => arr
+      .map(instructionDataToTransactionInstruction)
+      .filter(Boolean)
+    const decodedSetup = decodeMany(setupIxsFromJup)
+    const decodedCleanup = decodeMany(cleanupIxsFromJup)
 
     // 5) address lookup tables
     let lookupAccounts: AddressLookupTableAccount[] = []
@@ -152,12 +179,12 @@ router.post('/vault/prepare', async (req, res) => {
     }
 
     // 6) Compile unsigned v0 message using client-specified payer
-  const payerKey = new PublicKey(payer)
+  // reuse payerKey declared above
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
     const messageV0 = new TransactionMessage({
       payerKey,
       recentBlockhash: blockhash,
-      instructions: [addPriorityFee, modifyComputeUnits, programIx],
+  instructions: [...setupIxs, ...decodedSetup, addPriorityFee, modifyComputeUnits, programIx, ...decodedCleanup],
     }).compileToV0Message(lookupAccounts)
     const unsignedTx = new VersionedTransaction(messageV0)
     const txBase64 = Buffer.from(unsignedTx.serialize()).toString('base64')

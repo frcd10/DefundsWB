@@ -758,114 +758,6 @@ export type ManagedFunds = {
       ]
     },
     {
-      "name": "liquidatePositionsBatch",
-      "docs": [
-        "Liquidate positions in batches during withdrawal"
-      ],
-      "discriminator": [
-        43,
-        74,
-        177,
-        136,
-        121,
-        84,
-        245,
-        173
-      ],
-      "accounts": [
-        {
-          "name": "withdrawalState",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  119,
-                  105,
-                  116,
-                  104,
-                  100,
-                  114,
-                  97,
-                  119,
-                  97,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              },
-              {
-                "kind": "account",
-                "path": "investor"
-              }
-            ]
-          }
-        },
-        {
-          "name": "fund",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "withdrawalState"
-          ]
-        },
-        {
-          "name": "wsolMint"
-        },
-        {
-          "name": "fundWsolAta",
-          "writable": true
-        },
-        {
-          "name": "fundSolDestination",
-          "writable": true
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "unwrapWsol",
-          "type": "bool"
-        },
-        {
-          "name": "minLamports",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "navAttestWrite",
       "docs": [
         "One-time: set the NAV attestor for this fund (manager only)",
@@ -1415,21 +1307,109 @@ export type ManagedFunds = {
       ]
     },
     {
-      "name": "withdrawSwapRouter",
+      "name": "unwrapWsolFund",
       "docs": [
-        "Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps"
+        "Close the Fund's WSOL ATA and return lamports to the Fund PDA (unwrap)"
       ],
       "discriminator": [
-        137,
-        229,
-        57,
-        96,
-        14,
-        41,
-        202,
-        74
+        232,
+        40,
+        45,
+        183,
+        186,
+        222,
+        81,
+        84
       ],
       "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fundWsolAta",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Destination for unwrapped SOL (Fund PDA lamports account)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "withdrawSwapInstruction",
+      "docs": [
+        "Investor-only: forward a single Jupiter router swap for withdrawals."
+      ],
+      "discriminator": [
+        243,
+        145,
+        213,
+        54,
+        23,
+        215,
+        25,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
         {
           "name": "withdrawalState",
           "writable": true,
@@ -1462,41 +1442,6 @@ export type ManagedFunds = {
           }
         },
         {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "withdrawalState"
-          ]
-        },
-        {
           "name": "jupiterProgram"
         },
         {
@@ -1508,65 +1453,26 @@ export type ManagedFunds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "fundSourceTokenAccount",
-          "writable": true
-        },
-        {
-          "name": "inputMint"
-        },
-        {
-          "name": "progress",
+          "name": "investor",
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  119,
-                  105,
-                  116,
-                  104,
-                  100,
-                  114,
-                  97,
-                  119,
-                  97,
-                  108,
-                  95,
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "withdrawalState"
-              },
-              {
-                "kind": "account",
-                "path": "inputMint"
-              }
-            ]
-          }
+          "signer": true,
+          "relations": [
+            "withdrawalState"
+          ]
         }
       ],
       "args": [
-        {
-          "name": "inAmount",
-          "type": "u64"
-        },
-        {
-          "name": "minOutAmount",
-          "type": "u64"
-        },
         {
           "name": "routerData",
           "type": "bytes"
         },
         {
-          "name": "isLedger",
-          "type": "bool"
+          "name": "inAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outMinAmount",
+          "type": "u64"
         }
       ]
     }
@@ -1612,19 +1518,6 @@ export type ManagedFunds = {
       ]
     },
     {
-      "name": "withdrawalMintProgress",
-      "discriminator": [
-        162,
-        108,
-        180,
-        53,
-        126,
-        182,
-        117,
-        218
-      ]
-    },
-    {
       "name": "withdrawalState",
       "discriminator": [
         147,
@@ -1641,53 +1534,13 @@ export type ManagedFunds = {
   "errors": [
     {
       "code": 6000,
-      "name": "invalidFee",
-      "msg": "Er fee"
+      "name": "insufficientFunds",
+      "msg": "Insufficient lamports in fund PDA"
     },
     {
       "code": 6001,
-      "name": "insufficientFunds",
-      "msg": "Er funds"
-    },
-    {
-      "code": 6002,
-      "name": "invalidAmount",
-      "msg": "Er amount"
-    },
-    {
-      "code": 6003,
-      "name": "invalidShares",
-      "msg": "Er shares"
-    },
-    {
-      "code": 6004,
-      "name": "invalidMint",
-      "msg": "Er mint"
-    },
-    {
-      "code": 6005,
       "name": "mathOverflow",
-      "msg": "Math Er"
-    },
-    {
-      "code": 6006,
-      "name": "slippageExceeded",
-      "msg": "Slp excd"
-    },
-    {
-      "code": 6007,
-      "name": "invalidWithdrawalStatus",
-      "msg": "Er withdrawal"
-    },
-    {
-      "code": 6008,
-      "name": "invalidInput",
-      "msg": "Er input"
-    },
-    {
-      "code": 6009,
-      "name": "invocationFailed",
-      "msg": "Inv Er"
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [
@@ -1819,30 +1672,6 @@ export type ManagedFunds = {
           {
             "name": "updatedAt",
             "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "withdrawalMintProgress",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "withdrawal",
-            "type": "pubkey"
-          },
-          {
-            "name": "mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "amountLiquidated",
-            "type": "u64"
           },
           {
             "name": "bump",

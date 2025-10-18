@@ -6,6 +6,7 @@ import { AnchorProvider, Wallet, BN, BorshCoder } from '@coral-xyz/anchor'
 import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import fs from 'fs'
 import path from 'path'
+import { MongoClient } from 'mongodb'
 import { connection, idl, programId, fundPda } from './helper'
 
 // Inputs via env
@@ -29,6 +30,11 @@ const coder = new BorshCoder(idl as any)
 const SOL = new PublicKey('So11111111111111111111111111111111111111112')
 const USDC = new PublicKey(process.env.USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
 const WITHDRAW_SHARES_BASE_UNITS = process.env.WITHDRAW_SHARES_BASE_UNITS
+// Tunables
+const PRIORITY_MICROLAMPORTS = Number(process.env.PRIORITY_MICROLAMPORTS || '20000') // default 20k
+const SWAP_COMPUTE_UNITS = Number(process.env.SWAP_COMPUTE_UNITS || '600000')
+const FINALIZE_COMPUTE_UNITS = Number(process.env.FINALIZE_COMPUTE_UNITS || '300000')
+const UNWRAP_COMPUTE_UNITS = Number(process.env.UNWRAP_COMPUTE_UNITS || '200000')
 
 async function getFractionBps(withdrawalStatePk: PublicKey) {
   const info = await connection.getAccountInfo(withdrawalStatePk)
@@ -83,7 +89,7 @@ async function ensureWithdrawalInitialized(investor: PublicKey, withdrawalStateP
   const ix = new TransactionInstruction({ programId, keys, data })
   const bh = await connection.getLatestBlockhash()
   const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
-  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })
+  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: Math.max(200_000, FINALIZE_COMPUTE_UNITS) })
   const msg = new TransactionMessage({ payerKey: investor, recentBlockhash: bh.blockhash, instructions: [addPriorityFee, modifyComputeUnits, ix] }).compileToV0Message()
   const tx = new VersionedTransaction(msg)
   tx.sign([investorKeypair])
@@ -91,7 +97,9 @@ async function ensureWithdrawalInitialized(investor: PublicKey, withdrawalStateP
   await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
 }
 
-async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount: number) {
+type JupOpts = { onlyDirectRoutes?: boolean; excludeDexes?: string }
+
+async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount: number, opts: JupOpts = {}) {
   if (inputMint.equals(outputMint)) {
     return { noop: true }
   }
@@ -101,7 +109,8 @@ async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount:
   qUrl.searchParams.set('outputMint', outputMint.toBase58())
   qUrl.searchParams.set('amount', String(inAmount))
   qUrl.searchParams.set('slippageBps', '2000') // 20% slippage ceiling for safety in volatile routes
-  qUrl.searchParams.set('onlyDirectRoutes', 'true')
+  qUrl.searchParams.set('onlyDirectRoutes', String(!!opts.onlyDirectRoutes))
+  if (opts.excludeDexes) qUrl.searchParams.set('excludeDexes', opts.excludeDexes)
   const quote = await fetch(qUrl.toString()).then(r => r.json())
   if (!quote || !quote.routePlan?.length) {
     // fallback to allow multi-hop if direct route not available
@@ -110,10 +119,11 @@ async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount:
     q2.searchParams.set('outputMint', outputMint.toBase58())
     q2.searchParams.set('amount', String(inAmount))
     q2.searchParams.set('slippageBps', '2000')
-    q2.searchParams.set('onlyDirectRoutes', 'false')
+    q2.searchParams.set('onlyDirectRoutes', String(!!opts.onlyDirectRoutes))
+    if (opts.excludeDexes) q2.searchParams.set('excludeDexes', opts.excludeDexes)
     const quote2 = await fetch(q2.toString()).then(r => r.json())
     if (!quote2 || !quote2.routePlan?.length) throw new Error('No Jupiter route')
-    return await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
+    const swapJson = await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         quoteResponse: quote2,
@@ -121,13 +131,15 @@ async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount:
         payer: investorWallet.publicKey.toBase58(),
         userSourceTokenAccount: getAssociatedTokenAddressSync(inputMint, fundPda, true).toBase58(),
         userDestinationTokenAccount: getAssociatedTokenAddressSync(outputMint, fundPda, true).toBase58(),
-        wrapAndUnwrapSol: true,
-        useTokenLedger: true,
+  wrapAndUnwrapSol: false,
+        useTokenLedger: false,
+        prioritizationFeeLamports: 0,
         useSharedAccounts: false,
         skipUserAccountsRpcCalls: true,
         skipAtaCreation: true,
       }),
     }).then(r => r.json())
+    return { ...swapJson, quote: quote2 }
   }
 
   const userSourceTokenAccount = getAssociatedTokenAddressSync(inputMint, fundPda, true)
@@ -140,20 +152,42 @@ async function jupSwapIxs(inputMint: PublicKey, outputMint: PublicKey, inAmount:
     payer: investorWallet.publicKey.toBase58(),
     userSourceTokenAccount: userSourceTokenAccount.toBase58(),
     userDestinationTokenAccount: userDestinationTokenAccount.toBase58(),
-    wrapAndUnwrapSol: true,
-    useTokenLedger: true,
+  wrapAndUnwrapSol: false,
+    useTokenLedger: false,
+    prioritizationFeeLamports: 0,
     useSharedAccounts: false,
     skipUserAccountsRpcCalls: true,
     skipAtaCreation: true,
   }
-  const resp = await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
+  let resp = await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!resp.ok) throw new Error(await resp.text())
+  if (!resp.ok) {
+    const errTxt = await resp.text()
+  // Retry once with direct-only to reduce route size
+    const q3 = new URL('/swap/v1/quote', LITE_API)
+    q3.searchParams.set('inputMint', inputMint.toBase58())
+    q3.searchParams.set('outputMint', outputMint.toBase58())
+    q3.searchParams.set('amount', String(inAmount))
+    q3.searchParams.set('slippageBps', '2000')
+    q3.searchParams.set('onlyDirectRoutes', 'true')
+    if (opts.excludeDexes) q3.searchParams.set('excludeDexes', opts.excludeDexes)
+    const quote3 = await fetch(q3.toString()).then(r => r.json()).catch(() => null)
+    if (quote3?.routePlan?.length) {
+      const body2 = { ...body, quoteResponse: quote3 }
+      resp = await fetch(new URL('/swap/v1/swap-instructions', LITE_API).toString(), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body2),
+      })
+      if (!resp.ok) throw new Error(errTxt)
+      const data2 = await resp.json()
+      return { ...data2, quote: quote3 }
+    }
+    throw new Error(errTxt)
+  }
   const data = await resp.json()
-  return data
+  return { ...data, quote }
 }
 
 // Get expected USDC out for valuing dust thresholds
@@ -174,63 +208,80 @@ async function quoteToUsdc(inputMint: PublicKey, inAmount: number): Promise<numb
   }
 }
 
-async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: PublicKey, inAmount: number, jup: any) {
+async function callWithdrawSwapInstruction(withdrawalStatePk: PublicKey, inputMint: PublicKey, inAmount: number, jup: any) {
   if ((jup as any).noop) return null
   const ledgerIx = (jup as any).tokenLedgerInstruction
   const routeIx = jup.swapInstruction
   const addressLookupTableAddresses = jup.addressLookupTableAddresses || []
 
-  const toIx = async (inner: any, routerData: Buffer, isLedger: boolean) => {
+  const toDataBuffer = (d: any): Buffer => {
+    if (!d) return Buffer.alloc(0)
+    if (typeof d === 'string') return Buffer.from(d, 'base64')
+    if (Array.isArray(d)) return Buffer.from(d)
+    if (d?.type === 'Buffer' && Array.isArray(d?.data)) return Buffer.from(d.data)
+    if (d?.data && typeof d.data === 'string') return Buffer.from(d.data, 'base64')
+    try { return Buffer.from(d) } catch { return Buffer.alloc(0) }
+  }
+  // In CPI mode we do not include Jupiter setup/cleanup as top-level instructions.
+
+  const toIx = async (inner: any, routerData: Buffer, outMin: number) => {
     const { TransactionInstruction, PublicKey } = require('@solana/web3.js')
     const keys: any[] = [
-      { pubkey: withdrawalStatePk, isWritable: true, isSigner: false },
+      // Order must match Accounts in on-chain instruction
       { pubkey: fundPda, isWritable: true, isSigner: false },
+      { pubkey: withdrawalStatePk, isWritable: true, isSigner: false },
+      { pubkey: new PublicKey('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4'), isWritable: false, isSigner: false },
+      { pubkey: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isWritable: false, isSigner: false },
+      { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
       { pubkey: investorWallet.publicKey, isWritable: true, isSigner: true },
-  { pubkey: new PublicKey('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4'), isWritable: false, isSigner: false },
-  { pubkey: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isWritable: false, isSigner: false },
-  { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
-      { pubkey: getAssociatedTokenAddressSync(inputMint, fundPda, true), isWritable: true, isSigner: false },
-      { pubkey: inputMint, isWritable: false, isSigner: false },
-      { pubkey: await getProgressPda(withdrawalStatePk, inputMint), isWritable: true, isSigner: false },
     ]
-    // Append Jupiter router accounts as remaining_accounts
-    const routerAccounts = inner.accounts.map((a: any) => ({ pubkey: new PublicKey(a.pubkey), isWritable: !!a.isWritable, isSigner: false }))
+    // Append Jupiter router accounts as remaining_accounts; avoid marking any as signer
+    const routerAccounts = inner.accounts.map((a: any) => ({
+      pubkey: new PublicKey(a.pubkey),
+      isWritable: !!a.isWritable,
+      // IMPORTANT: never mark remaining accounts as signer at top-level.
+      // The CPI will mark the fund PDA as signer internally via invoke_signed.
+      isSigner: false,
+    }))
     keys.push(...routerAccounts)
-    const data = (coder as any).instruction.encode('withdraw_swap_router', {
-      in_amount: new BN(inAmount),
-      min_out_amount: new BN(0),
+    const data = (coder as any).instruction.encode('withdraw_swap_instruction', {
       router_data: routerData,
-      is_ledger: isLedger,
+      in_amount: new BN(inAmount),
+      out_min_amount: new BN(outMin),
     })
       return new TransactionInstruction({ programId, keys, data })
   }
 
-  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
-  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
+  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: Math.max(400_000, SWAP_COMPUTE_UNITS) })
+  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICROLAMPORTS })
 
-  const addressLookupTableAccounts = await (await import('./helper')).getAdressLookupTableAccounts(addressLookupTableAddresses)
   const blockhash = await connection.getLatestBlockhash()
 
   const ixs = [] as any[]
-  // Setup ATAs if Jupiter included any setup instruction
-  if (jup.setupInstructions?.length) {
-    const { instructionDataToTransactionInstruction } = await import('./helper')
-    ixs.push(...jup.setupInstructions.map(instructionDataToTransactionInstruction).filter(Boolean))
-  }
   ixs.push(addPriorityFee, modifyComputeUnits)
 
-  if (ledgerIx) {
-    const ledgerData = Buffer.from(ledgerIx.data, 'base64')
-    ixs.push(await toIx(ledgerIx, ledgerData, true))
-  }
-  const routeData = Buffer.from(routeIx.data, 'base64')
-  ixs.push(await toIx(routeIx, routeData, false))
-  if (jup.cleanupInstruction) {
+  const routeData = toDataBuffer(routeIx.data)
+  const outMin = Number(jup?.quote?.otherAmountThreshold || 0)
+  // Prepend any Jupiter setup instructions
+  for (const si of ((jup.setupInstructions as any[]) || [])) {
     const { instructionDataToTransactionInstruction } = await import('./helper')
-    ixs.push((instructionDataToTransactionInstruction as any)(jup.cleanupInstruction))
+    const sIx = instructionDataToTransactionInstruction(si)
+    if (sIx) ixs.push(sIx)
+  }
+  ixs.push(await toIx(routeIx, routeData, outMin))
+  // Do not include cleanup when wrapAndUnwrapSol=false; not required and can add signer constraints
+  // Resolve Jupiter-provided Address Lookup Tables to reduce key list size
+  let altAccounts: any[] = []
+  if (addressLookupTableAddresses.length) {
+    const lookups = await Promise.all(
+      addressLookupTableAddresses.map(async (addr: string) => {
+        try { return (await connection.getAddressLookupTable(new PublicKey(addr))).value } catch { return null }
+      })
+    )
+    altAccounts = lookups.filter((v: any) => !!v)
   }
 
-  const msg = new TransactionMessage({ payerKey: investorWallet.publicKey, recentBlockhash: blockhash.blockhash, instructions: ixs }).compileToV0Message(addressLookupTableAccounts)
+  const msg = new TransactionMessage({ payerKey: investorWallet.publicKey, recentBlockhash: blockhash.blockhash, instructions: ixs }).compileToV0Message(altAccounts as any)
   const tx = new VersionedTransaction(msg)
   tx.sign([investorKeypair])
   const { execTx } = await import('./helper')
@@ -300,11 +351,11 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
     const allowed = Math.floor((have * fraction_bps) / 1_000_000) - already
     if (allowed <= 0) continue
 
-    // Skip dust by USDC value: require >= $0.50 (500_000 base units for USDC with 6 decimals)
+    // Skip dust by USDC value: default to >= $0.50 (500_000 base units for USDC with 6 decimals)
     const usdcOut = await quoteToUsdc(mint, allowed)
-    const minUsdCents = Number(process.env.MIN_USDC_DUST_BASE_UNITS || '0')
-    if (usdcOut < minUsdCents) {
-      console.log(`Skipping dust by value for mint ${mint.toBase58()}: ~${usdcOut / 1e6} USDC < ${minUsdCents / 1e6} USDC`)
+    const minUsdBaseUnits = Number(process.env.MIN_USDC_DUST_BASE_UNITS || '0')
+    if (usdcOut < minUsdBaseUnits) {
+      console.log(`Skipping dust by value for mint ${mint.toBase58()}: ~${(usdcOut / 1e6).toFixed(6)} USDC < ${(minUsdBaseUnits / 1e6).toFixed(6)} USDC`)
       continue
     }
 
@@ -314,7 +365,25 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
         console.log('No-op liquidation for mint (likely SOL):', mint.toBase58())
         continue
       }
-      const sig = await callWithdrawSwapRouter(withdrawalStatePk, mint, allowed, jup)
+      let sig: string | null = null
+      try {
+        sig = await callWithdrawSwapInstruction(withdrawalStatePk, mint, allowed, jup)
+      } catch (e: any) {
+        const msg = String(e?.message || e)
+        // Retry path with stricter route to shrink instruction size
+        if (/(encoding overruns|Transaction too large|account keys)/i.test(msg)) {
+          console.warn('Retrying with direct-only route for mint:', mint.toBase58())
+          const jup2 = await jupSwapIxs(mint, SOL, allowed, { onlyDirectRoutes: true })
+          sig = await callWithdrawSwapInstruction(withdrawalStatePk, mint, allowed, jup2)
+        } else if (/from must not carry data/i.test(msg)) {
+          // PDA-incompatible SystemProgram.transfer inside route (e.g., Simple/pump.fun). Final retry excluding Simple.
+          console.warn('Retrying excluding Simple (pump.fun) for mint:', mint.toBase58())
+          const jup3 = await jupSwapIxs(mint, SOL, allowed, { excludeDexes: 'Simple' })
+          sig = await callWithdrawSwapInstruction(withdrawalStatePk, mint, allowed, jup3)
+        } else {
+          throw e
+        }
+      }
       if (sig) perMintSigs.push({ mint: mint.toBase58(), amount: String(allowed), sig })
     } catch (e) {
       console.warn('Liquidation skipped for mint due to route error:', mint.toBase58(), (e as any)?.message || e)
@@ -322,7 +391,31 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
     }
   }
 
-  // Finalize withdrawal: burn shares and pay SOL/fees
+  // Optional unwrap: close Fund WSOL ATA so lamports are available for finalize
+  try {
+    const { TransactionInstruction } = require('@solana/web3.js')
+    const unwrapData = (coder as any).instruction.encode('unwrap_wsol_fund', {})
+    const wsolAta = getAssociatedTokenAddressSync(SOL, fundPda, true)
+    const keys = [
+      { pubkey: fundPda, isWritable: true, isSigner: false },
+      { pubkey: wsolAta, isWritable: true, isSigner: false },
+      { pubkey: fundPda, isWritable: true, isSigner: false }, // destination = Fund PDA system account
+      { pubkey: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isWritable: false, isSigner: false },
+    ]
+    const unwrapIx = new TransactionInstruction({ programId, keys, data: unwrapData })
+    const bh0 = await connection.getLatestBlockhash()
+  const addPriorityFee0 = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICROLAMPORTS })
+  const modifyComputeUnits0 = ComputeBudgetProgram.setComputeUnitLimit({ units: Math.max(200_000, UNWRAP_COMPUTE_UNITS) })
+    const msg0 = new TransactionMessage({ payerKey: investor, recentBlockhash: bh0.blockhash, instructions: [addPriorityFee0, modifyComputeUnits0, unwrapIx] }).compileToV0Message()
+    const tx0 = new VersionedTransaction(msg0)
+    tx0.sign([investorKeypair])
+    const { execTx } = await import('./helper')
+    await execTx(tx0, { blockhash: bh0.blockhash, lastValidBlockHeight: bh0.lastValidBlockHeight })
+  } catch (e) {
+    console.warn('unwrap WSOL skipped or failed (continuing):', (e as any)?.message || e)
+  }
+
+  // Finalize withdrawal: burn shares and pay SOL/fees (skip if k==0)
   const positionSeeds = [Buffer.from('position'), investor.toBuffer(), fundPda.toBuffer()]
   const [investorPositionPk] = await PublicKey.findProgramAddress(positionSeeds, programId)
   const investorSharesAta = getAssociatedTokenAddressSync(sharesMint, investor, true)
@@ -344,13 +437,43 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
   const finIx = new TransactionInstruction({ programId, keys: finKeys, data: finalizeData })
 
   const bh = await connection.getLatestBlockhash()
-  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 })
-  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 })
+  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: PRIORITY_MICROLAMPORTS })
+  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ units: Math.max(200_000, FINALIZE_COMPUTE_UNITS) })
   const msg = new TransactionMessage({ payerKey: investor, recentBlockhash: bh.blockhash, instructions: [addPriorityFee, modifyComputeUnits, finIx] }).compileToV0Message()
   const tx = new VersionedTransaction(msg)
   tx.sign([investorKeypair])
   const { execTx } = await import('./helper')
-  const finalizeSig = await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
+  // Capture payout before finalize in case the state is closed afterwards
+  let payoutLamportsPre: string | null = null
+  try {
+    const infoPre = await connection.getAccountInfo(withdrawalStatePk)
+    if (infoPre?.data) {
+      const wsPre: any = coder.accounts.decode('WithdrawalState', infoPre.data)
+      payoutLamportsPre = (wsPre.sol_accumulated ?? wsPre.solAccumulated ?? 0).toString()
+    }
+  } catch {}
+
+  // Check k from on-chain state first; if allowed==0 or liquidated==0, skip finalize to avoid burning 0
+  let finalizeSig: string | null = null
+  try {
+    const info0 = await connection.getAccountInfo(withdrawalStatePk)
+    if (info0?.data) {
+      const ws0: any = coder.accounts.decode('WithdrawalState', info0.data)
+      const allowed0 = BigInt(ws0.input_allowed_total_sum ?? ws0.inputAllowedTotalSum ?? 0)
+      const liq0 = BigInt(ws0.input_liquidated_sum ?? ws0.inputLiquidatedSum ?? 0)
+      const doFinalize = allowed0 > 0n && liq0 > 0n
+      if (doFinalize) {
+        finalizeSig = await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
+      } else {
+        console.log('Skipping finalize: k == 0 (no liquidation progress).')
+      }
+    } else {
+      console.warn('WithdrawalState not found before finalize; skipping to avoid zero burn.')
+    }
+  } catch (e) {
+    console.warn('Finalize pre-check failed; attempting finalize anyway:', (e as any)?.message || e)
+    finalizeSig = await execTx(tx, { blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight })
+  }
 
   // Attempt to fetch updated WithdrawalState to compute k and payout
   let kApplied: number | null = null
@@ -363,28 +486,80 @@ async function callWithdrawSwapRouter(withdrawalStatePk: PublicKey, inputMint: P
       const liq = BigInt(ws.input_liquidated_sum ?? ws.inputLiquidatedSum ?? 0)
       kApplied = allowed === 0n ? 1 : Number(liq * 1_000_000n / allowed) / 1_000_000
       payoutLamports = (ws.sol_accumulated ?? ws.solAccumulated ?? 0).toString()
+    } else if (payoutLamportsPre) {
+      payoutLamports = payoutLamportsPre
     }
   } catch {}
 
-  // Persist to backend
+  // Final safety: derive investor lamports delta from finalize tx if still missing/zero
   try {
-    const base = process.env.BACKEND_URL || 'http://localhost:3001'
-    await fetch(`${base}/api/withdraw/record`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    if ((!payoutLamports || payoutLamports === '0') && finalizeSig) {
+      const txInfo = await connection.getTransaction(finalizeSig, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' as any })
+      const meta: any = txInfo?.meta
+      const pre = meta?.preBalances
+      const post = meta?.postBalances
+      const keys: string[] = (txInfo?.transaction?.message as any)?.staticAccountKeys?.map((k: any) => k.toBase58?.() || String(k)) || []
+      const idx = keys.findIndex(k => k === investor.toBase58())
+      if (idx >= 0 && pre && post) {
+        const delta = BigInt(post[idx]) - BigInt(pre[idx])
+        if (delta > 0n) payoutLamports = delta.toString()
+      }
+    }
+  } catch {}
+
+  // Persist directly to MongoDB (preferred when backend is not running)
+  try {
+    if (finalizeSig) {
+      const uri = process.env.MONGODB_URI
+      if (!uri) throw new Error('MONGODB_URI not set')
+      const client = new MongoClient(uri)
+      await client.connect()
+      const db = client.db('Defunds')
+      const col = db.collection<any>('invWithdraw')
+      const fundId = fundPda.toBase58()
+      const amountSol = payoutLamports ? Number(payoutLamports) / 1e9 : 0
+      const entry: any = {
+        amountSol,
+        signature: finalizeSig,
+        timestamp: new Date().toISOString(),
+        details: {
+          perMintSwapSigs: perMintSigs.map(s => s.sig),
+          ...(kApplied != null ? { kApplied } : {}),
+        },
+      }
+      const pathKey = `funds.${fundId}`
+      const updateDoc: any = {
+        $setOnInsert: { _id: investor.toBase58() },
+        $push: { [pathKey]: entry },
+        $set: { updatedAt: new Date() },
+      }
+      await col.updateOne({ _id: investor.toBase58() } as any, updateDoc, { upsert: true })
+      await client.close()
+      console.log('Direct Mongo record upserted for', fundId)
+    } else {
+      console.log('Finalize not executed; skipping Mongo persist (will keep local outbox)')
+    }
+  } catch (e) {
+    console.warn('Failed to persist withdraw record (Mongo) (will write locally):', (e as any)?.message || e)
+    try {
+      const outDir = path.resolve(__dirname, '../../.out')
+      fs.mkdirSync(outDir, { recursive: true })
+      const file = path.join(outDir, `withdraw-${Date.now()}.json`)
+      const record = {
         investor: investor.toBase58(),
         fundId: fundPda.toBase58(),
-        amountSolLamports: payoutLamports,
+        payoutLamports,
         finalizeSig,
         swaps: perMintSigs,
         kApplied,
         at: new Date().toISOString(),
-      }),
-    }).then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(new Error(t))))
-  } catch (e) {
-    console.warn('Failed to persist withdraw record:', (e as any)?.message || e)
+      }
+      fs.writeFileSync(file, JSON.stringify(record, null, 2))
+      console.log('Saved local withdraw record to', file)
+    } catch (e2) {
+      console.warn('Also failed to write local record:', (e2 as any)?.message || e2)
+    }
   }
 
-  console.log('Investor withdrawal completed and finalized.', finalizeSig)
+  console.log('Investor withdrawal completed. finalizeSig=', finalizeSig)
 })()

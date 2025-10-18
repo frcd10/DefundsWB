@@ -752,114 +752,6 @@
       ]
     },
     {
-      "name": "liquidate_positions_batch",
-      "docs": [
-        "Liquidate positions in batches during withdrawal"
-      ],
-      "discriminator": [
-        43,
-        74,
-        177,
-        136,
-        121,
-        84,
-        245,
-        173
-      ],
-      "accounts": [
-        {
-          "name": "withdrawal_state",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  119,
-                  105,
-                  116,
-                  104,
-                  100,
-                  114,
-                  97,
-                  119,
-                  97,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund"
-              },
-              {
-                "kind": "account",
-                "path": "investor"
-              }
-            ]
-          }
-        },
-        {
-          "name": "fund",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "withdrawal_state"
-          ]
-        },
-        {
-          "name": "wsol_mint"
-        },
-        {
-          "name": "fund_wsol_ata",
-          "writable": true
-        },
-        {
-          "name": "fund_sol_destination",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "unwrap_wsol",
-          "type": "bool"
-        },
-        {
-          "name": "min_lamports",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "nav_attest_write",
       "docs": [
         "One-time: set the NAV attestor for this fund (manager only)",
@@ -1409,21 +1301,48 @@
       ]
     },
     {
-      "name": "withdraw_swap_router",
+      "name": "withdraw_swap_instruction",
       "docs": [
-        "Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps"
+        "Investor-only: forward a single Jupiter router swap for withdrawals."
       ],
       "discriminator": [
-        137,
-        229,
-        57,
-        96,
-        14,
-        41,
-        202,
-        74
+        243,
+        145,
+        213,
+        54,
+        23,
+        215,
+        25,
+        156
       ],
       "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
         {
           "name": "withdrawal_state",
           "writable": true,
@@ -1456,41 +1375,6 @@
           }
         },
         {
-          "name": "fund",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  102,
-                  117,
-                  110,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "fund.manager",
-                "account": "Fund"
-              },
-              {
-                "kind": "account",
-                "path": "fund.name",
-                "account": "Fund"
-              }
-            ]
-          }
-        },
-        {
-          "name": "investor",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "withdrawal_state"
-          ]
-        },
-        {
           "name": "jupiter_program"
         },
         {
@@ -1502,65 +1386,26 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "fund_source_token_account",
-          "writable": true
-        },
-        {
-          "name": "input_mint"
-        },
-        {
-          "name": "progress",
+          "name": "investor",
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  119,
-                  105,
-                  116,
-                  104,
-                  100,
-                  114,
-                  97,
-                  119,
-                  97,
-                  108,
-                  95,
-                  109,
-                  105,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "withdrawal_state"
-              },
-              {
-                "kind": "account",
-                "path": "input_mint"
-              }
-            ]
-          }
+          "signer": true,
+          "relations": [
+            "withdrawal_state"
+          ]
         }
       ],
       "args": [
-        {
-          "name": "in_amount",
-          "type": "u64"
-        },
-        {
-          "name": "min_out_amount",
-          "type": "u64"
-        },
         {
           "name": "router_data",
           "type": "bytes"
         },
         {
-          "name": "is_ledger",
-          "type": "bool"
+          "name": "in_amount",
+          "type": "u64"
+        },
+        {
+          "name": "out_min_amount",
+          "type": "u64"
         }
       ]
     }
@@ -1603,19 +1448,6 @@
         104,
         92,
         224
-      ]
-    },
-    {
-      "name": "WithdrawalMintProgress",
-      "discriminator": [
-        162,
-        108,
-        180,
-        53,
-        126,
-        182,
-        117,
-        218
       ]
     },
     {
@@ -1773,30 +1605,6 @@
           {
             "name": "updated_at",
             "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "WithdrawalMintProgress",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "withdrawal",
-            "type": "pubkey"
-          },
-          {
-            "name": "mint",
-            "type": "pubkey"
-          },
-          {
-            "name": "amount_liquidated",
-            "type": "u64"
           },
           {
             "name": "bump",

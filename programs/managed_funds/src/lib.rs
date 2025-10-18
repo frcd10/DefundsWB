@@ -53,15 +53,6 @@ pub mod managed_funds {
         instructions::initiate_withdrawal(ctx, shares_to_withdraw)
     }
 
-    /// Liquidate positions in batches during withdrawal
-    pub fn liquidate_positions_batch(
-        ctx: Context<LiquidatePositionsBatch>,
-        unwrap_wsol: bool,
-        min_lamports: u64,
-    ) -> Result<()> {
-        instructions::liquidate_positions_batch(ctx, unwrap_wsol, min_lamports)
-    }
-
     /// Finalize withdrawal and distribute SOL
     pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
         instructions::finalize_withdrawal(ctx)
@@ -99,15 +90,22 @@ pub mod managed_funds {
         instructions::token_swap_vault(ctx, data, tmp)
     }
 
-    /// Investor-only: forward Jupiter router/ledger for withdrawals with per-mint caps
-    pub fn withdraw_swap_router<'info>(
-        ctx: Context<'_, '_, 'info, 'info, WithdrawSwapRouter<'info>>,
-        in_amount: u64,
-        min_out_amount: u64,
+    // removed: liquidate_positions_batch (deleted)
+    // removed: withdraw_swap_router (deleted)
+
+    /// Investor-only: forward a single Jupiter router swap for withdrawals.
+    pub fn withdraw_swap_instruction<'info>(
+        ctx: Context<'_, '_, 'info, 'info, WithdrawSwapInstruction<'info>>,
         router_data: Vec<u8>,
-        is_ledger: bool,
+        in_amount: u64,
+        out_min_amount: u64,
     ) -> Result<()> {
-        instructions::withdraw_swap_router(ctx, in_amount, min_out_amount, router_data, is_ledger)
+        instructions::withdraw_swap_instruction(ctx, router_data, in_amount, out_min_amount)
+    }
+
+    /// Close the Fund's WSOL ATA and return lamports to the Fund PDA (unwrap)
+    pub fn unwrap_wsol_fund(ctx: Context<UnwrapWsolFund>) -> Result<()> {
+        instructions::unwrap_wsol_fund(ctx)
     }
 
     /// Transfer SPL tokens between Fund PDA-owned token accounts (same mint)

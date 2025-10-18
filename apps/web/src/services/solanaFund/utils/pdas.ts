@@ -30,6 +30,14 @@ export function deriveInvestorPositionPda(programId: PublicKey, investor: Public
   ], programId);
 }
 
+export function deriveWithdrawalPda(programId: PublicKey, fund: PublicKey, investor: PublicKey) {
+  return PublicKey.findProgramAddressSync([
+    Buffer.from('withdrawal'),
+    fund.toBuffer(),
+    investor.toBuffer()
+  ], programId);
+}
+
 export function deriveVaultSolPda(programId: PublicKey, fund: PublicKey) {
   return PublicKey.findProgramAddressSync([
     Buffer.from('vault_sol'),

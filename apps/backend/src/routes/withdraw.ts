@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import getClientPromise from '../lib/mongodb'
+import { PublicKey } from '@solana/web3.js'
+import { solanaService } from '../services/solana'
 
 const router = Router()
 
@@ -59,3 +61,56 @@ router.post('/record', async (req, res) => {
 })
 
 export { router as withdrawRoutes }
+
+// Additional route: POST /api/withdraw/start
+// This endpoint validates the request and (when enabled) orchestrates the investor withdrawal flow.
+// For now, it returns a structured response and can be enabled via ENABLE_WITHDRAW_START=true.
+router.post('/start', async (req, res) => {
+  try {
+    const payload = req.body || {}
+    const investor = String(payload.investor || '').trim()
+    const fundId = String(payload.fundId || payload.fundPda || '').trim()
+    const percentRequested = Number(payload.percentRequested || payload.percent || 0)
+    if (!investor || investor.length < 32) return res.status(400).json({ success: false, error: 'investor is required (base58 pubkey)' })
+    if (!fundId || fundId.length < 32) return res.status(400).json({ success: false, error: 'fundId is required (fund PDA base58)' })
+    if (!Number.isFinite(percentRequested) || percentRequested <= 0 || percentRequested > 100) {
+      return res.status(400).json({ success: false, error: 'percentRequested must be between 1 and 100' })
+    }
+
+    // Basic sanity on pubkeys
+    try { new PublicKey(investor) } catch { return res.status(400).json({ success: false, error: 'invalid investor pubkey' }) }
+    try { new PublicKey(fundId) } catch { return res.status(400).json({ success: false, error: 'invalid fundId pubkey' }) }
+
+    // Feature flag: only allow in production when explicitly enabled
+    if (process.env.ENABLE_WITHDRAW_START !== 'true') {
+      return res.status(503).json({
+        success: false,
+        error: 'withdraw-start disabled',
+        details: 'Set ENABLE_WITHDRAW_START=true on backend to enable. This endpoint will prepare client-signable transactions for initiate/swap/unwrap/finalize in a follow-up update.'
+      })
+    }
+
+    // Placeholder: ensure Solana service is initialized
+    const connection = solanaService.getConnection()
+    if (!connection) {
+      return res.status(500).json({ success: false, error: 'Solana service not initialized' })
+    }
+
+    // Return a job descriptor for now; the UI can poll or proceed with a client-side flow.
+    // Future: Prepare unsigned transactions per step to be signed by the investor wallet.
+    return res.json({
+      success: true,
+      accepted: true,
+      data: {
+        investor,
+        fundId,
+        percentRequested,
+        steps: [],
+        note: 'Withdraw orchestration accepted (stub). Transactions preparation to be implemented.'
+      }
+    })
+  } catch (e) {
+    console.error('withdraw/start error', e)
+    return res.status(500).json({ success: false, error: 'Failed to start withdraw' })
+  }
+})

@@ -35,6 +35,7 @@ export function WithdrawFromFundModal({
   const [error, setError] = useState<string | null>(null);
   const [withdrawPercentage, setWithdrawPercentage] = useState('100');
   const [submitted, setSubmitted] = useState(false);
+  const [customPct, setCustomPct] = useState('');
 
   // Determine cluster (best-effort) for disabling withdrawals off mainnet
   const cluster = useMemo(() => {
@@ -45,7 +46,9 @@ export function WithdrawFromFundModal({
 
   const withdrawalsEnabled = cluster === 'mainnet';
 
-  const withdrawAmount = (currentValue * parseFloat(withdrawPercentage || '0')) / 100;
+  const pct = parseFloat(withdrawPercentage || '0');
+  const withdrawAmount = (currentValue * (isFinite(pct) ? pct : 0)) / 100;
+  const fmt4 = (n: number) => (isFinite(n) ? n.toFixed(4) : '0.0000');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,10 +84,22 @@ export function WithdrawFromFundModal({
 
     try {
       console.log('Starting withdrawal process...');
-      
-      // (Disabled) Real withdrawal logic removed for non-mainnet environment
-      setError('Withdrawals are disabled until mainnet launch.');
-      
+      const startRes = await fetch('/api/withdraw/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          investor: wallet.publicKey.toBase58(),
+          fundId,
+          percentRequested: withdrawPct,
+        }),
+      });
+      const data = await startRes.json();
+      if (!startRes.ok || data?.success === false) {
+        throw new Error(data?.error || 'Withdraw start failed');
+      }
+      // When orchestration is implemented, expect finalize signature and amountSol
+      const sig = data?.data?.finalizeSig || data?.signature || 'pending-signature';
+      onWithdrawComplete?.(sig);
     } catch (error) {
       console.error('=== ERROR WITHDRAWING FROM FUND ===');
       console.error('Error details:', error);
@@ -134,29 +149,48 @@ export function WithdrawFromFundModal({
               </div>
               <div className="flex justify-between">
                 <span>Current Value:</span>
-                <span>{currentValue.toFixed(2)} SOL</span>
+                <span>{fmt4(currentValue)} SOL</span>
               </div>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 text-white/70">Withdrawal Percentage</label>
-            <Input
-              type="number"
-              value={withdrawPercentage}
-              onChange={(e) => setWithdrawPercentage(e.target.value)}
-              placeholder="100"
-              min="1"
-              max="100"
-              step="1"
-              required
-              className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white"
-            />
-            <p className="text-xs text-white/50 mt-1">Enter 100 to withdraw your entire position</p>
+            <div className="grid grid-cols-5 gap-2 mb-2">
+              {[100, 50, 25, 10].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setWithdrawPercentage(String(p))}
+                  className={`h-10 rounded-lg text-sm font-semibold border transition ${withdrawPercentage === String(p) ? 'bg-brand-yellow text-brand-black border-brand-yellow' : 'bg-white/5 text-white/80 border-white/15 hover:bg-white/10'}`}
+                >
+                  {p}%
+                </button>
+              ))}
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={customPct}
+                  onChange={(e) => {
+                    setCustomPct(e.target.value);
+                    const v = Math.max(0, Math.min(100, Number(e.target.value || '0')));
+                    if (!Number.isNaN(v)) setWithdrawPercentage(String(v));
+                  }}
+                  placeholder="Custom"
+                  min="1"
+                  max="100"
+                  step="0.01"
+                  className="h-10 rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white pr-14"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 text-xs">%</span>
+              </div>
+            </div>
+            <p className="text-xs text-white/60">Choose 100/50/25/10% or type a custom percentage.</p>
           </div>
 
           <div className="bg-white/5 p-4 rounded-xl border border-white/10">
             <h4 className="text-sm font-medium text-white mb-2">Withdrawal Details</h4>
+            <p className="text-xs text-white/70 mb-3">Choose the amount you want to withdraw — All your positions will be closed and you will receive SOL in your wallet.</p>
             <div className="space-y-1 text-xs text-white/70">
               <div className="flex justify-between">
                 <span>Withdraw:</span>
@@ -164,12 +198,20 @@ export function WithdrawFromFundModal({
               </div>
               <div className="flex justify-between">
                 <span>Amount:</span>
-                <span className="text-brand-yellow font-semibold">{withdrawAmount.toFixed(2)} SOL</span>
+                <span className="text-brand-yellow font-semibold">{fmt4(withdrawAmount)} SOL</span>
               </div>
               <div className="flex justify-between">
                 <span>Remaining:</span>
-                <span>{((100 - parseFloat(withdrawPercentage || '0')) * currentValue / 100).toFixed(2)} SOL</span>
+                <span>{fmt4(((100 - (isFinite(pct) ? pct : 0)) * currentValue) / 100)} SOL</span>
               </div>
+            </div>
+            <div className="mt-3 p-2 bg-white/5 border border-white/10 rounded">
+              <p className="text-xs text-white/60">
+                You need at least some SOL in your wallet to pay fees and create accounts — this will be refunded at the end of the transaction when possible.
+              </p>
+              <p className="text-[11px] text-red-400 mt-1">
+                ATTENTION: ILLIQUID POSITIONS OR POSITIONS UNDER 0.1 USDC VALUE WILL BE CONSIDERED AS ZERO VALUE.
+              </p>
             </div>
             {!withdrawalsEnabled && (
               <div className="mt-3 p-2 bg-white/5 border border-white/10 rounded">

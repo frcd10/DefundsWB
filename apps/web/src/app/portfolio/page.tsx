@@ -178,25 +178,25 @@ export default function PortfolioPage() {
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Value</h3>
             <p className="text-2xl font-bold text-emerald-400">
-              {portfolio.totalValue.toFixed(2)} SOL
+              {portfolio.totalValue.toFixed(4)} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Invested</h3>
             <p className="text-2xl font-bold text-white">
-              {portfolio.totalInvested.toFixed(2)} SOL
+              {portfolio.totalInvested.toFixed(4)} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Withdraw</h3>
             <p className="text-2xl font-bold text-orange-400">
-              {portfolio.totalWithdrawn?.toFixed(2) || '0.00'} SOL
+              {portfolio.totalWithdrawn?.toFixed(4) || '0.0000'} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">P&L</h3>
             <p className={`text-2xl font-bold ${portfolio.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(2)} SOL
+              {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(4)} SOL
               <span className="text-sm ml-2">
                 ({portfolio.totalPnLPercentage >= 0 ? '+' : ''}{portfolio.totalPnLPercentage.toFixed(2)}%)
               </span>
@@ -272,13 +272,13 @@ export default function PortfolioPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -292,7 +292,7 @@ export default function PortfolioPage() {
                           return (
                             <>
           <p className={`text-sm font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} SOL
+                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(4)} SOL
                               </p>
           <p className={`text-xs ${pnlPercentage >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)

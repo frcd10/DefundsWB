@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import getClientPromise from '@/lib/mongodb';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +24,7 @@ export async function GET(req: NextRequest) {
   const db = client.db('Defunds'); // Match the database name used everywhere else
   const fundsCollection = db.collection('Funds'); // Match the collection name used everywhere else
   const rwaCollection = db.collection('Rwa');
+  const invWithdrawCol = db.collection('invWithdraw');
 
     // Get all funds where this wallet is involved
     const funds = await fundsCollection.find({
@@ -34,7 +37,71 @@ export async function GET(req: NextRequest) {
     console.log('Found funds for wallet:', funds.length);
 
     // Transform funds into portfolio positions
-    const positions = funds.map(fund => {
+    // Preload invWithdraw map for this investor
+  const invDoc = await invWithdrawCol.findOne({ _id: walletAddress } as any)
+  const withdrawMap: Record<string, Array<{ amountSol: number }>> = (invDoc?.funds as any) || {}
+
+    // Helper: Connection using server env (Helius supported)
+    const rpcUrl = (process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || 'https://api.mainnet-beta.solana.com').trim();
+    const connection = new Connection(rpcUrl, 'confirmed');
+
+    // Helper: fetch prices for a set of mints via backend /api/prices (which uses Helius getAsset under the hood)
+    async function fetchPrices(mints: string[]): Promise<Record<string, { priceBaseUnits: string; updatedAt: number }>> {
+      if (!mints.length) return {};
+      try {
+        const qs = mints.map(m => `mints=${encodeURIComponent(m)}`).join('&');
+        const resp = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/prices?${qs}`, { cache: 'no-store' });
+        const data = await resp.json();
+        const out: Record<string, { priceBaseUnits: string; updatedAt: number }> = {};
+        if (resp.ok && Array.isArray(data?.items)) {
+          for (const it of data.items) {
+            out[it.mint] = { priceBaseUnits: String(it.priceBaseUnits || '0'), updatedAt: Number(it.updatedAt || 0) };
+          }
+        }
+        return out;
+      } catch {
+        return {};
+      }
+    }
+
+    async function computeAumSolFromChain(fundPkStr: string): Promise<number> {
+      try {
+        const fundPk = new PublicKey(fundPkStr);
+        const [lamports, tokenAccounts] = await Promise.all([
+          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
+          connection.getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID as any }).catch(() => ({ value: [] as any[] } as any)),
+        ]);
+        let aumSol = lamports / 1_000_000_000;
+        const rows: Array<{ mint: string; uiAmount: number }> = [];
+        for (const { account } of (tokenAccounts?.value || [])) {
+          const anyData: any = account?.data;
+          if (!anyData || anyData.program !== 'spl-token') continue;
+          const info = (anyData.parsed?.info || {}) as any;
+          const mint: string = info.mint;
+          const amountRaw: string = info.tokenAmount?.amount ?? '0';
+          const uiAmount: number = Number(info.tokenAmount?.uiAmount ?? 0);
+          if (amountRaw === '0') continue;
+          rows.push({ mint, uiAmount });
+        }
+        const SOL_MINT = 'So11111111111111111111111111111111111111112';
+        const mints = Array.from(new Set(rows.map(r => r.mint).concat([SOL_MINT])));
+        const prices = await fetchPrices(mints);
+        const solPriceUsd = Number(prices[SOL_MINT]?.priceBaseUnits || '0') / 1_000_000 || 0;
+        const solUsd = solPriceUsd > 0 ? solPriceUsd : 1; // fallback to 1 to avoid division by zero
+        for (const r of rows) {
+          if (r.mint === SOL_MINT) { aumSol += r.uiAmount; continue; }
+          const p = prices[r.mint];
+          if (!p) continue;
+          const tokenUsd = (Number(p.priceBaseUnits || '0') / 1_000_000) * r.uiAmount;
+          aumSol += tokenUsd / solUsd;
+        }
+        return aumSol;
+      } catch {
+        return 0;
+      }
+    }
+
+    const positions = await Promise.all(funds.map(async (fund) => {
       console.log('Processing fund:', fund.name, 'for wallet:', walletAddress);
       
       const isManager = fund.manager === walletAddress;
@@ -65,12 +132,12 @@ export async function GET(req: NextRequest) {
         return null; // Skip if no position
       }
 
-      const sharePercentage = fund.totalShares > 0 ? (userShares / fund.totalShares) * 100 : 0;
-      
-      // Calculate current value based on current fund value and user's share percentage
-      const currentValue = fund.currentValue 
-        ? (fund.currentValue * (userShares / fund.totalShares))
-        : totalInvested; // Fallback to invested amount if no current value
+  const totalShares = Math.max(0, fund.totalShares || 0)
+      const sharePercentage = totalShares > 0 ? (userShares / totalShares) * 100 : 0
+  // AUM in SOL computed from on-chain holdings and Helius-backed prices
+  const aumSol: number = await computeAumSolFromChain(String(fund._id))
+  // Current value = ownership x AUM (SOL)
+  const currentValue = totalShares > 0 ? (aumSol * (userShares / totalShares)) : 0
       
       // Calculate P&L (difference between current value and what was invested)
       // const pnl = currentValue - totalInvested;
@@ -78,15 +145,10 @@ export async function GET(req: NextRequest) {
       // const pnlPercentage = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
 
       // Calculate user's total withdrawals from this fund
-      let totalWithdrawals = 0;
-      if (fund.withdrawals && fund.withdrawals.length > 0) {
-        const userWithdrawals = fund.withdrawals.filter((withdrawal: { walletAddress: string }) => 
-          withdrawal.walletAddress === walletAddress
-        );
-        totalWithdrawals = userWithdrawals.reduce((sum: number, withdrawal: { amount?: number }) => 
-          sum + (withdrawal.amount || 0), 0
-        );
-      }
+      // Withdrawn from invWithdraw collection (preferred, SOL units)
+  const fundIdStr = String(fund._id)
+  const wEntries = Array.isArray(withdrawMap?.[fundIdStr]) ? withdrawMap[fundIdStr] : []
+  const totalWithdrawals = wEntries.reduce((s: number, e: { amountSol?: number }) => s + Number(e?.amountSol || 0), 0)
 
       console.log('Position calculated:');
       console.log('- User shares:', userShares);
@@ -100,14 +162,16 @@ export async function GET(req: NextRequest) {
         fundType: fund.fundType || 'General',
         sharePercentage,
         userShares,
-        totalShares: fund.totalShares || 0,
+        totalShares,
+        aumSol,
         currentValue,
         initialInvestment: totalInvested,
         totalWithdrawals,
         investmentHistory,
         lastUpdated: fund.updatedAt ? new Date(fund.updatedAt).toISOString() : new Date().toISOString()
       };
-    }).filter(position => position !== null); // Remove null positions
+    }))
+    .then(arr => arr.filter((position) => position !== null)); // Remove null positions
 
     console.log('Final positions:', positions.length);
 
@@ -148,9 +212,9 @@ export async function GET(req: NextRequest) {
     }).filter(Boolean);
 
     // Calculate total portfolio values
-    const totalValue = positions.reduce((sum, pos) => sum + pos.currentValue, 0);
-    const totalInvested = positions.reduce((sum, pos) => sum + pos.initialInvestment, 0);
-    const totalWithdrawn = positions.reduce((sum, pos) => sum + pos.totalWithdrawals, 0);
+  const totalValue = positions.reduce((sum, pos) => sum + pos.currentValue, 0);
+  const totalInvested = positions.reduce((sum, pos) => sum + pos.initialInvestment, 0);
+  const totalWithdrawn = positions.reduce((sum, pos) => sum + pos.totalWithdrawals, 0);
     
     // New P&L calculation: P&L = Total Value + Total Withdrawn - Total Invested
     const totalPnL = totalValue + totalWithdrawn - totalInvested;
@@ -170,9 +234,9 @@ export async function GET(req: NextRequest) {
         totalWithdrawn,
         totalPnL,
         totalPnLPercentage,
-  activeFunds: positions.length,
-  positions,
-  rwaPositions,
+        activeFunds: positions.length,
+        positions,
+        rwaPositions,
       }
     }, { status: 200 });
 

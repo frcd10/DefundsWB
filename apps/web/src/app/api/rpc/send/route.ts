@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection, Commitment } from '@solana/web3.js';
+import { Connection, Commitment, Transaction, VersionedTransaction } from '@solana/web3.js';
 
 export const runtime = 'nodejs';
 
@@ -29,11 +29,30 @@ export async function POST(req: NextRequest) {
     const raw = Buffer.from(rawB64, 'base64');
     const commitment = (options?.preflightCommitment as Commitment) || 'processed';
     const connection = new Connection(target, { commitment });
-    const sig = await connection.sendRawTransaction(raw, {
-      skipPreflight: Boolean(options?.skipPreflight),
-      maxRetries: typeof options?.maxRetries === 'number' ? options.maxRetries : undefined,
-    });
-    return NextResponse.json({ ok: true, signature: sig });
+    try {
+      const sig = await connection.sendRawTransaction(raw, {
+        skipPreflight: Boolean(options?.skipPreflight),
+        maxRetries: typeof options?.maxRetries === 'number' ? options.maxRetries : undefined,
+      });
+      return NextResponse.json({ ok: true, signature: sig });
+    } catch (sendErr: any) {
+      // Try to simulate for better diagnostics
+      try {
+        let simTx: Transaction | VersionedTransaction | null = null;
+        try { simTx = VersionedTransaction.deserialize(raw); } catch {}
+        if (!simTx) {
+          try { simTx = Transaction.from(raw); } catch {}
+        }
+        let logs: string[] | undefined;
+        if (simTx) {
+          const sim = await connection.simulateTransaction(simTx as any, { sigVerify: false, replaceRecentBlockhash: true } as any);
+          logs = sim?.value?.logs || undefined;
+        }
+        return NextResponse.json({ ok: false, error: sendErr?.message || String(sendErr), logs }, { status: 500 });
+      } catch {
+        return NextResponse.json({ ok: false, error: sendErr?.message || String(sendErr) }, { status: 500 });
+      }
+    }
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }

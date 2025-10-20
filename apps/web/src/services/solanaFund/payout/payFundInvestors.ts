@@ -84,6 +84,16 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
     tx.add(finalIx);
     try {
       const sig = await sendAndConfirmWithRetry(connection, wallet, tx);
+      // Fire-and-forget log of payout for analytics/history (invWithdraw collection)
+      try {
+        // Log minimal payload: fundId, signature, and total amount. Detailed recipients are recorded by the caller when available.
+        const payload: any = { fundId, signature: sig, amountSol: normalizedTotal };
+        fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/invwithdraw/log`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch { /* ignore logging errors */ }
       return sig;
     } catch (e: any) {
       console.error('[payout] error', e);

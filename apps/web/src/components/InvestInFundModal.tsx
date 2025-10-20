@@ -19,6 +19,7 @@ interface InvestInFundModalProps {
   onInvestmentComplete?: (signature: string) => void;
   requiresInviteCode?: boolean; // new: whether an invite code is required to invest
   canRequestInviteCodesCount?: number; // 0-5 allowed; when >0 show selector to request new codes
+  accessMode?: 'public' | 'single_code' | 'multi_code'; // controls referral visibility
 }
 
 export function InvestInFundModal({ 
@@ -29,7 +30,8 @@ export function InvestInFundModal({
   isRwa = false,
   onInvestmentComplete,
   requiresInviteCode = false,
-  canRequestInviteCodesCount
+  canRequestInviteCodesCount,
+  accessMode
 }: InvestInFundModalProps) {
   const wallet = useWallet();
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +40,7 @@ export function InvestInFundModal({
   const [submitted, setSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [referredBy, setReferredBy] = useState<string | null>(null);
   const [requestCodes, setRequestCodes] = useState(0);
   const [grantedCodes, setGrantedCodes] = useState<string[] | null>(null);
   const [investSuccess, setInvestSuccess] = useState(false);
@@ -51,6 +54,25 @@ export function InvestInFundModal({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch referral status so we can lock referrer once set
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchReferral() {
+      if (!wallet.connected || !wallet.publicKey) { setReferredBy(null); return; }
+      try {
+        const res = await fetch(`/api/referrals?wallet=${wallet.publicKey.toString()}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (!cancelled && json?.success) setReferredBy(json?.data?.referredBy || null);
+      } catch {
+        if (!cancelled) setReferredBy(null);
+      }
+    }
+    fetchReferral();
+    return () => { cancelled = true; };
+  }, [wallet.connected, wallet.publicKey, isOpen]);
+
+  const allowReferralInput = !referredBy && accessMode !== 'multi_code';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +128,7 @@ export function InvestInFundModal({
             investorWallet: wallet.publicKey.toString(),
             amount: investmentAmount,
             inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
-            referralCode: referralCode ? referralCode.trim() : undefined,
+            referralCode: allowReferralInput && referralCode ? referralCode.trim() : undefined,
             validateOnly: true,
           }),
         });
@@ -139,7 +161,7 @@ export function InvestInFundModal({
           amount: investmentAmount,
           signature,
           inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
-          referralCode: referralCode ? referralCode.trim() : undefined,
+          referralCode: allowReferralInput && referralCode ? referralCode.trim() : undefined,
           generateInviteCodesCount: canRequestInviteCodesCount ? Math.min(Math.max(requestCodes, 0), canRequestInviteCodesCount) : undefined
         }),
       });
@@ -289,18 +311,32 @@ export function InvestInFundModal({
                 <p className="text-xs text-white/50 mt-1">Required for this product.</p>
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium mb-1 text-white/70">Referral Code (optional)</label>
-              <Input
-                type="text"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                placeholder="YOURFRIEND"
-                className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
-                maxLength={10}
-              />
-              <p className="text-xs text-white/50 mt-1">If you have a friend’s referral code, paste it here.</p>
-            </div>
+            {allowReferralInput && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Referral Code (optional)</label>
+                <Input
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                  placeholder="YOURFRIEND"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
+                  maxLength={10}
+                />
+                <p className="text-xs text-white/50 mt-1">If you have a friend’s referral code, paste it here.</p>
+              </div>
+            )}
+            {!allowReferralInput && referredBy && (
+              <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                <div className="text-xs text-white/70">Referred by</div>
+                <div className="mt-0.5 flex items-center justify-between">
+                  <div className="font-mono text-sm text-white">
+                    {referredBy.slice(0, 6)}...{referredBy.slice(-6)}
+                  </div>
+                  <div className="text-[10px] px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/60">locked</div>
+                </div>
+                <p className="mt-1 text-[10px] text-white/50">Your referrer is set and cannot be changed.</p>
+              </div>
+            )}
             {!!canRequestInviteCodesCount && (
               <div>
                 <label className="block text-sm font-medium mb-1 text-white/70">Get invite codes for friends</label>

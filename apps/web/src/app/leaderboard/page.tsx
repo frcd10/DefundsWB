@@ -92,8 +92,17 @@ export default function LeaderboardPage() {
                     <div className="font-semibold">Expected distribution (80% of treasury)</div>
                     <div className="text-white">{expectedDistribution.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL</div>
                     {treasuryAddress && (
-                      <div className="text-white/60 text-xs mt-1 truncate max-w-[280px]">
-                        Treasury: {treasuryAddress}
+                      <div className="text-white/60 text-xs mt-1 max-w-[320px]">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">Treasury: {treasuryAddress}</span>
+                          <button
+                            onClick={() => copy(treasuryAddress)}
+                            title="Copy treasury address"
+                            className="shrink-0 text-white/50 hover:text-white/80"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

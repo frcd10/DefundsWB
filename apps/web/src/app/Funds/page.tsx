@@ -39,6 +39,7 @@ interface RealFund {
   maxCap: number; // API returns 'maxCap' as well
   isPublic: boolean;
   inviteOnly: boolean; // API returns 'inviteOnly' as well
+  accessMode?: 'public' | 'single_code' | 'multi_code';
   totalDeposits: number; // Keep for backward compatibility
   investorCount: number;
   performance: Array<{ date: string; nav: number; pnl?: number; pnlPercentage?: number }>;
@@ -102,6 +103,7 @@ export default function Home() {
     maxCap: fund.maxCapacity || 0,
     investorCount: fund.investorCount || 0,
     inviteOnly: !fund.isPublic,
+    accessMode: fund.accessMode as any,
     performance: fund.performance || [],
     stats: fund.stats || {
       total: 0,
@@ -732,6 +734,7 @@ function FundsTable({
           fundName={investTarget.name}
           isRwa={false}
           requiresInviteCode={investTarget.inviteOnly}
+          accessMode={investTarget.accessMode}
         />
       )}
       {profileWallet && (

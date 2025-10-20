@@ -5,9 +5,15 @@ export const runtime = 'nodejs';
 
 // Tiny in-memory rate limiter (per process, per IP)
 const RL_WINDOW_MS = Number(process.env.PRICES_RATE_WINDOW_MS || 5000); // 5s
-const RL_LIMIT = Number(process.env.PRICES_RATE_LIMIT || 15); // 15 req / 5s
+const RL_LIMIT = Number(process.env.PRICES_RATE_LIMIT || 60); // default 60 req / 5s (tunable via env)
 type Bucket = { hits: number[] };
 const buckets: Map<string, Bucket> = new Map();
+
+// Tiny in-memory response cache for frequent, identical requests
+const CACHE_TTL_MS = Number(process.env.PRICES_CACHE_TTL_MS || 3000); // 3s
+type PriceItem = { mint: string; priceBaseUnits: string; updatedAt: number; name?: string };
+type CacheEntry = { items: PriceItem[]; expires: number };
+const cache: Map<string, CacheEntry> = new Map();
 
 function getClientIp(req: NextRequest): string {
   const xff = req.headers.get('x-forwarded-for');
@@ -131,6 +137,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ items: [] }, { status: 200, headers: rl.headers });
     }
 
+    // Cache by sorted mints to collapse repeated requests from the same page
+    const cacheKey = mints.slice().sort().join(',');
+    const nowMs = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expires > nowMs) {
+      return NextResponse.json({ items: cached.items }, { status: 200, headers: rl.headers });
+    }
+
     const client = await getClientPromise();
     const col = client.db('Defunds').collection<{ _id: string; priceBaseUnits?: string; updatedAt?: number; name?: string }>('tokensPrice');
 
@@ -143,7 +157,7 @@ export async function GET(req: NextRequest) {
     const nowSec = Math.floor(Date.now() / 1000);
     const maxAgeSec = Number(process.env.PRICE_MAX_TIME_LIMIT || process.env.priceMaxTimeLimit || '300');
 
-    const items: Array<{ mint: string; priceBaseUnits: string; updatedAt: number; name?: string }> = [];
+  const items: Array<{ mint: string; priceBaseUnits: string; updatedAt: number; name?: string }> = [];
     for (const mint of mints) {
       try {
         const cached = await col.findOne({ _id: mint } as any);
@@ -178,6 +192,8 @@ export async function GET(req: NextRequest) {
         items.push({ mint, priceBaseUnits: '0', updatedAt: 0 });
       }
     }
+    // Store in tiny cache
+    cache.set(cacheKey, { items, expires: nowMs + CACHE_TTL_MS });
 
     return NextResponse.json({ items }, { status: 200, headers: rl.headers });
   } catch (e: any) {

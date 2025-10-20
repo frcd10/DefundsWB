@@ -3,21 +3,16 @@ import getClientPromise from '@/lib/mongodb';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('=== REAL FUNDS API CALLED ===');
-    
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
-
-    console.log('Query params:', { page, limit, skip });
 
     // Get funds from MongoDB
     const client = await getClientPromise();
     const db = client.db('Defunds'); // Changed to match fund creation API
     const collection = db.collection('Funds'); // Changed to match fund creation API
 
-    console.log('Connected to database: Defunds, collection: Funds');
 
     const funds = await collection
       // Exclude devnet funds from the public listing
@@ -27,25 +22,12 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .toArray();
 
-    console.log('Found funds in database:', funds.length);
     
-    if (funds.length > 0) {
-      console.log('Sample fund:', {
-        name: funds[0].name,
-        totalDeposits: funds[0].totalDeposits,
-        investorCount: funds[0].investorCount
-      });
-    }
 
-    const totalCount = await collection.countDocuments();
-    console.log('Total fund count:', totalCount);
+  const totalCount = await collection.countDocuments();
 
     // Transform funds to match expected format
     const transformedFunds = funds.map(fund => {
-      console.log('Transforming fund:', fund.name);
-      console.log('- Original totalDeposits:', fund.totalDeposits);
-      console.log('- Original performanceFee:', fund.performanceFee);
-      console.log('- Original investorCount:', fund.investorCount);
       const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
       
       return {
@@ -88,9 +70,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    console.log('Transformed funds:', transformedFunds.length);
-
-    console.log('Returning response with funds:', transformedFunds.length);
+    
     
     return NextResponse.json({
       success: true,

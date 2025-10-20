@@ -9,6 +9,14 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=512
+      # Important: point the frontend API proxy to the backend service to avoid self-recursion
+      # Set in Render dashboard to your backend public URL, e.g. https://defunds-backend.onrender.com
+      # - key: BACKEND_URL
+      #   value: https://<your-backend-host>
+      # - key: NEXT_PUBLIC_BACKEND_URL
+      #   value: https://<your-backend-host>
     domains:
       - defunds.finance
       - www.defunds.finance

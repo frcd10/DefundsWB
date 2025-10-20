@@ -1,35 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
+import getClientPromise from '@/lib/mongodb';
 
 export const runtime = 'nodejs';
 
-function backendBases(): string[] {
-  const bases: string[] = [];
-  const envPrimary = (process.env.BACKEND_URL || '').trim();
-  const envPublic = (process.env.NEXT_PUBLIC_BACKEND_URL || '').trim();
-  if (envPrimary) bases.push(envPrimary.replace(/\/$/, ''));
-  if (envPublic) bases.push(envPublic.replace(/\/$/, ''));
-  bases.push('http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:10000', 'http://127.0.0.1:10000');
-  return Array.from(new Set(bases));
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const bodyText = await req.text();
-    const bases = backendBases();
-    const errors: { target: string; message: string }[] = [];
-    for (const base of bases) {
-      const target = `${base}/api/withdraw/record`;
-      try {
-        const upstream = await fetch(target, { method: 'POST', headers: { 'content-type': 'application/json' }, body: bodyText });
-        const txt = await upstream.text();
-        return new NextResponse(txt, { status: upstream.status, headers: { 'content-type': upstream.headers.get('content-type') || 'application/json' } });
-      } catch (e: any) {
-        errors.push({ target, message: e?.message || String(e) });
-      }
-    }
-    return NextResponse.json({ success: false, error: 'backend-unavailable', details: errors }, { status: 502 });
+    const payload = await req.json();
+    const investor = String(payload?.investor || '').trim();
+    const fundId = String(payload?.fundId || '').trim();
+    const amountSol = Number(payload?.amountSol);
+    const signature = String(payload?.signature || '').trim();
+    const details = payload?.details as any | undefined;
+
+    if (!investor || investor.length < 32) return NextResponse.json({ success: false, error: 'Invalid payload: investor' }, { status: 400 });
+    if (!fundId) return NextResponse.json({ success: false, error: 'Invalid payload: fundId' }, { status: 400 });
+    if (!Number.isFinite(amountSol) || amountSol < 0) return NextResponse.json({ success: false, error: 'Invalid payload: amountSol' }, { status: 400 });
+    if (!signature || signature.length < 32) return NextResponse.json({ success: false, error: 'Invalid payload: signature' }, { status: 400 });
+
+    const client = await getClientPromise();
+    const db = client.db('Defunds');
+    const col = db.collection<any>('invWithdraw');
+
+    const entry: any = {
+      amountSol,
+      signature,
+      timestamp: new Date().toISOString(),
+    };
+    if (details && typeof details === 'object') entry.details = details;
+
+    const path = `funds.${fundId}`;
+    const updateDoc: any = {
+      $setOnInsert: { _id: investor },
+      $push: { [path]: entry },
+      $set: { updatedAt: new Date() },
+    };
+    const result = await col.updateOne({ _id: investor } as any, updateDoc, { upsert: true });
+
+    return NextResponse.json({ success: true, data: { upsertedId: (result as any).upsertedId ?? undefined } });
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: 'proxy-error', details: e?.message || String(e) }, { status: 500 });
+    console.error('[withdraw/record] error', e?.message || e);
+    return NextResponse.json({ success: false, error: 'Failed to record withdraw' }, { status: 500 });
   }
 }
 

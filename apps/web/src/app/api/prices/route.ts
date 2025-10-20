@@ -55,54 +55,90 @@ export async function GET(req: NextRequest) {
     const maxAgeSec = Number(process.env.PRICE_MAX_TIME_LIMIT || process.env.priceMaxTimeLimit || '300');
     console.log('[step] timing', { nowSec, maxAgeSec });
 
-    // Fetch each mint, in parallel for small sets
-    const items: PriceItem[] = await Promise.all(mints.map(async (mint) => {
-      const tMint0 = Date.now();
+    // 1) Bulk load cache once
+    const cachedDocs = await col.find({ _id: { $in: mints } } as any).toArray();
+    const cacheMap = new Map<string, { priceBaseUnits?: string; updatedAt?: number; name?: string }>();
+    for (const d of cachedDocs) cacheMap.set((d as any)._id, { priceBaseUnits: (d as any).priceBaseUnits, updatedAt: (d as any).updatedAt, name: (d as any).name });
+    console.log('[step] cache bulk loaded', { found: cachedDocs.length });
+
+    // 2) Decide which mints need refresh
+    const toFetch: string[] = [];
+    for (const mint of mints) {
+      const c = cacheMap.get(mint);
+      const updatedAt = Number(c?.updatedAt || 0);
+      const tooOld = !updatedAt || (nowSec - updatedAt) > maxAgeSec;
+      if (!c?.priceBaseUnits || tooOld || !c?.name) toFetch.push(mint);
+    }
+    console.log('[step] toFetch decided', { count: toFetch.length, toFetch });
+
+    // 3) Fetch Helius for those mints with limited concurrency
+    async function fetchOne(mint: string): Promise<{ mint: string; priceBaseUnits?: string; updatedAt?: number; name?: string }> {
       try {
-        console.log('[mint] start', { mint });
-        const cached = await col.findOne({ _id: mint } as any);
-        console.log('[mint] cache', { mint, has: !!cached, updatedAt: cached?.updatedAt, price: cached?.priceBaseUnits, name: cached?.name });
-        let priceBaseUnits: string | null = cached?.priceBaseUnits || null;
-        let updatedAt: number = Number(cached?.updatedAt || 0);
-        let name: string | undefined = cached?.name;
-        const tooOld = !updatedAt || (nowSec - updatedAt) > maxAgeSec;
-        console.log('[mint] cache status', { mint, tooOld, updatedAt });
-        if (!priceBaseUnits || tooOld || !name) {
-          const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
-          console.log('[mint] helius fetch', { mint });
-          try {
-            const resp = await withTimeout(fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }), 4500);
-            console.log('[mint] helius resp', { mint, ok: resp.ok, status: resp.status });
-            if (resp.ok) {
-              const data: any = await resp.json();
-              const tokenInfo = data?.result?.token_info || {};
-              const priceInfo = tokenInfo?.price_info || {};
-              const pricePerToken = Number(priceInfo?.price_per_token || 0);
-              console.log('[mint] helius parsed', { mint, pricePerToken });
-              if (pricePerToken > 0) {
-                priceBaseUnits = Math.round(pricePerToken * 1_000_000).toString();
-                updatedAt = nowSec;
-              }
-              name = tokenInfo?.symbol || tokenInfo?.name || name;
-              if (priceBaseUnits) {
-                await col.updateOne({ _id: mint } as any, { $set: { priceBaseUnits, updatedAt, name } }, { upsert: true });
-                console.log('[mint] cache upserted', { mint, priceBaseUnits, updatedAt, name });
-              }
-            } else {
-              console.log('[mint] helius not ok', { mint, status: resp.status });
-            }
-          } catch (e: any) {
-            console.log('[mint] helius error', { mint, error: e?.message || String(e) });
-          }
+        const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
+        const resp = await withTimeout(fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }), 4500);
+        if (!resp.ok) {
+          console.log('[fetch] helius not ok', { mint, status: resp.status });
+          return { mint };
         }
-        const item: PriceItem = { mint, priceBaseUnits: priceBaseUnits || '0', updatedAt, name };
-        console.log('[mint] done', { mint, ms: Date.now() - tMint0, item });
-        return item;
+        const data: any = await resp.json();
+        const tokenInfo = data?.result?.token_info || {};
+        const priceInfo = tokenInfo?.price_info || {};
+        const pricePerToken = Number(priceInfo?.price_per_token || 0);
+        const name = tokenInfo?.symbol || tokenInfo?.name;
+        const updatedAt = nowSec;
+        const priceBaseUnits = pricePerToken > 0 ? Math.round(pricePerToken * 1_000_000).toString() : undefined;
+        return { mint, priceBaseUnits, updatedAt, name };
       } catch (e: any) {
-        console.log('[mint] failed', { mint, error: e?.message || String(e) });
-        return { mint, priceBaseUnits: '0', updatedAt: 0 };
+        console.log('[fetch] helius error', { mint, error: e?.message || String(e) });
+        return { mint };
       }
-    }));
+    }
+
+    async function limit<T, R>(items: T[], n: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> {
+      const out: R[] = new Array(items.length);
+      let i = 0;
+      async function worker() {
+        while (true) {
+          const idx = i++;
+          if (idx >= items.length) return;
+          out[idx] = await fn(items[idx], idx);
+        }
+      }
+      const workers = Array.from({ length: Math.min(n, items.length) }, () => worker());
+      await Promise.all(workers);
+      return out;
+    }
+
+    const concurrency = Number(process.env.PRICES_FETCH_CONCURRENCY || 3);
+    const fetched = await limit(toFetch, concurrency, (m, idx) => fetchOne(m));
+    console.log('[step] fetch done', { fetched: fetched.length, concurrency });
+
+    // 4) Bulk upsert fetched prices (only with a price)
+    const ops = fetched
+      .filter((f) => f.priceBaseUnits)
+      .map((f) => ({
+        updateOne: {
+          filter: { _id: f.mint },
+          update: { $set: { priceBaseUnits: f.priceBaseUnits, updatedAt: f.updatedAt, name: f.name } },
+          upsert: true,
+        }
+      }));
+    if (ops.length > 0) {
+      const res = await col.bulkWrite(ops as any, { ordered: false });
+      console.log('[step] bulk upsert complete', { ops: ops.length, modified: res.modifiedCount, upserted: res.upsertedCount });
+      // integrate fetched into cacheMap
+      for (const f of fetched) {
+        if (f.priceBaseUnits) cacheMap.set(f.mint, { priceBaseUnits: f.priceBaseUnits, updatedAt: f.updatedAt, name: f.name });
+      }
+    } else {
+      console.log('[step] nothing to upsert');
+    }
+
+    // 5) Build response from cacheMap (plus zeros for missing)
+    const items: PriceItem[] = mints.map((mint) => {
+      const c = cacheMap.get(mint);
+      return { mint, priceBaseUnits: c?.priceBaseUnits || '0', updatedAt: Number(c?.updatedAt || 0), name: c?.name };
+    });
 
     console.log('[done] items ready', { count: items.length, ms: Date.now() - t0 });
     return NextResponse.json({ items }, { status: 200 });

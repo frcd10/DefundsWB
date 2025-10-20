@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { VersionedTransaction } from '@solana/web3.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -38,14 +38,8 @@ export function WithdrawFromFundModal({
   const [submitted, setSubmitted] = useState(false);
   const [customPct, setCustomPct] = useState('');
 
-  // Determine cluster (best-effort) for disabling withdrawals off mainnet
-  const cluster = useMemo(() => {
-    const c = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || '').toLowerCase();
-    if (c === 'mainnet' || c === 'mainnet-beta') return 'mainnet';
-    return 'devnet'; // treat anything else as non-mainnet for gating
-  }, []);
-
-  const withdrawalsEnabled = cluster === 'mainnet';
+  // Withdrawals enabled (remove cluster gating)
+  const withdrawalsEnabled = true;
 
   const pct = parseFloat(withdrawPercentage || '0');
   const withdrawAmount = (currentValue * (isFinite(pct) ? pct : 0)) / 100;
@@ -53,10 +47,7 @@ export function WithdrawFromFundModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!withdrawalsEnabled) {
-      setError('Withdrawals will be enabled when the protocol launches on mainnet.');
-      return;
-    }
+    // Withdrawals are enabled
     
     console.log('=== WITHDRAWAL ATTEMPT ===');
     console.log('Fund ID:', fundId);
@@ -219,7 +210,7 @@ export function WithdrawFromFundModal({
               Withdraw from {fundName}
             </DialogTitle>
             <DialogDescription className="text-white/70">
-              Withdraw a percentage of your position. {withdrawalsEnabled ? '' : 'Currently disabled off mainnet.'}
+              Withdraw a percentage of your position.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -302,19 +293,13 @@ export function WithdrawFromFundModal({
             </div>
             <div className="mt-3 p-2 bg-white/5 border border-white/10 rounded">
               <p className="text-xs text-white/60">
-                You need at least some SOL in your wallet to pay fees and create accounts — this will be refunded at the end of the transaction when possible.
+                You need at least 0.01 SOL in your wallet to pay fees and create accounts — Accounts created will be closed and refunded at the end of withdraw.
               </p>
               <p className="text-[11px] text-red-400 mt-1">
-                ATTENTION: ILLIQUID POSITIONS OR POSITIONS UNDER 0.1 USDC VALUE WILL BE CONSIDERED AS ZERO VALUE.
+                ILLIQUID POSITIONS OR POSITIONS UNDER 0.1 USDC VALUE WILL BE CONSIDERED AS ZERO VALUE AND YOUR OWNERSHIP OF FUND WILL BE BURN.
               </p>
             </div>
-            {!withdrawalsEnabled && (
-              <div className="mt-3 p-2 bg-white/5 border border-white/10 rounded">
-                <p className="text-xs text-white/60">
-                  🔒 Withdrawals are disabled in the current cluster. They will be enabled on mainnet launch. As withdrawals will trigger also some trading activities, we cant reproduce it here
-                </p>
-              </div>
-            )}
+            {/* Withdrawals notice removed (always enabled) */}
           </div>
 
           <div className="flex gap-4 pt-2">
@@ -328,10 +313,10 @@ export function WithdrawFromFundModal({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !withdrawalsEnabled}
+              disabled={isLoading}
               className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {withdrawalsEnabled ? (isLoading ? 'Withdrawing...' : 'Withdraw SOL') : 'Coming Soon'}
+              {isLoading ? 'Withdrawing...' : 'Withdraw SOL'}
             </button>
           </div>
         </form>

@@ -18,6 +18,30 @@ function linkify(text: string) {
 
 const newsArticles = [
   {
+    id: 6,
+    title: "Weekly Update: Week 3 — Mainnet Deploy, CPI Swaps, Community Growth",
+    summary: "Watch the Week 3 update: https://www.youtube.com/watch?v=BWpdo1xu4eY",
+    content: `Numbers may differ from the video due to a 3-day gap between the recording and this post.
+
+Highlights:
+- Deployed to mainnet and verified swaps working end-to-end via CPI using Jupiter routes.
+- Planning public mainnet this week in tandem with Superteam Earn (Phase 2).
+
+Community metrics (at post time):
+- 22 testers on devnet
+- 125 followers on X (https://x.com/DefundsFinance)
+- 33 submissions on Earn
+
+What’s next:
+- Final polishing on the investor withdrawal UX and portfolio accuracy
+- Public mainnet launch coordination with Superteam Earn Phase 2
+- Ongoing stability checks and gas/compute tuning for peak hours`,
+    date: "October 20, 2025",
+    author: "Defunds Team",
+    category: "Weekly Update",
+    tags: ["Update", "Mainnet", "Jupiter", "CPI", "Community"]
+  },
+  {
     id: 5,
     title: "Weekly Update: Week 2 — Public Devnet, Whitepaper, Points, X Minicard",
     summary: "Watch the Week 2 update: https://www.youtube.com/watch?v=On6Ki4A35ss",

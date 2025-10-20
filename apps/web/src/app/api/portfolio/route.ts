@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
 
     // Get all funds where this wallet is involved
     const funds = await fundsCollection.find({
+      cluster: { $ne: 'devnet' },
       $or: [
         { manager: walletAddress }, // Funds managed by this wallet
         { 'investments.walletAddress': walletAddress } // Funds invested in by this wallet
@@ -67,11 +68,38 @@ export async function GET(req: NextRequest) {
     async function computeAumSolFromChain(fundPkStr: string): Promise<number> {
       try {
         const fundPk = new PublicKey(fundPkStr);
-        const [lamports, tokenAccounts] = await Promise.all([
+        // Derive vault PDA (owner of SPL positions)
+        const [vaultPk] = PublicKey.findProgramAddressSync([
+          Buffer.from('vault'),
+          fundPk.toBuffer(),
+        ], PROGRAM_ID);
+
+        // Attempt to derive vault SOL account as well (if exists)
+        const [vaultSolPk] = PublicKey.findProgramAddressSync([
+          Buffer.from('vault_sol'),
+          fundPk.toBuffer(),
+        ], PROGRAM_ID);
+
+        // Gather balances: fund lamports, vault lamports, vault_sol lamports (if account exists)
+        const [fundLamports, vaultLamports] = await Promise.all([
           connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
-          connection.getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID as any }).catch(() => ({ value: [] as any[] } as any)),
+          connection.getBalance(vaultPk, { commitment: 'processed' } as any).catch(() => 0),
         ]);
-        let aumSol = lamports / 1_000_000_000;
+        let aumSol = (fundLamports + vaultLamports) / 1_000_000_000;
+
+        // vault_sol (optional)
+        try {
+          const vaultSolInfo = await connection.getAccountInfo(vaultSolPk, 'processed');
+          if (vaultSolInfo) {
+            aumSol += (vaultSolInfo.lamports || 0) / 1_000_000_000;
+          }
+        } catch {}
+
+        // Token balances owned by the vault
+        const tokenAccounts = await connection
+          .getParsedTokenAccountsByOwner(vaultPk, { programId: TOKEN_PROGRAM_ID as any })
+          .catch(() => ({ value: [] as any[] } as any));
+
         const rows: Array<{ mint: string; uiAmount: number }> = [];
         for (const { account } of (tokenAccounts?.value || [])) {
           const anyData: any = account?.data;
@@ -101,6 +129,80 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Program ID for PDA derivations (from IDL)
+    const PROGRAM_ID = new PublicKey('DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd');
+
+    // Helper: read little-endian u64 from a Node Buffer as Number (safe for typical ranges)
+    function readU64LE(buf: Buffer, offset: number): number {
+      const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+      const lo = view.getUint32(offset, true);
+      const hi = view.getUint32(offset + 4, true);
+      return hi * 2 ** 32 + lo;
+    }
+
+    async function getInvestorSharesFromChain(fundPkStr: string, investorPkStr: string): Promise<number> {
+      try {
+        const fundPk = new PublicKey(fundPkStr);
+        const investorPk = new PublicKey(investorPkStr);
+        // Prefer reading investor's shares token account (ATA) for the shares mint
+        const [sharesMintPk] = PublicKey.findProgramAddressSync([
+          Buffer.from('shares'),
+          fundPk.toBuffer(),
+        ], PROGRAM_ID);
+        const ataRes = await connection.getParsedTokenAccountsByOwner(investorPk, { mint: sharesMintPk }, 'confirmed').catch(() => ({ value: [] as any[] } as any));
+        if (ataRes && Array.isArray(ataRes.value) && ataRes.value.length > 0) {
+          let sumUi = 0;
+          for (const { account } of ataRes.value) {
+            const data: any = account?.data;
+            if (data?.program === 'spl-token') {
+              const ui = Number(data?.parsed?.info?.tokenAmount?.uiAmount ?? 0);
+              if (Number.isFinite(ui)) sumUi += ui;
+            }
+          }
+          if (sumUi > 0) return sumUi;
+        }
+        // Fallback to investorPosition.shares u64 (may require scaling)
+        const [invPosPk] = PublicKey.findProgramAddressSync([
+          Buffer.from('position'),
+          investorPk.toBuffer(),
+          fundPk.toBuffer(),
+        ], PROGRAM_ID);
+        const acc = await connection.getAccountInfo(invPosPk, 'confirmed');
+        if (!acc || !acc.data) return 0;
+        // Anchor account: 8 bytes discriminator + struct
+        // struct layout: investor(32) fund(32) shares(u64) ...
+        const shares = readU64LE(acc.data as Buffer, 8 + 32 + 32);
+        return shares;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    async function getTotalSharesFromChain(fundPkStr: string): Promise<{ totalSharesUi: number; decimals: number } | null> {
+      try {
+        const fundPk = new PublicKey(fundPkStr);
+        const [sharesMintPk] = PublicKey.findProgramAddressSync([
+          Buffer.from('shares'),
+          fundPk.toBuffer(),
+        ], PROGRAM_ID);
+        // Read mint account parsed
+        const acc = await connection.getParsedAccountInfo(sharesMintPk, 'confirmed');
+        const value: any = acc?.value;
+        if (!value) return null;
+        const parsed: any = value.data;
+        if (!parsed || parsed.program !== 'spl-token') return null;
+        const info = parsed.parsed?.info;
+        const supplyStr: string = info?.supply ?? '0';
+        const decimals: number = Number(info?.decimals ?? 0);
+        const supply = Number(supplyStr);
+        if (!Number.isFinite(supply)) return { totalSharesUi: 0, decimals };
+        const totalSharesUi = supply / Math.pow(10, decimals);
+        return { totalSharesUi, decimals };
+      } catch {
+        return null;
+      }
+    }
+
     const positions = await Promise.all(funds.map(async (fund) => {
       console.log('Processing fund:', fund.name, 'for wallet:', walletAddress);
       
@@ -109,35 +211,62 @@ export async function GET(req: NextRequest) {
       let totalInvested = 0;
       let investmentHistory: Array<{ walletAddress: string; amount: number; shares: number; timestamp: string; transactionSignature: string; type: string }> = [];
 
-      if (fund.investments && fund.investments.length > 0) {
-        // Find all investments by this wallet
-        const userInvestments = fund.investments.filter((inv: { walletAddress: string }) => 
-          inv.walletAddress === walletAddress
-        );
-        
-        console.log('Found user investments:', userInvestments.length);
-        
+      // Prefer on-chain ownership (investorPosition.shares)
+  userShares = await getInvestorSharesFromChain(String(fund.fundId), walletAddress);
+
+      // Fallback to DB if chain shows 0 but DB has entries (still keep chain as source of truth)
+      if (userShares <= 0 && Array.isArray(fund.investments) && fund.investments.length > 0) {
+        const userInvestments = fund.investments.filter((inv: { walletAddress: string }) => inv.walletAddress === walletAddress);
         if (userInvestments.length > 0) {
           userShares = userInvestments.reduce((sum: number, inv: { shares?: number }) => sum + (inv.shares || 0), 0);
           totalInvested = userInvestments.reduce((sum: number, inv: { amount?: number }) => sum + (inv.amount || 0), 0);
           investmentHistory = userInvestments;
         }
-      } else if (isManager) {
-        // If no investments array but user is manager, they have the initial position
-        userShares = fund.totalShares || 0;
-        totalInvested = fund.totalDeposits || 0;
+      } else {
+        // Still populate invested from DB if available for P&L
+        if (Array.isArray(fund.investments)) {
+          const userInvestments = fund.investments.filter((inv: { walletAddress: string }) => inv.walletAddress === walletAddress);
+          totalInvested = userInvestments.reduce((sum: number, inv: { amount?: number }) => sum + (inv.amount || 0), 0);
+          investmentHistory = userInvestments;
+        } else if (isManager) {
+          totalInvested = fund.totalDeposits || 0;
+        }
       }
 
       if (userShares <= 0) {
         return null; // Skip if no position
       }
 
-  const totalShares = Math.max(0, fund.totalShares || 0)
-      const sharePercentage = totalShares > 0 ? (userShares / totalShares) * 100 : 0
+      // Read total shares from on-chain shares mint supply (with decimals) and scale investor shares accordingly
+  const totalSharesInfo = await getTotalSharesFromChain(String(fund.fundId));
+      let totalShares = 0;
+      let sharesDecimals = 0;
+      if (totalSharesInfo) {
+        totalShares = Math.max(0, totalSharesInfo.totalSharesUi);
+        sharesDecimals = totalSharesInfo.decimals;
+      }
+
+      // If we got investor shares from chain (raw u64), scale by decimals when we have them
+      if (sharesDecimals > 0 && typeof userShares === 'number' && userShares > 0 && Number.isInteger(userShares)) {
+        // Heuristic: if userShares seems like a big integer, scale it
+        userShares = userShares / Math.pow(10, sharesDecimals);
+      }
+
+      // Fallbacks if totalShares missing
+      if (totalShares === 0) {
+        // Try DB stored totalShares or sum of DB investments shares
+        const dbTotal = Math.max(0, fund.totalShares || 0);
+        if (dbTotal > 0) totalShares = dbTotal;
+        else if (Array.isArray(fund.investments)) {
+          totalShares = fund.investments.reduce((s: number, inv: any) => s + Math.max(0, inv.shares || 0), 0);
+        }
+      }
+
+      const sharePercentage = totalShares > 0 ? (userShares / totalShares) * 100 : 0;
   // AUM in SOL computed from on-chain holdings and Helius-backed prices
-  const aumSol: number = await computeAumSolFromChain(String(fund._id))
+  const aumSol: number = await computeAumSolFromChain(String(fund.fundId));
   // Current value = ownership x AUM (SOL)
-  const currentValue = totalShares > 0 ? (aumSol * (userShares / totalShares)) : 0
+  const currentValue = totalShares > 0 ? (aumSol * (userShares / totalShares)) : 0;
       
       // Calculate P&L (difference between current value and what was invested)
       // const pnl = currentValue - totalInvested;
@@ -146,7 +275,7 @@ export async function GET(req: NextRequest) {
 
       // Calculate user's total withdrawals from this fund
       // Withdrawn from invWithdraw collection (preferred, SOL units)
-  const fundIdStr = String(fund._id)
+  const fundIdStr = String(fund.fundId || fund._id)
   const wEntries = Array.isArray(withdrawMap?.[fundIdStr]) ? withdrawMap[fundIdStr] : []
   const totalWithdrawals = wEntries.reduce((s: number, e: { amountSol?: number }) => s + Number(e?.amountSol || 0), 0)
 
@@ -157,7 +286,7 @@ export async function GET(req: NextRequest) {
       console.log('- Current value:', currentValue);
 
       return {
-        fundId: fund._id,
+  fundId: fund.fundId || fund._id,
         fundName: fund.name,
         fundType: fund.fundType || 'General',
         sharePercentage,

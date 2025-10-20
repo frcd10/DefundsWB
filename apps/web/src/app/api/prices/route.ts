@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import getClientPromise from '@/lib/mongodb';
 
 export const runtime = 'nodejs';
 
@@ -98,25 +99,90 @@ export async function GET(req: NextRequest) {
   }
   const search = `?${searchParams.toString()}`;
   const bases = backendBases(currentHost);
-  const errors: { target: string; message: string }[] = [];
-  for (const base of bases) {
-    const target = `${base}/api/prices${search}`;
-    try {
-      // Add a short timeout to prevent tying up memory on slow upstreams
-      const upstream = await withTimeout(fetch(target, { cache: 'no-store' }), 5000);
-      // Stream the response body instead of buffering
-      const headers = new Headers();
-      const ct = upstream.headers.get('content-type');
-      if (ct) headers.set('content-type', ct);
-      // Include rate-limit headers for observability
-      for (const [k, v] of Object.entries(rl.headers)) headers.set(k, v);
-      return new NextResponse(upstream.body, { status: upstream.status, headers });
-    } catch (e: any) {
-      errors.push({ target, message: e?.message || String(e) });
-      continue;
+
+  // If a backend base is configured, proxy to it (multi-service mode)
+  if (bases.length > 0) {
+    const errors: { target: string; message: string }[] = [];
+    for (const base of bases) {
+      const target = `${base}/api/prices${search}`;
+      try {
+        // Add a short timeout to prevent tying up memory on slow upstreams
+        const upstream = await withTimeout(fetch(target, { cache: 'no-store' }), 5000);
+        // Stream the response body instead of buffering
+        const headers = new Headers();
+        const ct = upstream.headers.get('content-type');
+        if (ct) headers.set('content-type', ct);
+        // Include rate-limit headers for observability
+        for (const [k, v] of Object.entries(rl.headers)) headers.set(k, v);
+        return new NextResponse(upstream.body, { status: upstream.status, headers });
+      } catch (e: any) {
+        errors.push({ target, message: e?.message || String(e) });
+        continue;
+      }
     }
+    return NextResponse.json({ error: 'backend-unavailable', details: errors }, { status: 502 });
   }
-  return NextResponse.json({ error: 'backend-unavailable', details: errors }, { status: 502 });
+
+  // Single-service fallback: compute prices here using Helius and Mongo
+  try {
+    const raw = searchParams.getAll('mints');
+    const mints = Array.from(new Set(raw.filter(Boolean)));
+    if (mints.length === 0) {
+      return NextResponse.json({ items: [] }, { status: 200, headers: rl.headers });
+    }
+
+    const client = await getClientPromise();
+    const col = client.db('Defunds').collection<{ _id: string; priceBaseUnits?: string; updatedAt?: number; name?: string }>('tokensPrice');
+
+    function getHeliusUrl() {
+      const key = process.env.HELIUS_API_KEY || process.env.HELIUS_KEY || '';
+      const base = process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : 'https://api.mainnet-beta.solana.com');
+      return base;
+    }
+    const heliusUrl = getHeliusUrl();
+    const nowSec = Math.floor(Date.now() / 1000);
+    const maxAgeSec = Number(process.env.PRICE_MAX_TIME_LIMIT || process.env.priceMaxTimeLimit || '300');
+
+    const items: Array<{ mint: string; priceBaseUnits: string; updatedAt: number; name?: string }> = [];
+    for (const mint of mints) {
+      try {
+        const cached = await col.findOne({ _id: mint } as any);
+        let priceBaseUnits: string | null = cached?.priceBaseUnits || null;
+        let updatedAt: number = Number(cached?.updatedAt || 0);
+        let name: string | undefined = cached?.name;
+        const tooOld = !updatedAt || (nowSec - updatedAt) > maxAgeSec;
+        if (!priceBaseUnits || tooOld || !name) {
+          const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
+          try {
+            const resp = await withTimeout(fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }), 4500);
+            if (resp.ok) {
+              const data: any = await resp.json();
+              const tokenInfo = data?.result?.token_info || {};
+              const priceInfo = tokenInfo?.price_info || {};
+              const pricePerToken = Number(priceInfo?.price_per_token || 0);
+              if (pricePerToken > 0) {
+                priceBaseUnits = Math.round(pricePerToken * 1_000_000).toString();
+                updatedAt = nowSec;
+              }
+              name = tokenInfo?.symbol || tokenInfo?.name || name;
+              if (priceBaseUnits) {
+                await col.updateOne({ _id: mint } as any, { $set: { priceBaseUnits, updatedAt, name } }, { upsert: true });
+              }
+            }
+          } catch {
+            // ignore timeout/error; fall back to cache if any
+          }
+        }
+        items.push({ mint, priceBaseUnits: priceBaseUnits || '0', updatedAt, name });
+      } catch {
+        items.push({ mint, priceBaseUnits: '0', updatedAt: 0 });
+      }
+    }
+
+    return NextResponse.json({ items }, { status: 200, headers: rl.headers });
+  } catch (e: any) {
+    return NextResponse.json({ error: 'prices_failed', message: e?.message || String(e) }, { status: 500, headers: rl.headers });
+  }
 }
 
 export function POST() {

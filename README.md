@@ -44,10 +44,9 @@ solana -u mainnet-beta -k /home/felip/.config/solana/id_mainnet.json \
   program close --buffers \
   --recipient DefUNDgVXcK1P6QA3mgWCXpRxaXo1v3BrBb9UF3tK7HW
 
-## Security and secrets
-
-- Do not commit API keys or database URLs. Use `.env` locally (already gitignored) and set secrets in Render.
-- Anchor.toml can contain your local provider URL with API key, but it is ignored by git so it won’t be committed.
-- If a key may have appeared in git history (e.g., Helius), rotate it before open-sourcing and deployment.
-- MongoDB: create a least-privileged user limited to your app database, enable IP allowlist if possible, and rotate credentials immediately if leaked.
-- Optional: run a local secret check before commits: `npm run scan:secrets`.
+# After PRs.
+git checkout main
+git pull origin main
+git checkout mainnet
+git merge main
+git push origin mainnet

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -18,6 +19,7 @@ interface InvestInFundModalProps {
   onInvestmentComplete?: (signature: string) => void;
   requiresInviteCode?: boolean; // new: whether an invite code is required to invest
   canRequestInviteCodesCount?: number; // 0-5 allowed; when >0 show selector to request new codes
+  accessMode?: 'public' | 'single_code' | 'multi_code'; // controls referral visibility
 }
 
 export function InvestInFundModal({ 
@@ -28,7 +30,8 @@ export function InvestInFundModal({
   isRwa = false,
   onInvestmentComplete,
   requiresInviteCode = false,
-  canRequestInviteCodesCount
+  canRequestInviteCodesCount,
+  accessMode
 }: InvestInFundModalProps) {
   const wallet = useWallet();
   const [isLoading, setIsLoading] = useState(false);
@@ -37,10 +40,39 @@ export function InvestInFundModal({
   const [submitted, setSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [referredBy, setReferredBy] = useState<string | null>(null);
   const [requestCodes, setRequestCodes] = useState(0);
   const [grantedCodes, setGrantedCodes] = useState<string[] | null>(null);
   const [investSuccess, setInvestSuccess] = useState(false);
   const [usedCode, setUsedCode] = useState<string | undefined>(undefined);
+  // Phase limits (frontend-only)
+  const LIMIT_INVEST = Number(process.env.NEXT_PUBLIC_LIMIT_INVEST_ONE_FUND || '0.05');
+  const [showLimitConfirm, setShowLimitConfirm] = useState(false);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fetch referral status so we can lock referrer once set
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchReferral() {
+      if (!wallet.connected || !wallet.publicKey) { setReferredBy(null); return; }
+      try {
+        const res = await fetch(`/api/referrals?wallet=${wallet.publicKey.toString()}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (!cancelled && json?.success) setReferredBy(json?.data?.referredBy || null);
+      } catch {
+        if (!cancelled) setReferredBy(null);
+      }
+    }
+    fetchReferral();
+    return () => { cancelled = true; };
+  }, [wallet.connected, wallet.publicKey, isOpen]);
+
+  const allowReferralInput = !referredBy && accessMode !== 'multi_code';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +102,15 @@ export function InvestInFundModal({
     }
 
     if (submitted) return; // guard double submit
+
+    // Enforce phase limit for investing: show popup every time when exceeded
+    if (Number.isFinite(LIMIT_INVEST) && investmentAmount > LIMIT_INVEST) {
+      setError(null);
+      setShowLimitConfirm(true);
+      return;
+    }
+
+    // No persistent ack; allow investing under limit without extra prompts
     setSubmitted(true);
     setIsLoading(true);
     setError(null);
@@ -87,7 +128,7 @@ export function InvestInFundModal({
             investorWallet: wallet.publicKey.toString(),
             amount: investmentAmount,
             inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
-            referralCode: referralCode ? referralCode.trim() : undefined,
+            referralCode: allowReferralInput && referralCode ? referralCode.trim() : undefined,
             validateOnly: true,
           }),
         });
@@ -120,7 +161,7 @@ export function InvestInFundModal({
           amount: investmentAmount,
           signature,
           inviteCode: requiresInviteCode ? inviteCode.trim() : undefined,
-          referralCode: referralCode ? referralCode.trim() : undefined,
+          referralCode: allowReferralInput && referralCode ? referralCode.trim() : undefined,
           generateInviteCodesCount: canRequestInviteCodesCount ? Math.min(Math.max(requestCodes, 0), canRequestInviteCodesCount) : undefined
         }),
       });
@@ -161,6 +202,7 @@ export function InvestInFundModal({
   if (!isOpen) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
   <DialogContent className="sm:max-w-[520px] bg-[#0B0B0C] text-white border border-white/10 rounded-xl sm:rounded-2xl shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-4px_rgba(0,0,0,0.65)] p-0 overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-brand-yellow/60 to-transparent" />
@@ -238,6 +280,7 @@ export function InvestInFundModal({
             <div>
               <label className="block text-sm font-medium mb-1 text-white/70">Investment Amount (SOL)</label>
               <Input
+                ref={amountInputRef}
                 type="text"
                 inputMode="decimal"
                 value={amount}
@@ -251,7 +294,8 @@ export function InvestInFundModal({
                 placeholder="0.1"
                 className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white"
               />
-              <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL</p>
+        <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL</p>
+        <p className="text-xs text-brand-yellow mt-1">Phase limit: up to {LIMIT_INVEST} SOL per invest. After audit, limits will be removed.</p>
             </div>
             {requiresInviteCode && (
               <div>
@@ -267,18 +311,32 @@ export function InvestInFundModal({
                 <p className="text-xs text-white/50 mt-1">Required for this product.</p>
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium mb-1 text-white/70">Referral Code (optional)</label>
-              <Input
-                type="text"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                placeholder="YOURFRIEND"
-                className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
-                maxLength={10}
-              />
-              <p className="text-xs text-white/50 mt-1">If you have a friend’s referral code, paste it here.</p>
-            </div>
+            {allowReferralInput && (
+              <div>
+                <label className="block text-sm font-medium mb-1 text-white/70">Referral Code (optional)</label>
+                <Input
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                  placeholder="YOURFRIEND"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
+                  maxLength={10}
+                />
+                <p className="text-xs text-white/50 mt-1">If you have a friend’s referral code, paste it here.</p>
+              </div>
+            )}
+            {!allowReferralInput && referredBy && (
+              <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+                <div className="text-xs text-white/70">Referred by</div>
+                <div className="mt-0.5 flex items-center justify-between">
+                  <div className="font-mono text-sm text-white">
+                    {referredBy.slice(0, 6)}...{referredBy.slice(-6)}
+                  </div>
+                  <div className="text-[10px] px-2 py-1 rounded-full bg-white/10 border border-white/15 text-white/60">locked</div>
+                </div>
+                <p className="mt-1 text-[10px] text-white/50">Your referrer is set and cannot be changed.</p>
+              </div>
+            )}
             {!!canRequestInviteCodesCount && (
               <div>
                 <label className="block text-sm font-medium mb-1 text-white/70">Get invite codes for friends</label>
@@ -329,5 +387,34 @@ export function InvestInFundModal({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Phase limits confirmation modal in a portal to escape stacking contexts */}
+    {mounted && showLimitConfirm && createPortal(
+      <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 pointer-events-auto">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLimitConfirm(false)} />
+        <div className="relative z-10 w-full sm:max-w-lg rounded-2xl border border-white/10 bg-brand-surface/90 shadow-2xl p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/15 border border-yellow-400/30 text-yellow-300">!</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold">Phase limits</h3>
+              <p className="mt-1 text-sm text-white/80">During this initial phase without audit:</p>
+              <ul className="mt-2 text-sm text-white/80 list-disc pl-5">
+                <li>Limit to create: <span className="font-semibold">{Number(process.env.NEXT_PUBLIC_LIMIT_CREATE_FUND || '0.05')}</span> SOL</li>
+                <li>Limit to invest (per operation): <span className="font-semibold">{LIMIT_INVEST}</span> SOL</li>
+              </ul>
+              <p className="mt-2 text-sm text-white/60">After audit, limits will be removed.</p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-yellow text-brand-black px-4 py-2 text-sm font-semibold hover:brightness-110"
+                  onClick={() => { setShowLimitConfirm(false); requestAnimationFrame(() => amountInputRef.current?.focus()); }}
+                >I understand</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+  </>
   );
 }

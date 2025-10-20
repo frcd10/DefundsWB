@@ -12,6 +12,13 @@ export const DEVNET_TOKENS = {
   WSOL: 'So11111111111111111111111111111111111111112',
 } as const;
 
+// Common token mints on Mainnet
+export const MAINNET_TOKENS = {
+  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  SOL: 'So11111111111111111111111111111111111111112',
+  WSOL: 'So11111111111111111111111111111111111111112',
+} as const;
+
 // Fee constants (in basis points)
 export const FEE_LIMITS = {
   MAX_MANAGEMENT_FEE: 500, // 5%

@@ -2,39 +2,33 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum FundError {
-    #[msg("Unauthorized: Only fund manager can perform this action")]
-    Unauthorized,
-    
-    #[msg("Invalid fee: Fee exceeds maximum allowed")]
+    #[msg("Er fee")]
     InvalidFee,
     
-    #[msg("Insufficient funds in vault")]
+    #[msg("Er funds")]
     InsufficientFunds,
     
-    #[msg("Invalid amount: Amount must be greater than zero")]
+    #[msg("Er amount")]
     InvalidAmount,
     
-    #[msg("Invalid shares: Shares amount is invalid")]
+    #[msg("Er shares")]
     InvalidShares,
     
-    #[msg("Fund is paused")]
-    FundPaused,
-    
-    #[msg("Invalid mint: Token mint is not supported")]
+    #[msg("Er mint")]
     InvalidMint,
     
-    #[msg("Slippage exceeded: Minimum amount out not met")]
-    SlippageExceeded,
-    
-    #[msg("Trade failed: External trade execution failed")]
-    TradeFailed,
-    
-    #[msg("Math overflow")]
+    #[msg("Math Er")]
     MathOverflow,
     
-    #[msg("Invalid withdrawal status")]
+    #[msg("Slp excd")]
+    SlippageExceeded,
+    
+    #[msg("Er withdrawal")]
     InvalidWithdrawalStatus,
     
-    #[msg("Invalid input parameters")]
+    #[msg("Er input")]
     InvalidInput,
+
+    #[msg("Inv Er")]
+    InvocationFailed,
 }

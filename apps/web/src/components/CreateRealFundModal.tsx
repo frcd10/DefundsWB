@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -25,6 +25,11 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
   const wallet = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phase limits (frontend only)
+  const LIMIT_CREATE = Number(process.env.NEXT_PUBLIC_LIMIT_CREATE_FUND || '0.05');
+  const LIMIT_INVEST = Number(process.env.NEXT_PUBLIC_LIMIT_INVEST_ONE_FUND || '0.05');
+  const [showLimitConfirm, setShowLimitConfirm] = useState(false);
+  const initialDepositRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +77,13 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
     if (!wallet.connected || !wallet.publicKey) {
       setError('Please connect your wallet first');
       return;
+    }
+
+    // Enforce phase limit for creation initial deposit: show popup every time when exceeded
+    if (Number.isFinite(LIMIT_CREATE) && formData.initialDeposit > LIMIT_CREATE) {
+      setError(null);
+      setShowLimitConfirm(true);
+      return; // keep modal open for user to adjust after acknowledging
     }
 
     setIsLoading(true);
@@ -200,8 +212,9 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-white/70">Initial Deposit (SOL)</label>
-                  <Input type="text" inputMode="decimal" value={initialDepositInput} placeholder="0.1" onChange={(e) => { const raw = e.target.value; if (!DECIMAL_INPUT_REGEX.test(raw)) return; setInitialDepositInput(raw); const normalized = raw.replace(/,/g, '.'); const n = Number(normalized || '0'); setFormData(p => ({ ...p, initialDeposit: Number.isFinite(n) ? n : 0 })); }} onBlur={() => setInitialDepositInput(String(formData.initialDeposit))} className="w-full rounded-lg bg-white/5 border border-white/15 text-sm" />
+                  <Input ref={initialDepositRef} type="text" inputMode="decimal" value={initialDepositInput} placeholder="0.1" onChange={(e) => { const raw = e.target.value; if (!DECIMAL_INPUT_REGEX.test(raw)) return; setInitialDepositInput(raw); const normalized = raw.replace(/,/g, '.'); const n = Number(normalized || '0'); setFormData(p => ({ ...p, initialDeposit: Number.isFinite(n) ? n : 0 })); }} onBlur={() => setInitialDepositInput(String(formData.initialDeposit))} className="w-full rounded-lg bg-white/5 border border-white/15 text-sm" />
                   <p className="text-xs text-white/50 mt-1">You&apos;ll own 100% of the fund initially. Others can invest later.</p>
+                  <p className="text-xs text-brand-yellow mt-1">Phase limit: up to {LIMIT_CREATE} SOL to create. After audit, limits will be removed.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1 text-white/70">Access</label>
@@ -262,6 +275,33 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Phase limits confirmation (swap-like modal style) */}
+      {showLimitConfirm && (
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 pointer-events-auto">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowLimitConfirm(false)} />
+          <div className="relative z-10 w-full sm:max-w-lg rounded-2xl border border-white/10 bg-brand-surface/90 shadow-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-500/15 border border-yellow-400/30 text-yellow-300">!</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold">Phase limits</h3>
+                <p className="mt-1 text-sm text-white/80">During this initial phase without audit:</p>
+                <ul className="mt-2 text-sm text-white/80 list-disc pl-5">
+                  <li>Limit to create: <span className="font-semibold">{LIMIT_CREATE} SOL</span></li>
+                  <li>Limit to invest (per operation): <span className="font-semibold">{LIMIT_INVEST} SOL</span></li>
+                </ul>
+                <p className="mt-2 text-sm text-white/60">After audit, limits will be removed.</p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-full bg-brand-yellow text-brand-black px-4 py-2 text-sm font-semibold hover:brightness-110"
+                    onClick={() => { setShowLimitConfirm(false); requestAnimationFrame(() => initialDepositRef.current?.focus()); }}
+                  >I understand</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showShareDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">

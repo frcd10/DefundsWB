@@ -42,17 +42,12 @@ pub struct FinalizeWithdrawal<'info> {
         bump = withdrawal_state.bump,
         has_one = investor,
         constraint = withdrawal_state.vault == fund.key(),
-        constraint = withdrawal_state.status == WithdrawalStatus::ReadyToFinalize || withdrawal_state.status == WithdrawalStatus::Initiated
+        constraint = withdrawal_state.status == WithdrawalStatus::ReadyToFinalize || withdrawal_state.status == WithdrawalStatus::Initiated,
+        close = investor
     )]
     pub withdrawal_state: Account<'info, WithdrawalState>,
 
-    #[account(
-        mut,
-        seeds = [b"vault_sol", fund.key().as_ref()],
-        bump
-    )]
-    /// CHECK: This is the vault's SOL account, a PDA that holds SOL
-    pub vault_sol_account: AccountInfo<'info>,
+    // We will pay SOL directly from the fund PDA lamports
 
     #[account(mut)]
     pub investor: Signer<'info>,
@@ -68,26 +63,41 @@ pub struct FinalizeWithdrawal<'info> {
 }
 
 pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
-    let fund = &mut ctx.accounts.fund;
-    let investor_position = &mut ctx.accounts.investor_position;
-    let withdrawal_state = &mut ctx.accounts.withdrawal_state;
     let clock = Clock::get()?;
 
-    let shares_to_burn = withdrawal_state.shares_to_withdraw;
+    // Read-only snapshots to avoid borrow conflicts
+    let ws = &ctx.accounts.withdrawal_state;
+    let ip = &ctx.accounts.investor_position;
+    let fund_ro = &ctx.accounts.fund;
+    let manager_key = fund_ro.manager;
+    let fund_name = fund_ro.name.clone();
+    let fund_bump = fund_ro.bump;
+    let performance_fee_bps = fund_ro.performance_fee;
 
-    // Calculate withdrawal amount based on current fund valuation
-    let base_withdrawal_amount = if withdrawal_state.sol_accumulated > 0 {
-        // Use accumulated SOL from liquidations
-        withdrawal_state.sol_accumulated
+    // Completion factor k in [0,1] based on actually liquidated input vs allowed input
+    let allowed_sum = ws.input_allowed_total_sum as u128;
+    let done_sum = ws.input_liquidated_sum as u128;
+    let (k_num, k_den) = if allowed_sum > 0 { (done_sum.min(allowed_sum), allowed_sum) } else { (0, 1) };
+
+    // Effective shares to burn: floor(shares_to_withdraw * k)
+    let shares_to_burn_eff = ((ws.shares_to_withdraw as u128).saturating_mul(k_num) / k_den) as u64;
+
+    // Effective fraction (1e6 precision)
+    let fraction_bps_eff = ((ws.fraction_bps as u128).saturating_mul(k_num) / k_den) as u64;
+
+    // Base withdrawal amount: prefer actual accumulated SOL over theoretical vault fraction
+    let base_withdrawal_amount = if ws.sol_accumulated > 0 {
+        ws.sol_accumulated
+    } else if allowed_sum > 0 {
+        let vault_balance = fund_ro.to_account_info().lamports() as u128;
+        let portion = vault_balance.saturating_mul(fraction_bps_eff as u128) / 1_000_000u128;
+        portion as u64
     } else {
-        // Calculate from vault SOL balance (for SOL-only funds)
-        let vault_balance = ctx.accounts.vault_sol_account.lamports();
-        let share_percentage = shares_to_burn as f64 / investor_position.shares as f64;
-        (vault_balance as f64 * share_percentage) as u64
+        0
     };
 
     // Calculate fees
-    let initial_investment = (investor_position.total_deposited as f64 * shares_to_burn as f64 / investor_position.shares as f64) as u64;
+    let initial_investment = (ip.total_deposited as f64 * shares_to_burn_eff as f64 / ip.shares as f64) as u64;
     let profit = if base_withdrawal_amount > initial_investment {
         base_withdrawal_amount - initial_investment
     } else {
@@ -95,7 +105,7 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     };
 
     // Fee calculations (default values)
-    let performance_fee_bps = fund.performance_fee; // from fund settings
+    // performance_fee_bps taken from fund_ro above
     let platform_fee_bps = 100u16; // 1% platform fee
 
     // Performance fee (20% of profit by default)
@@ -117,7 +127,7 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     let final_withdrawal_amount = base_withdrawal_amount - performance_fee - platform_withdrawal_fee;
 
     // Verify vault has enough SOL
-    let vault_balance = ctx.accounts.vault_sol_account.lamports();
+    let vault_balance = fund_ro.to_account_info().lamports();
     require!(
         vault_balance >= base_withdrawal_amount,
         FundError::InsufficientFunds
@@ -132,12 +142,11 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
             authority: ctx.accounts.investor.to_account_info(),
         },
     );
-    token::burn(burn_ctx, shares_to_burn)?;
+    token::burn(burn_ctx, shares_to_burn_eff)?;
 
-    // Transfer SOL to investor
-    let vault_sol_account = &ctx.accounts.vault_sol_account;
+    // Transfer SOL to investor (program-owned source): adjust lamports directly
+    let vault_sol_account = &fund_ro.to_account_info();
     let investor_account = &ctx.accounts.investor;
-
     **vault_sol_account.try_borrow_mut_lamports()? -= final_withdrawal_amount;
     **investor_account.to_account_info().try_borrow_mut_lamports()? += final_withdrawal_amount;
 
@@ -154,23 +163,19 @@ pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
     }
 
     // Update fund state
-    fund.total_shares = fund.total_shares.checked_sub(shares_to_burn).ok_or(FundError::MathOverflow)?;
+    let fund = &mut ctx.accounts.fund;
+    fund.total_shares = fund.total_shares.checked_sub(shares_to_burn_eff).ok_or(FundError::MathOverflow)?;
     fund.total_assets = fund.total_assets.checked_sub(base_withdrawal_amount).ok_or(FundError::MathOverflow)?;
 
     // Update investor position
-    investor_position.shares = investor_position.shares.checked_sub(shares_to_burn).ok_or(FundError::MathOverflow)?;
+    let investor_position = &mut ctx.accounts.investor_position;
+    investor_position.shares = investor_position.shares.checked_sub(shares_to_burn_eff).ok_or(FundError::MathOverflow)?;
     investor_position.total_withdrawn = investor_position.total_withdrawn.checked_add(final_withdrawal_amount).ok_or(FundError::MathOverflow)?;
     investor_position.last_activity_at = clock.unix_timestamp;
 
     // Update withdrawal state
+    let withdrawal_state = &mut ctx.accounts.withdrawal_state;
     withdrawal_state.status = WithdrawalStatus::Completed;
-
-    msg!(
-        "Finalized withdrawal: {} SOL to investor, {} SOL to trader, {} SOL to treasury",
-        final_withdrawal_amount,
-        trader_performance_fee,
-        total_platform_fees
-    );
 
     Ok(())
 }

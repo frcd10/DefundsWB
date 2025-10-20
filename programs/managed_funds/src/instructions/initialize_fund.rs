@@ -70,7 +70,5 @@ pub fn initialize_fund(
     fund.vault_bump = ctx.bumps.vault;
     fund.shares_bump = ctx.bumps.shares_mint;
 
-    msg!("Fund '{}' initialized by manager: {}", fund.name, fund.manager);
-
     Ok(())
 }

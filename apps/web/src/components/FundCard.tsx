@@ -198,6 +198,7 @@ export default function FundCard({ f }: { f: FundCardData }) {
         fundName={f.name}
         isRwa={f.type === 'Construction' || f.type === 'Advance Receivable'}
         requiresInviteCode={f.inviteOnly}
+        accessMode={f.accessMode}
         onInvestmentComplete={handleInvestmentComplete}
       />
     </div>

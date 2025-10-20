@@ -1,0 +1,13 @@
+## Neutralized placeholder crate (not an Anchor program)
+[package]
+name = "placeholder_jupiter_cpi_local"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "placeholder_jupiter_cpi_local"
+path = "src/placeholder.rs"
+
+[dependencies]
+

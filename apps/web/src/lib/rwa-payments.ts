@@ -1,18 +1,9 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
-import { AnchorProvider, Program, Idl, BN } from '@coral-xyz/anchor';
 import type { WalletContextState } from '@solana/wallet-adapter-react';
 import { normalizeAmount, assertValidAmount } from '@/services/solanaFund/utils/amount';
 
 export type Recipient = { wallet: string; amountSol: number | string };
 export type PaymentRecord = { signature: string; totalValue: number; recipients: Recipient[] };
-
-async function getProgram(connection: Connection, wallet: WalletContextState): Promise<Program> {
-  const res = await fetch('/managed_funds.json', { cache: 'no-store' });
-  if (!res.ok) throw new Error('IDL missing at /managed_funds.json');
-  const idl = (await res.json()) as Idl;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new Program(idl as any, new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' }));
-}
 
 export async function sendBatchedSolPayments(
   wallet: WalletContextState,
@@ -21,10 +12,11 @@ export async function sendBatchedSolPayments(
 ): Promise<PaymentRecord[]> {
   if (!wallet.publicKey || !wallet.signTransaction) throw new Error('Wallet not connected');
   const connection = new Connection(rpcUrl, 'confirmed');
-  const program = await getProgram(connection, wallet);
 
+  // Conservative batching to avoid transaction-size limits with many transfer instructions
+  const BATCH_SIZE = 10;
   const batches: Recipient[][] = [];
-  for (let i = 0; i < recipients.length; i += 20) batches.push(recipients.slice(i, i + 20));
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) batches.push(recipients.slice(i, i + BATCH_SIZE));
 
   const records: PaymentRecord[] = [];
   for (const batch of batches) {
@@ -48,20 +40,11 @@ export async function sendBatchedSolPayments(
 
     if (amountsLamports.length === 0) continue; // nothing meaningful to send in this batch
 
-    // Anchor expects Vec<u64> as BN[]; convert to BN to avoid toArrayLike errors
-    const amounts = amountsLamports.map((n) => new BN(n.toString()));
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ix = await (program as any).methods
-      .payRwaInvestors(amounts)
-      .accounts({
-        manager: wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .remainingAccounts(toAccounts.map((pubkey) => ({ pubkey, isWritable: true, isSigner: false })))
-      .instruction();
-
-    const tx = new Transaction().add(ix);
+    // Build transaction with multiple SystemProgram.transfer instructions
+    const tx = new Transaction();
+    for (let i = 0; i < toAccounts.length; i++) {
+      tx.add(SystemProgram.transfer({ fromPubkey: wallet.publicKey, toPubkey: toAccounts[i], lamports: amountsLamports[i] }));
+    }
     tx.feePayer = wallet.publicKey;
     const sig = await wallet.sendTransaction(tx, connection, { skipPreflight: false, preflightCommitment: 'processed', maxRetries: 3 });
     // Robust confirmation: try standard confirm, then fallback to polling if expired

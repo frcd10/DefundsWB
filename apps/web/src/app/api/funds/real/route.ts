@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     console.log('Connected to database: Defunds, collection: Funds');
 
     const funds = await collection
-      .find({})
+      // Exclude devnet funds from the public listing
+      .find({ cluster: { $ne: 'devnet' } })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

@@ -13,6 +13,8 @@
     "prebuild": "node scripts/sync-idl.js",
     "dev": "turbo run dev",
     "dev:web": "cd apps/web && npm run dev",
+    "dev:both": "turbo run dev --filter=./apps/web --filter=./apps/backend",
+    "dev:local": "npm run -w apps/backend dev & npm run -w apps/web dev",
     "build": "turbo run build",
     "start": "cd apps/web && npm start",
     "test": "turbo run test",
@@ -22,8 +24,10 @@
     "anchor": "anchor",
     "anchor:build": "anchor build && node scripts/sync-idl.js",
     "anchor:test": "anchor test",
-  "anchor:deploy": "anchor deploy && node scripts/sync-idl.js",
-    "validate:payout": "ts-node scripts/validatePayout.ts"
+    "anchor:deploy": "anchor deploy && node scripts/sync-idl.js",
+    
+    "validate:payout": "ts-node scripts/validatePayout.ts",
+    "scan:secrets": "bash scripts/scan-secrets.sh"
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",

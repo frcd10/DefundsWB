@@ -1,12 +1,22 @@
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { AnchorProvider, Wallet } from '@coral-xyz/anchor';
 
+interface JupiterQuoteV6 {
+  inAmount?: string;
+  outAmount?: string;
+  priceImpactPct?: number | string;
+  routePlan?: unknown[];
+}
+
 class SolanaService {
   private connection!: Connection;
   private provider!: AnchorProvider;
 
   async initialize() {
-    const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+    const rpcUrl =
+      process.env.BACKEND_SOLANA_RPC_URL ||
+      process.env.SOLANA_RPC_URL ||
+      'https://api.mainnet-beta.solana.com';
     this.connection = new Connection(rpcUrl, 'confirmed');
 
     // For server-side operations, we use a dummy wallet
@@ -16,7 +26,7 @@ class SolanaService {
       commitment: 'confirmed',
     });
 
-    console.log('Solana service initialized');
+    console.log(`Solana service initialized (rpc=${rpcUrl})`);
   }
 
   async verifyTransaction(signature: string): Promise<boolean> {
@@ -116,16 +126,29 @@ class SolanaService {
 
   async getQuote(inputMint: string, outputMint: string, amount: number) {
     try {
-      // Mock implementation for now
+      const params = new URLSearchParams({
+        inputMint,
+        outputMint,
+        amount: amount.toString(),
+        slippageBps: '50',
+      });
+      const url = `https://quote-api.jup.ag/v6/quote?${params.toString()}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Jupiter quote failed: ${res.status} ${txt}`);
+      }
+  const quote = (await res.json()) as JupiterQuoteV6;
       return {
         inputMint,
         outputMint,
-        inAmount: amount.toString(),
-        outAmount: (amount * 0.95).toString(), // Mock 5% slippage
-        priceImpactPct: '0.5',
+        inAmount: quote.inAmount ?? amount.toString(),
+        outAmount: quote.outAmount ?? '0',
+        priceImpactPct: String(quote.priceImpactPct ?? ''),
+        routePlan: quote.routePlan ?? [],
       };
     } catch (error) {
-      console.error('Error getting quote:', error);
+      console.error('Error getting quote (Jupiter):', error);
       throw error;
     }
   }

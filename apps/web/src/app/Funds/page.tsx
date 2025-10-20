@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Clock3, Zap, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { usePublicProfiles } from '@/lib/hooks/usePublicProfiles';
 import { PublicProfileModal } from '@/components/PublicProfileModal';
@@ -39,6 +39,7 @@ interface RealFund {
   maxCap: number; // API returns 'maxCap' as well
   isPublic: boolean;
   inviteOnly: boolean; // API returns 'inviteOnly' as well
+  accessMode?: 'public' | 'single_code' | 'multi_code';
   totalDeposits: number; // Keep for backward compatibility
   investorCount: number;
   performance: Array<{ date: string; nav: number; pnl?: number; pnlPercentage?: number }>;
@@ -102,6 +103,7 @@ export default function Home() {
     maxCap: fund.maxCapacity || 0,
     investorCount: fund.investorCount || 0,
     inviteOnly: !fund.isPublic,
+    accessMode: fund.accessMode as any,
     performance: fund.performance || [],
     stats: fund.stats || {
       total: 0,
@@ -160,6 +162,13 @@ export default function Home() {
       if (as > bs) return dir === 'asc' ? 1 : -1;
       return 0;
     });
+    // Pin a specific fund to always appear first
+    const PIN_ID = '2yJ2GV3Ua8mkWd2wHFKtCRwHBo4KBP6FJjXcbphXGpLN';
+    const idx = arr.findIndex(f => f.id === PIN_ID);
+    if (idx > 0) {
+      const [pinned] = arr.splice(idx, 1);
+      arr.unshift(pinned);
+    }
     return arr;
   }, [filteredFunds, sort]);
 
@@ -565,7 +574,7 @@ function FundsTable({
               return { ...p, pnl, pnlPercentage: ((p.nav - base) / base) * 100 };
             });
             return (
-              <>
+              <React.Fragment key={`row-${f.id}`}>
                 <tr
                   key={f.id}
                   className="group transition bg-brand-surface hover:bg-brand-yellow/5 hover:shadow-[0_0_0_1px_rgba(255,219,41,0.25)] hover:-translate-y-[1px] duration-200 ease-out"
@@ -706,7 +715,7 @@ function FundsTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             );
           })}
           {funds.length === 0 && (
@@ -725,6 +734,7 @@ function FundsTable({
           fundName={investTarget.name}
           isRwa={false}
           requiresInviteCode={investTarget.inviteOnly}
+          accessMode={investTarget.accessMode}
         />
       )}
       {profileWallet && (

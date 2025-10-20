@@ -1,13 +1,27 @@
+#![allow(ambiguous_glob_reexports)]
 use anchor_lang::prelude::*;
 
 pub mod instructions;
 pub mod state;
 pub mod errors;
 
-// Re-export instructions module contents for client code; required for Anchor codegen to locate context structs.
+// Re-export context/account types so Anchor can find them at crate root
 pub use instructions::*;
 
-declare_id!("5g75VtkCiComNnhTtCjukVZ67peJosfbbvygMoFBGKXB");
+declare_id!("DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd");
+
+// Gated logging: use `log!()` instead of `msg!()`. Enable via `--features onchain-logs`.
+#[cfg(feature = "onchain-logs")]
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => { anchor_lang::prelude::msg!($($arg)*); };
+}
+
+#[cfg(not(feature = "onchain-logs"))]
+#[macro_export]
+macro_rules! log {
+    ($($arg:tt)*) => {};
+}
 
 #[program]
 pub mod managed_funds {
@@ -29,32 +43,7 @@ pub mod managed_funds {
         instructions::deposit(ctx, amount)
     }
 
-    /// Withdraw from a fund
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        instructions::withdraw(ctx, amount)
-    }
-
-    /// Execute a trade (only fund manager)
-    pub fn execute_trade(
-        ctx: Context<ExecuteTrade>,
-        input_mint: Pubkey,
-        output_mint: Pubkey,
-        amount_in: u64,
-        minimum_amount_out: u64,
-    ) -> Result<()> {
-        instructions::execute_trade(ctx, input_mint, output_mint, amount_in, minimum_amount_out)
-    }
-
-    /// Update fund settings (only fund manager)
-    pub fn update_fund(
-        ctx: Context<UpdateFund>,
-        name: Option<String>,
-        description: Option<String>,
-        management_fee: Option<u16>,
-        performance_fee: Option<u16>,
-    ) -> Result<()> {
-        instructions::update_fund(ctx, name, description, management_fee, performance_fee)
-    }
+    // Removed legacy withdraw, execute_trade, and update_fund instructions (unused in production)
 
     /// Initiate a withdrawal with position liquidation
     pub fn initiate_withdrawal(
@@ -64,43 +53,12 @@ pub mod managed_funds {
         instructions::initiate_withdrawal(ctx, shares_to_withdraw)
     }
 
-    /// Liquidate positions in batches during withdrawal
-    pub fn liquidate_positions_batch(
-        ctx: Context<LiquidatePositionsBatch>,
-        position_indices: Vec<u8>,
-        minimum_amounts_out: Vec<u64>,
-    ) -> Result<()> {
-        instructions::liquidate_positions_batch(ctx, position_indices, minimum_amounts_out)
-    }
-
     /// Finalize withdrawal and distribute SOL
     pub fn finalize_withdrawal(ctx: Context<FinalizeWithdrawal>) -> Result<()> {
         instructions::finalize_withdrawal(ctx)
     }
 
-    /// Pay RWA investors with a single CPI fan-out from manager signer
-    pub fn pay_rwa_investors<'info>(
-        ctx: Context<'_, '_, '_, 'info, PayRwaInvestors<'info>>,
-        amounts: Vec<u64>,
-    ) -> Result<()> {
-        require!(!amounts.is_empty(), errors::FundError::InvalidInput);
-        require!(ctx.remaining_accounts.len() == amounts.len(), errors::FundError::InvalidInput);
-
-        for (i, recipient_ai) in ctx.remaining_accounts.iter().enumerate() {
-            let amount = amounts[i];
-            if amount == 0 { continue; }
-
-            let from_ai = ctx.accounts.manager.to_account_info();
-            let to_ai = recipient_ai.clone();
-            let program_ai = ctx.accounts.system_program.to_account_info();
-
-            let cpi_accounts = anchor_lang::system_program::Transfer { from: from_ai, to: to_ai };
-            let cpi_ctx = anchor_lang::prelude::CpiContext::new(program_ai, cpi_accounts);
-            anchor_lang::system_program::transfer(cpi_ctx, amount)?;
-        }
-
-        Ok(())
-    }
+    // Removed pay_rwa_investors (deferred for future implementation)
 
     /// Distribute SOL from vault to investors by share percentage, taking platform and performance fees.
     pub fn pay_fund_investors<'info>(
@@ -110,27 +68,85 @@ pub mod managed_funds {
         instructions::pay_fund_investors(ctx, total_amount)
     }
 
-    /// Debug vault state (manager only). Prints owner, size, token fields if possible.
-    pub fn debug_vault(ctx: Context<DebugVault>) -> Result<()> {
-        instructions::debug_vault(ctx)
+    // Removed debug_vault (no longer needed in production)
+    // Removed investor_fund_withdrawal and swap authorize/revoke (unused in production)
+
+    // Removed ping_build (no longer needed)
+
+    /// Shared accounts model swap (program-owned vaults) via Jupiter
+    // removed swap_tokens_shared
+
+    /// Initialize vault PDA used by the standalone vault-based Jupiter CPI path
+    pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
+        instructions::initialize_vault(ctx)
     }
 
-    /// Investor withdraws full participation (SOL-only devnet path), taking platform and performance fees.
-    pub fn investor_fund_withdrawal(ctx: Context<InvestorFundWithdrawal>) -> Result<()> {
-        instructions::investor_fund_withdrawal(ctx)
-    }
-
-    /// Authorize a Jupiter swap: approve manager as delegate on the vault for amount_in.
-    pub fn authorize_defund_swap(
-        ctx: Context<AuthorizeDefundSwap>,
-        input_mint: Pubkey,
-        amount_in: u64,
+    /// Forward Jupiter router instruction using vault PDA as program authority signer
+    pub fn token_swap_vault<'info>(
+        ctx: Context<'_, '_, 'info, 'info, TokenSwapVault<'info>>,
+        data: Vec<u8>,
+        tmp: Vec<u8>,
     ) -> Result<()> {
-        instructions::authorize_defund_swap(ctx, input_mint, amount_in)
+        instructions::token_swap_vault(ctx, data, tmp)
     }
 
-    /// Revoke Jupiter swap authorization: remove delegate from the vault.
-    pub fn revoke_defund_swap(ctx: Context<RevokeDefundSwap>) -> Result<()> {
-        instructions::revoke_defund_swap(ctx)
+    // removed: liquidate_positions_batch (deleted)
+    // removed: withdraw_swap_router (deleted)
+
+    /// Investor-only: forward a single Jupiter router swap for withdrawals.
+    pub fn withdraw_swap_instruction<'info>(
+        ctx: Context<'_, '_, 'info, 'info, WithdrawSwapInstruction<'info>>,
+        router_data: Vec<u8>,
+        in_amount: u64,
+        out_min_amount: u64,
+    ) -> Result<()> {
+        instructions::withdraw_swap_instruction(ctx, router_data, in_amount, out_min_amount)
+    }
+
+    /// Close the Fund's WSOL ATA and return lamports to the Fund PDA (unwrap)
+    pub fn unwrap_wsol_fund(ctx: Context<UnwrapWsolFund>) -> Result<()> {
+        instructions::unwrap_wsol_fund(ctx)
+    }
+
+    /// Transfer SPL tokens between Fund PDA-owned token accounts (same mint)
+    pub fn pda_token_transfer(
+        ctx: Context<PdaTokenTransfer>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_token_transfer(ctx, amount)
+    }
+
+    /// Move lamports from the Fund PDA to a system account (manager-controlled)
+    pub fn pda_lamports_transfer(
+        ctx: Context<PdaLamportsTransfer>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_lamports_transfer(ctx, amount)
+    }
+
+    /// Approve manager as delegate on a Fund-owned token account for a given amount
+    pub fn pda_token_approve(
+        ctx: Context<PdaTokenApprove>,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::pda_token_approve(ctx, amount)
+    }
+
+    /// Revoke any delegate on a Fund-owned token account
+    pub fn pda_token_revoke(
+        ctx: Context<PdaTokenRevoke>,
+    ) -> Result<()> {
+        instructions::pda_token_revoke(ctx)
+    }
+
+    /// One-time: set the NAV attestor for this fund (manager only)
+    /// Investor-provided NAV attestation write (uses configured attestor key)
+    pub fn nav_attest_write(ctx: Context<NavAttestWrite>, nav_value: u64, expires_at: i64) -> Result<()> {
+        instructions::nav_attest_write(ctx, nav_value, expires_at)
+    }
+
+    /// Close any number of zero-balance Fund-owned SPL token accounts and send lamports to the Fund WSOL ATA
+    pub fn close_zero_token_accounts<'info>(ctx: Context<'_, '_, 'info, 'info, CloseZeroTokenAccounts<'info>>) -> Result<()> {
+        instructions::close_zero_token_accounts(ctx)
     }
 }

@@ -193,13 +193,13 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {(((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []).map((inv: any) => {
+                {(((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []).map((inv: any, idx: number) => {
                   const shares = Math.max(0, inv.shares || 0);
                   const invs = (((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []);
                   const total = Math.max(0, invs.reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
                   const pct = total > 0 ? Math.min(100, (100 * shares) / total) : 0;
                   return (
-                    <tr key={inv.walletAddress} className="hover:bg-brand-yellow/5 transition">
+                    <tr key={`${inv.walletAddress}-${idx}`} className="hover:bg-brand-yellow/5 transition">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{inv.walletAddress.slice(0, 4)}...{inv.walletAddress.slice(-4)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{shares.toFixed(4)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{pct.toFixed(2)}%</td>
@@ -232,7 +232,7 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
                       <div>Total: <span className="text-emerald-400">{p.totalValue.toFixed(4)} SOL</span></div>
                     </div>
                     <div className="text-sm">
-                      <SolscanLink signature={p.signature} cluster="devnet" />
+                      <SolscanLink signature={p.signature}/>
                     </div>
                   </div>
                   <div className="overflow-x-auto">

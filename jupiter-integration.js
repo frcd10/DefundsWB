@@ -159,7 +159,7 @@ class JupiterService {
 
       console.log(`✅ Jupiter swap completed successfully!`);
       console.log(`   Transaction: ${signature}`);
-      console.log(`   Explorer: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
+  console.log(`   Explorer: https://explorer.solana.com/tx/${signature}`);
 
       return signature;
     } catch (error) {

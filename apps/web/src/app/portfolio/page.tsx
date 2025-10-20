@@ -26,19 +26,6 @@ interface PortfolioData {
   totalPnLPercentage: number;
   activeFunds: number;
   positions: PortfolioPosition[];
-  rwaPositions?: RwaPosition[];
-}
-
-interface RwaPosition {
-  fundId: string;
-  name: string;
-  type: string;
-  invested: number;
-  received: number;
-  ownership: number;
-  userShares: number;
-  totalShares: number;
-  lastUpdated: string;
 }
 
 export default function PortfolioPage() {
@@ -144,7 +131,7 @@ export default function PortfolioPage() {
     );
   }
 
-  if (!portfolio || (portfolio.positions.length === 0 && (!portfolio.rwaPositions || portfolio.rwaPositions.length === 0))) {
+  if (!portfolio || portfolio.positions.length === 0) {
     return (
       <div className="min-h-screen bg-brand-black text-white">
         <div className="max-w-6xl mx-auto px-4 py-20">
@@ -154,7 +141,7 @@ export default function PortfolioPage() {
               You don&apos;t have any positions yet.
             </p>
             <p className="text-sm text-white/50 mb-8">
-              Start by creating a fund or investing in existing funds/RWA products to build your portfolio.
+              Start by creating a fund or investing in existing funds to build your portfolio.
             </p>
             <Button 
               onClick={() => window.location.href = '/Funds'} 
@@ -178,25 +165,25 @@ export default function PortfolioPage() {
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Value</h3>
             <p className="text-2xl font-bold text-emerald-400">
-              {portfolio.totalValue.toFixed(2)} SOL
+              {portfolio.totalValue.toFixed(4)} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Invested</h3>
             <p className="text-2xl font-bold text-white">
-              {portfolio.totalInvested.toFixed(2)} SOL
+              {portfolio.totalInvested.toFixed(4)} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">Total Withdraw</h3>
             <p className="text-2xl font-bold text-orange-400">
-              {portfolio.totalWithdrawn?.toFixed(2) || '0.00'} SOL
+              {portfolio.totalWithdrawn?.toFixed(4) || '0.0000'} SOL
             </p>
           </div>
           <div className="rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10">
             <h3 className="text-sm font-medium text-white/70 mb-2">P&L</h3>
             <p className={`text-2xl font-bold ${portfolio.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(2)} SOL
+              {portfolio.totalPnL >= 0 ? '+' : ''}{portfolio.totalPnL.toFixed(4)} SOL
               <span className="text-sm ml-2">
                 ({portfolio.totalPnLPercentage >= 0 ? '+' : ''}{portfolio.totalPnLPercentage.toFixed(2)}%)
               </span>
@@ -272,13 +259,13 @@ export default function PortfolioPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-white">{position.currentValue.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-white">{position.initialInvestment.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(2)} SOL</p>
+                      <p className="text-sm font-medium text-orange-400">{position.totalWithdrawals.toFixed(4)} SOL</p>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -292,7 +279,7 @@ export default function PortfolioPage() {
                           return (
                             <>
           <p className={`text-sm font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} SOL
+                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(4)} SOL
                               </p>
           <p className={`text-xs ${pnlPercentage >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
@@ -317,60 +304,7 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* RWA Investments Table */}
-        <div className="rounded-2xl bg-brand-surface/70 backdrop-blur-sm border border-white/10 overflow-hidden mt-10">
-          <div className="p-6 border-b border-white/10">
-            <h2 className="text-xl font-semibold text-white">RWA Investments</h2>
-            <p className="text-xs text-white/50 mt-1">Shows your ownership, total invested, and payments received.</p>
-          </div>
-
-          {portfolio.rwaPositions && portfolio.rwaPositions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-brand-surface">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Product</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Ownership</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Invested</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Received</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {portfolio.rwaPositions.map((p) => (
-                    <tr key={p.fundId} className="group hover:bg-brand-yellow/5 transition">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-sm font-medium text-white">{p.name}</p>
-                          <p className="text-xs text-white/50">{p.fundId.slice(0, 8)}...</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-yellow text-brand-black">
-                          {p.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <p className="text-sm font-medium text-white">{(p.ownership || 0).toFixed(2)}%</p>
-                          <p className="text-xs text-white/50">{(p.userShares || 0).toFixed(2)} / {(p.totalShares || 0).toFixed(2)}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-white">{p.invested.toFixed(2)} SOL</p>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-emerald-400">{(p.received || 0).toFixed(2)} SOL</p>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-6 text-sm text-white/50">No RWA investments yet.</div>
-          )}
-        </div>
+        {/* RWA section removed from portfolio page */}
 
         {/* Last Updated */}
         <div className="text-center mt-8">

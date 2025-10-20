@@ -33,19 +33,43 @@ export async function sendAndConfirmWithRetry(
       tx.recentBlockhash = blockhash;
       // preserve original fee payer if set else wallet pk
       if (!tx.feePayer && wallet.publicKey) tx.feePayer = wallet.publicKey;
-  const signed = await wallet.signTransaction(tx);
-  const wireSig = signed.signatures[0].signature ? bs58.encode(signed.signatures[0].signature as Uint8Array) : '';
+      const signed = await wallet.signTransaction(tx);
+      const wireSig = signed.signatures[0].signature ? bs58.encode(signed.signatures[0].signature as Uint8Array) : '';
       try {
         const sig = await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: 'processed', maxRetries });
-        await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, commitment as any);
-        return sig;
+
+        // Confirm by HTTP polling only (avoid WebSocket onSignature failures in browsers)
+        const pollStart = Date.now();
+        const pollTimeoutMs = 60_000; // hard stop safety
+        while (true) {
+          const statuses = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true } as any);
+          const st = statuses.value[0];
+          if (st) {
+            if (st.err) throw new Error('Transaction failed: ' + JSON.stringify(st.err));
+            if (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized') {
+              return sig;
+            }
+          }
+          // Check block height expiry window
+          const current = await connection.getBlockHeight('finalized');
+          if (current > lastValidBlockHeight + 1) {
+            // Blockhash window exceeded. The tx may still land; return sig and let server/API verify.
+            return sig;
+          }
+          if (Date.now() - pollStart > pollTimeoutMs) {
+            // Give up but return signature so the caller can proceed and server can verify
+            return sig;
+          }
+          await new Promise((r) => setTimeout(r, 600));
+        }
       } catch (e: any) {
+        // Idempotent success path
+        if (e?.message?.includes('already been processed')) return wireSig;
         if (e?.message?.toLowerCase().includes('blockhash not found') || e?.message?.toLowerCase().includes('expired blockhash')) {
           lastErr = e;
           attempt++;
-          continue; // refetch new blockhash and retry
+          continue; // refetch new blockhash and retry send
         }
-        if (e?.message?.includes('already been processed')) return wireSig; // idempotent success
         throw e;
       }
     } catch (outer) {

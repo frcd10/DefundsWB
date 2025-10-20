@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::AccountDeserialize;
 use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo};
 use anchor_spl::associated_token::AssociatedToken;
 use crate::state::*;
@@ -71,6 +72,25 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     let investor_position = &mut ctx.accounts.investor_position;
     let clock = Clock::get()?;
 
+    // Optionally refresh NAV from a NavAttestation passed as a remaining account.
+    // This preserves the instruction signature and flow; investors can include nav_attest_write
+    // in the same transaction before calling deposit.
+    if let Some(nav_ai) = ctx.remaining_accounts.get(0) {
+        // Deserialize NavAttestation directly from raw data to avoid lifetime issues
+        let mut data_slice: &[u8] = &nav_ai.data.borrow();
+        if let Ok(nav_att) = NavAttestation::try_deserialize(&mut data_slice) {
+            if nav_att.fund == fund.key() && nav_att.expires_at >= clock.unix_timestamp {
+                // Safety: only accept NAV that is not below existing recorded NAV or base-mint vault balance
+                let floor = fund
+                    .total_assets
+                    .max(ctx.accounts.vault.amount);
+                if nav_att.nav_value >= floor {
+                    fund.total_assets = nav_att.nav_value;
+                }
+            }
+        }
+    }
+
     // Calculate shares to mint based on current fund valuation
     let shares_to_mint = fund.calculate_shares_to_mint(amount);
 
@@ -126,13 +146,6 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         investor_position.total_deposited = investor_position.total_deposited.checked_add(amount).ok_or(FundError::MathOverflow)?;
         investor_position.last_activity_at = clock.unix_timestamp;
     }
-
-    msg!(
-        "Deposited {} tokens to fund '{}', minted {} shares",
-        amount,
-        fund.name,
-        shares_to_mint
-    );
 
     Ok(())
 }

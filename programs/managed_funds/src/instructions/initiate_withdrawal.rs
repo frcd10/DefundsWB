@@ -55,24 +55,26 @@ pub fn initiate_withdrawal(
     // In a real implementation, this would fetch from vault positions
     let total_positions = 0u8; // Will be updated when position tracking is implemented
 
+    let total_shares_snapshot = fund.total_shares;
+    // Use 1e6 precision for fraction to minimize rounding errors
+    let fraction_bps: u32 = if total_shares_snapshot == 0 { 0 } else { ((shares_to_withdraw as u128 * 1_000_000u128) / total_shares_snapshot as u128) as u32 };
+
     **withdrawal_state = WithdrawalState {
         investor: ctx.accounts.investor.key(),
         vault: fund.key(),
         shares_to_withdraw,
+        total_shares_snapshot,
+        fraction_bps,
+        wsol_unwrapped: 0,
         positions_liquidated: 0,
         total_positions,
         sol_accumulated: 0,
+        input_allowed_total_sum: 0,
+        input_liquidated_sum: 0,
         status: WithdrawalStatus::Initiated,
         created_at: clock.unix_timestamp,
         bump: ctx.bumps.withdrawal_state,
     };
-
-    msg!(
-        "Initiated withdrawal for investor {} from fund {}, shares: {}",
-        ctx.accounts.investor.key(),
-        fund.key(),
-        shares_to_withdraw
-    );
 
     Ok(())
 }

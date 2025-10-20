@@ -95,12 +95,13 @@ export async function GET(req: NextRequest) {
       },
       { $addFields: { invitedUsersCalc: { $ifNull: [{ $arrayElemAt: ['$invitedAgg.cnt', 0] }, 0] } } },
 
-      // Total invested from Funds.investments
+      // Total invested from Funds.investments (exclude devnet funds)
       {
         $lookup: {
           from: 'Funds',
           let: { addr: '$address' },
           pipeline: [
+            { $match: { cluster: { $ne: 'devnet' } } },
             { $project: { investments: 1 } },
             { $unwind: { path: '$investments', preserveNullAndEmptyArrays: false } },
             { $match: { $expr: { $eq: ['$investments.walletAddress', '$$addr'] } } },
@@ -111,12 +112,13 @@ export async function GET(req: NextRequest) {
       },
       { $addFields: { fundsInvestedCalc: { $ifNull: [{ $arrayElemAt: ['$fundsAgg.amt', 0] }, 0] } } },
 
-      // Total invested from Rwa.investments
+      // Total invested from Rwa.investments (exclude devnet if present; include docs without cluster field)
       {
         $lookup: {
           from: 'Rwa',
           let: { addr: '$address' },
           pipeline: [
+            { $match: { $or: [ { cluster: { $exists: false } }, { cluster: { $ne: 'devnet' } } ] } },
             { $project: { investments: 1 } },
             { $unwind: { path: '$investments', preserveNullAndEmptyArrays: false } },
             { $match: { $expr: { $eq: ['$investments.walletAddress', '$$addr'] } } },

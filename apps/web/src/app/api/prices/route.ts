@@ -3,235 +3,114 @@ import getClientPromise from '@/lib/mongodb';
 
 export const runtime = 'nodejs';
 
-// Tiny in-memory rate limiter (per process, per IP)
-const RL_WINDOW_MS = Number(process.env.PRICES_RATE_WINDOW_MS || 5000); // 5s
-const RL_LIMIT = Number(process.env.PRICES_RATE_LIMIT || 60); // default 60 req / 5s (tunable via env)
-type Bucket = { hits: number[] };
-const buckets: Map<string, Bucket> = new Map();
-
-// Tiny in-memory response cache for frequent, identical requests
-const CACHE_TTL_MS = Number(process.env.PRICES_CACHE_TTL_MS || 3000); // 3s
 type PriceItem = { mint: string; priceBaseUnits: string; updatedAt: number; name?: string };
-type CacheEntry = { items: PriceItem[]; expires: number };
-const cache: Map<string, CacheEntry> = new Map();
-// Coalesce concurrent computations for the same set of mints
-const inflight: Map<string, Promise<PriceItem[]>> = new Map();
 
-function getClientIp(req: NextRequest): string {
-  const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
-  const xri = req.headers.get('x-real-ip');
-  if (xri) return xri.trim();
+function maskHelius(url: string): string {
   try {
-    const u = new URL(req.url);
-    return u.hostname || 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-
-function checkRateLimit(ip: string): { allowed: boolean; headers: Record<string, string> } {
-  const now = Date.now();
-  let b = buckets.get(ip);
-  if (!b) { b = { hits: [] }; buckets.set(ip, b); }
-  // drop old
-  while (b.hits.length && (now - b.hits[0]) > RL_WINDOW_MS) b.hits.shift();
-  const remaining = Math.max(0, RL_LIMIT - b.hits.length);
-  const headers: Record<string, string> = {
-    'x-ratelimit-limit': String(RL_LIMIT),
-    'x-ratelimit-remaining': String(remaining),
-    'x-ratelimit-window-ms': String(RL_WINDOW_MS),
-  };
-  if (b.hits.length >= RL_LIMIT) {
-    const resetIn = RL_WINDOW_MS - (now - (b.hits[0] || now));
-    headers['retry-after'] = String(Math.ceil(resetIn / 1000));
-    return { allowed: false, headers };
-  }
-  b.hits.push(now);
-  return { allowed: true, headers };
-}
-
-// Peek headers without consuming a rate token
-function currentRateHeaders(ip: string): Record<string, string> {
-  const now = Date.now();
-  let b = buckets.get(ip);
-  if (!b) { b = { hits: [] }; buckets.set(ip, b); }
-  while (b.hits.length && (now - b.hits[0]) > RL_WINDOW_MS) b.hits.shift();
-  const remaining = Math.max(0, RL_LIMIT - b.hits.length);
-  return {
-    'x-ratelimit-limit': String(RL_LIMIT),
-    'x-ratelimit-remaining': String(remaining),
-    'x-ratelimit-window-ms': String(RL_WINDOW_MS),
-  };
-}
-
-function backendBases(currentHost: string): string[] {
-  const bases: string[] = [];
-  const envPrimary = (process.env.BACKEND_URL || '').trim();
-  const envPublic = (process.env.NEXT_PUBLIC_BACKEND_URL || '').trim();
-  const pushIfValid = (u: string) => {
-    try {
-      if (!u) return;
-      const fixed = u.replace(/\/$/, '');
-      const h = new URL(fixed).host;
-      // Avoid self-recursion: don't proxy to the same host we're handling
-      if (h && h !== currentHost) bases.push(fixed);
-    } catch {
-      // ignore invalid URL
+    const u = new URL(url);
+    if (u.searchParams.has('api-key')) {
+      u.searchParams.set('api-key', '***');
     }
-  };
-  pushIfValid(envPrimary);
-  pushIfValid(envPublic);
-  // Only include localhost fallbacks when we're running locally
-  const isLocal = currentHost.startsWith('localhost') || currentHost.startsWith('127.0.0.1');
-  if (isLocal) {
-    ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:10000', 'http://127.0.0.1:10000']
-      .forEach(pushIfValid);
+    return u.toString();
+  } catch {
+    return '[invalid-url]';
   }
-  return Array.from(new Set(bases));
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const id = setTimeout(() => {
-      const err: any = new Error(`upstream timeout after ${ms}ms`);
-      err.name = 'TimeoutError';
-      reject(err);
-    }, ms);
+    const id = setTimeout(() => reject(new Error(`timeout ${ms}ms`)), ms);
     p.then((v) => { clearTimeout(id); resolve(v); }, (e) => { clearTimeout(id); reject(e); });
   });
 }
 
 export async function GET(req: NextRequest) {
-  const ip = getClientIp(req);
-  const reqUrl = new URL(req.url);
-  const currentHost = reqUrl.host;
-  const searchParams = new URLSearchParams(reqUrl.search);
-  // Dedupe and softly limit mints to avoid pathological query sizes
-  if (searchParams.has('mints')) {
-    const unique = Array.from(new Set(searchParams.getAll('mints')));
-    const limited = unique.slice(0, 50);
-    searchParams.delete('mints');
-    for (const m of limited) searchParams.append('mints', m);
-  }
-  const search = `?${searchParams.toString()}`;
-  const bases = backendBases(currentHost);
-
-  // If a backend base is configured, proxy to it (multi-service mode)
-  if (bases.length > 0) {
-    const errors: { target: string; message: string }[] = [];
-    for (const base of bases) {
-      const target = `${base}/api/prices${search}`;
-      try {
-        // Add a short timeout to prevent tying up memory on slow upstreams
-        const upstream = await withTimeout(fetch(target, { cache: 'no-store' }), 5000);
-        // Stream the response body instead of buffering
-        const headers = new Headers();
-        const ct = upstream.headers.get('content-type');
-        if (ct) headers.set('content-type', ct);
-        // Include current rate headers for observability (not enforced on proxy)
-        const peek = currentRateHeaders(ip);
-        for (const [k, v] of Object.entries(peek)) headers.set(k, v);
-        return new NextResponse(upstream.body, { status: upstream.status, headers });
-      } catch (e: any) {
-        errors.push({ target, message: e?.message || String(e) });
-        continue;
-      }
-    }
-    return NextResponse.json({ error: 'backend-unavailable', details: errors }, { status: 502 });
-  }
-
-  // Single-service fallback: compute prices here using Helius and Mongo
+  const t0 = Date.now();
+  console.log('=== PRICES API START ===');
   try {
-    const raw = searchParams.getAll('mints');
+    const url = new URL(req.url);
+    const raw = url.searchParams.getAll('mints');
+    console.log('[step] qs parsed', { rawCount: raw.length });
     const mints = Array.from(new Set(raw.filter(Boolean)));
+    console.log('[step] mints deduped', { count: mints.length, mints });
     if (mints.length === 0) {
-      return NextResponse.json({ items: [] }, { status: 200, headers: currentRateHeaders(ip) });
+      console.log('[done] no mints, returning empty list');
+      return NextResponse.json({ items: [] }, { status: 200 });
     }
 
-    // Cache by sorted mints to collapse repeated requests from the same page
-    const cacheKey = mints.slice().sort().join(',');
-    const nowMs = Date.now();
-    const cached = cache.get(cacheKey);
-    if (cached && cached.expires > nowMs) {
-      return NextResponse.json({ items: cached.items }, { status: 200, headers: currentRateHeaders(ip) });
+    const client = await getClientPromise();
+    const db = client.db('Defunds');
+    const col = db.collection<{ _id: string; priceBaseUnits?: string; updatedAt?: number; name?: string }>('tokensPrice');
+    console.log('[step] mongo connected: Defunds.tokensPrice');
+
+    function getHeliusUrl() {
+      const key = process.env.HELIUS_API_KEY || process.env.HELIUS_KEY || '';
+      const base = process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : 'https://api.mainnet-beta.solana.com');
+      return base;
     }
+    const heliusUrl = getHeliusUrl();
+    console.log('[step] helius url', { url: maskHelius(heliusUrl) });
 
-    // Coalesce concurrent requests for same mints without consuming rate tokens
-    const existing = inflight.get(cacheKey);
-    if (existing) {
-      const items = await existing;
-      return NextResponse.json({ items }, { status: 200, headers: currentRateHeaders(ip) });
-    }
+    const nowSec = Math.floor(Date.now() / 1000);
+    const maxAgeSec = Number(process.env.PRICE_MAX_TIME_LIMIT || process.env.priceMaxTimeLimit || '300');
+    console.log('[step] timing', { nowSec, maxAgeSec });
 
-    // Only the leader consumes a rate token
-    const rl = checkRateLimit(ip);
-    if (!rl.allowed) {
-      return NextResponse.json({ items: cached?.items || [] }, { status: 200, headers: rl.headers });
-    }
-
-    const leaderPromise = (async (): Promise<PriceItem[]> => {
-      const client = await getClientPromise();
-      const col = client.db('Defunds').collection<{ _id: string; priceBaseUnits?: string; updatedAt?: number; name?: string }>('tokensPrice');
-
-      function getHeliusUrl() {
-        const key = process.env.HELIUS_API_KEY || process.env.HELIUS_KEY || '';
-        const base = process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : 'https://api.mainnet-beta.solana.com');
-        return base;
-      }
-      const heliusUrl = getHeliusUrl();
-      const nowSec = Math.floor(Date.now() / 1000);
-      const maxAgeSec = Number(process.env.PRICE_MAX_TIME_LIMIT || process.env.priceMaxTimeLimit || '300');
-
-      const items: Array<{ mint: string; priceBaseUnits: string; updatedAt: number; name?: string }> = [];
-      for (const mint of mints) {
-        try {
-          const cached = await col.findOne({ _id: mint } as any);
-          let priceBaseUnits: string | null = cached?.priceBaseUnits || null;
-          let updatedAt: number = Number(cached?.updatedAt || 0);
-          let name: string | undefined = cached?.name;
-          const tooOld = !updatedAt || (nowSec - updatedAt) > maxAgeSec;
-          if (!priceBaseUnits || tooOld || !name) {
-            const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
-            try {
-              const resp = await withTimeout(fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }), 4500);
-              if (resp.ok) {
-                const data: any = await resp.json();
-                const tokenInfo = data?.result?.token_info || {};
-                const priceInfo = tokenInfo?.price_info || {};
-                const pricePerToken = Number(priceInfo?.price_per_token || 0);
-                if (pricePerToken > 0) {
-                  priceBaseUnits = Math.round(pricePerToken * 1_000_000).toString();
-                  updatedAt = nowSec;
-                }
-                name = tokenInfo?.symbol || tokenInfo?.name || name;
-                if (priceBaseUnits) {
-                  await col.updateOne({ _id: mint } as any, { $set: { priceBaseUnits, updatedAt, name } }, { upsert: true });
-                }
+    // Fetch each mint, in parallel for small sets
+    const items: PriceItem[] = await Promise.all(mints.map(async (mint) => {
+      const tMint0 = Date.now();
+      try {
+        console.log('[mint] start', { mint });
+        const cached = await col.findOne({ _id: mint } as any);
+        console.log('[mint] cache', { mint, has: !!cached, updatedAt: cached?.updatedAt, price: cached?.priceBaseUnits, name: cached?.name });
+        let priceBaseUnits: string | null = cached?.priceBaseUnits || null;
+        let updatedAt: number = Number(cached?.updatedAt || 0);
+        let name: string | undefined = cached?.name;
+        const tooOld = !updatedAt || (nowSec - updatedAt) > maxAgeSec;
+        console.log('[mint] cache status', { mint, tooOld, updatedAt });
+        if (!priceBaseUnits || tooOld || !name) {
+          const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
+          console.log('[mint] helius fetch', { mint });
+          try {
+            const resp = await withTimeout(fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }), 4500);
+            console.log('[mint] helius resp', { mint, ok: resp.ok, status: resp.status });
+            if (resp.ok) {
+              const data: any = await resp.json();
+              const tokenInfo = data?.result?.token_info || {};
+              const priceInfo = tokenInfo?.price_info || {};
+              const pricePerToken = Number(priceInfo?.price_per_token || 0);
+              console.log('[mint] helius parsed', { mint, pricePerToken });
+              if (pricePerToken > 0) {
+                priceBaseUnits = Math.round(pricePerToken * 1_000_000).toString();
+                updatedAt = nowSec;
               }
-            } catch {
-              // ignore timeout/error; fall back to cache if any
+              name = tokenInfo?.symbol || tokenInfo?.name || name;
+              if (priceBaseUnits) {
+                await col.updateOne({ _id: mint } as any, { $set: { priceBaseUnits, updatedAt, name } }, { upsert: true });
+                console.log('[mint] cache upserted', { mint, priceBaseUnits, updatedAt, name });
+              }
+            } else {
+              console.log('[mint] helius not ok', { mint, status: resp.status });
             }
+          } catch (e: any) {
+            console.log('[mint] helius error', { mint, error: e?.message || String(e) });
           }
-          items.push({ mint, priceBaseUnits: priceBaseUnits || '0', updatedAt, name });
-        } catch {
-          items.push({ mint, priceBaseUnits: '0', updatedAt: 0 });
         }
+        const item: PriceItem = { mint, priceBaseUnits: priceBaseUnits || '0', updatedAt, name };
+        console.log('[mint] done', { mint, ms: Date.now() - tMint0, item });
+        return item;
+      } catch (e: any) {
+        console.log('[mint] failed', { mint, error: e?.message || String(e) });
+        return { mint, priceBaseUnits: '0', updatedAt: 0 };
       }
-      return items;
-    })();
+    }));
 
-    inflight.set(cacheKey, leaderPromise);
-    try {
-      const items = await leaderPromise;
-      // Store in tiny cache
-      cache.set(cacheKey, { items, expires: nowMs + CACHE_TTL_MS });
-      return NextResponse.json({ items }, { status: 200, headers: rl.headers });
-    } finally {
-      inflight.delete(cacheKey);
-    }
+    console.log('[done] items ready', { count: items.length, ms: Date.now() - t0 });
+    return NextResponse.json({ items }, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: 'prices_failed', message: e?.message || String(e) }, { status: 500, headers: currentRateHeaders(ip) });
+    console.error('=== PRICES API ERROR ===', e?.message || String(e));
+    return NextResponse.json({ error: 'prices_failed', message: e?.message || String(e) }, { status: 500 });
+  } finally {
+    console.log('=== PRICES API END ===', { ms: Date.now() - t0 });
   }
 }
 

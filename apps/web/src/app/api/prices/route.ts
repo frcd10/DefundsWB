@@ -119,10 +119,6 @@ export async function GET(req: NextRequest) {
 
   // If a backend base is configured, proxy to it (multi-service mode)
   if (bases.length > 0) {
-    const rl = checkRateLimit(ip);
-    if (!rl.allowed) {
-      return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: rl.headers });
-    }
     const errors: { target: string; message: string }[] = [];
     for (const base of bases) {
       const target = `${base}/api/prices${search}`;
@@ -133,8 +129,9 @@ export async function GET(req: NextRequest) {
         const headers = new Headers();
         const ct = upstream.headers.get('content-type');
         if (ct) headers.set('content-type', ct);
-        // Include rate-limit headers for observability
-        for (const [k, v] of Object.entries(rl.headers)) headers.set(k, v);
+        // Include current rate headers for observability (not enforced on proxy)
+        const peek = currentRateHeaders(ip);
+        for (const [k, v] of Object.entries(peek)) headers.set(k, v);
         return new NextResponse(upstream.body, { status: upstream.status, headers });
       } catch (e: any) {
         errors.push({ target, message: e?.message || String(e) });

@@ -68,13 +68,35 @@ const USDC_MINT_DEVNET = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJD
 // =============================================================================
 // WALLET CONFIGURATION
 // =============================================================================
-// ⚠️ HARDCODED TEST WALLET - FUNDED WITH 0.032882432 SOL ON MAINNET
-// Address: BFEanpFhQBrcAwXFUv9bhw53AijBXrSWwFPMVsWLq6ot
-const TEST_WALLET_PRIVATE_KEY = [
-93, 79, 79, 137, 235, 211, 183, 150, 75, 244, 181, 1, 9, 131, 96, 7, 223, 208, 127, 17, 90, 228, 247, 116, 210, 40, 253, 190, 209, 157, 31, 236, 152, 58, 91, 196, 142, 201, 19, 74, 252, 145, 218, 10, 167, 222, 67, 98, 152, 66, 52, 29, 67, 217, 192, 199, 211, 197, 84, 79, 75, 32, 101, 163
-];
+// Load testing keypair from environment to avoid committing private keys.
+// Preferred envs:
+// - TEST_WALLET_PRIVATE_KEY_JSON: JSON array of 64 numbers (secret key)
+// - MANAGER_SECRET_BASE58: base58-encoded secret key (requires optional 'bs58' dep)
 
-const MANAGER_KEYPAIR = Keypair.fromSecretKey(new Uint8Array(TEST_WALLET_PRIVATE_KEY));
+const bs58 = (() => { try { return require('bs58'); } catch { return null; } })();
+const MANAGER_SECRET_BASE58 = (process.env.MANAGER_SECRET_BASE58 || '').trim();
+const TEST_WALLET_PRIVATE_KEY_JSON = (process.env.TEST_WALLET_PRIVATE_KEY_JSON || '').trim();
+
+let MANAGER_KEYPAIR;
+if (TEST_WALLET_PRIVATE_KEY_JSON) {
+  try {
+    const arr = JSON.parse(TEST_WALLET_PRIVATE_KEY_JSON);
+    if (!Array.isArray(arr)) throw new Error('TEST_WALLET_PRIVATE_KEY_JSON must be a JSON array');
+    MANAGER_KEYPAIR = Keypair.fromSecretKey(new Uint8Array(arr));
+  } catch (e) {
+    throw new Error(`Invalid TEST_WALLET_PRIVATE_KEY_JSON: ${e.message}`);
+  }
+} else if (MANAGER_SECRET_BASE58) {
+  if (!bs58) throw new Error("MANAGER_SECRET_BASE58 set but 'bs58' module not installed. Use TEST_WALLET_PRIVATE_KEY_JSON instead or install bs58.");
+  try {
+    const bytes = bs58.decode(MANAGER_SECRET_BASE58);
+    MANAGER_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from(bytes));
+  } catch (e) {
+    throw new Error(`Invalid MANAGER_SECRET_BASE58: ${e.message}`);
+  }
+} else {
+  throw new Error('Set TEST_WALLET_PRIVATE_KEY_JSON or MANAGER_SECRET_BASE58 in your .env.local for testing');
+}
 
 // =============================================================================
 // TEST AMOUNTS

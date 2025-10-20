@@ -151,6 +151,9 @@ programs/**/target/
 *.swp
 *.swo
 
+# Local anchor config (may include provider URLs with API keys)
+Anchor.toml
+
 # Temporary files
 tmp/
 temp/

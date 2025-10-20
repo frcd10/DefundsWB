@@ -26,7 +26,8 @@
     "anchor:test": "anchor test",
     "anchor:deploy": "anchor deploy && node scripts/sync-idl.js",
     
-    "validate:payout": "ts-node scripts/validatePayout.ts"
+    "validate:payout": "ts-node scripts/validatePayout.ts",
+    "scan:secrets": "bash scripts/scan-secrets.sh"
   },
   "devDependencies": {
     "@turbo/gen": "^2.0.0",

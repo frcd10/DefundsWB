@@ -54,7 +54,7 @@ function Metric({ label, value, suffix = '+', decimals = 0 }: { label: string; v
 }
 
 export default function Landing() {
-  const { loading, activeFunds, activeRwa, totalInvestors, totalTvl } = useLandingMetrics();
+  const { loading, activeFunds, totalInvestors, totalTvl } = useLandingMetrics();
 
   // Lock the page to a single viewport without affecting fixed Navbar/Footer
   useEffect(() => {
@@ -114,6 +114,8 @@ export default function Landing() {
           <span className="flex items-center gap-1">Built on <span className="text-brand-yellow">Solana</span></span>
           <span className="hidden sm:inline-block w-px h-3 bg-white/15" />
           <span className="flex items-center gap-1">Open Source</span>
+          <span className="hidden sm:inline-block w-px h-3 bg-white/15" />
+          <span className="flex items-center gap-1">22 users on Devnet</span>
         </div>
 
   <h1 className="mb-6 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight max-w-4xl">
@@ -125,14 +127,13 @@ export default function Landing() {
           infrastructure, transparent fee mechanics and real-time program level NAV.
         </p>
 
-        {/* Metrics (dynamic) */}
-  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 mb-12 w-full max-w-4xl">
-          <Metric label="ACTIVE FUNDS" value={loading ? 0 : activeFunds} />
-          <Metric label="ACTIVE RWA" value={loading ? 0 : activeRwa} />
-          {/* Scale TVL by decimals factor so animation counts integer steps; then format */}
-          <Metric label="TOTAL TVL (SOL)" value={loading ? 0 : Math.round(totalTvl * 100)} suffix="" decimals={2} />
-          <Metric label="TOTAL INVESTORS" value={loading ? 0 : totalInvestors} />
-        </div>
+  {/* Metrics (dynamic) */}
+  <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10 mb-12 w-full max-w-4xl">
+    <Metric label="ACTIVE FUNDS" value={loading ? 0 : activeFunds} />
+    {/* Scale TVL by decimals factor so animation counts integer steps; then format */}
+    <Metric label="TOTAL TVL (SOL)" value={loading ? 0 : Math.round(totalTvl * 100)} suffix="" decimals={2} />
+    <Metric label="TOTAL INVESTORS" value={loading ? 0 : totalInvestors} />
+  </div>
 
         {/* Primary CTAs */}
 	<div className="flex flex-col sm:flex-row items-center gap-5">

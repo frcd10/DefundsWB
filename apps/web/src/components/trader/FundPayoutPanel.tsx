@@ -1,11 +1,14 @@
-'use client';
+"use client";
 
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { solanaFundServiceModular as solanaFundService } from '@/services/solanaFund';
 import { SolscanLink } from '@/components/SolscanLink';
+import { PublicKey } from '@solana/web3.js';
+import { deriveVaultSolPda } from '@/services/solanaFund/utils/pdas';
+import { PROGRAM_ID } from '@/services/solanaFund/core/constants';
 
 type FundDoc = {
   _id: string;
@@ -17,8 +20,9 @@ type FundDoc = {
   performanceFee?: number;
 };
 
-export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial<FundDoc> & Record<string, unknown>>; managerWallet: string }) {
+export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }: { funds: Array<Partial<FundDoc> & Record<string, unknown>>; managerWallet: string; treasury?: string }) {
   const wallet = useWallet();
+  const { connection } = useConnection();
   const [selectedId, setSelectedId] = useState<string>((funds[0]?.fundId as string) || '');
   const [payoutValue, setPayoutValue] = useState<string>('0');
   const [loading, setLoading] = useState(false);
@@ -28,7 +32,13 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
   const [localPayments, setLocalPayments] = useState<FundDoc['payments']>([]);
   const [submitted, setSubmitted] = useState(false);
   const [selectedLocal, setSelectedLocal] = useState<Record<string, unknown> | null>(null);
-  const [treasury, setTreasury] = useState<string | null>(null);
+  const [treasury, setTreasury] = useState<string | null>(treasuryProp ?? null);
+  const [onChainSol, setOnChainSol] = useState<number | null>(null);
+  const [fetchingBalance, setFetchingBalance] = useState(false);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+  const [totalSharesOnChain, setTotalSharesOnChain] = useState<number | null>(null);
+  const [ownershipPctMap, setOwnershipPctMap] = useState<Record<string, number>>({});
+  const [dedupedInvestors, setDedupedInvestors] = useState<Array<{ walletAddress: string }>>([]);
 
   const selected = useMemo(() => funds.find(f => f.fundId === selectedId), [funds, selectedId]);
 
@@ -41,20 +51,86 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
     setSelectedLocal(selected as Record<string, unknown> | null);
   }, [selectedId, selected?.payments]);
 
-  // On first render, fetch treasury if not present
+  // Auto-select first fund when list changes and nothing is selected
   useEffect(() => {
-    const fetchTreasury = async () => {
+    if ((!selectedId || !funds.some(f => f.fundId === selectedId)) && funds.length > 0) {
+      const first = String(funds[0].fundId || '');
+      if (first) setSelectedId(first);
+    }
+  }, [funds, selectedId]);
+
+  // Fetch on-chain SOL balance: prefer vault_sol PDA, fallback to fund PDA (for older flows)
+  useEffect(() => {
+    const fetchBalance = async () => {
       try {
-        if (!wallet.publicKey) return;
-        const refRes = await fetch(`/api/trader/eligible?wallet=${wallet.publicKey.toString()}`, { cache: 'no-store' });
-        const refJson = await refRes.json();
-        if (refJson?.success && typeof refJson.data?.treasury === 'string') {
-          setTreasury(refJson.data.treasury);
+        if (!selectedId) {
+          setOnChainSol(null);
+          return;
         }
-      } catch {}
+        setFetchingBalance(true);
+        const fundPk = new PublicKey(selectedId);
+        const [vaultSolPda] = deriveVaultSolPda(PROGRAM_ID, fundPk);
+        const [vaultLamports, fundLamports] = await Promise.all([
+          connection.getBalance(vaultSolPda, { commitment: 'processed' } as any).catch(() => 0),
+          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
+        ]);
+        const best = vaultLamports > 0 ? vaultLamports : fundLamports;
+        setOnChainSol(best / 1_000_000_000);
+      } catch (e) {
+        // If fetch fails, show as null to avoid misleading data
+        setOnChainSol(null);
+      } finally {
+        setFetchingBalance(false);
+      }
     };
-    if (!treasury) fetchTreasury();
-  }, [treasury, wallet.publicKey]);
+    // Debounce slightly in case selectedId flips rapidly
+    const t = setTimeout(fetchBalance, 50);
+    return () => clearTimeout(t);
+  }, [selectedId, connection, balanceRefreshKey]);
+
+  // Compute ownership percentages via backend single fetch and build de-duplicated investor list
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!selectedId) {
+          setOwnershipPctMap({});
+          setTotalSharesOnChain(null);
+          setDedupedInvestors([]);
+          return;
+        }
+        const res = await fetch(`/api/funds/ownership/${encodeURIComponent(selectedId)}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('ownership api failed');
+        const body = await res.json();
+        const data = body?.data;
+        const map: Record<string, number> = {};
+        const unique: Array<{ walletAddress: string }> = [];
+        if (data?.investors && Array.isArray(data.investors)) {
+          const seen = new Set<string>();
+          for (const it of data.investors) {
+            const w = String(it.wallet);
+            if (!seen.has(w)) {
+              seen.add(w);
+              unique.push({ walletAddress: w });
+            }
+            map[w] = Number(it.ownershipPct || 0);
+          }
+        }
+        setOwnershipPctMap(map);
+        setTotalSharesOnChain(Number(data?.totalSharesUi || 0) || null);
+        setDedupedInvestors(unique);
+      } catch {
+        setOwnershipPctMap({});
+        setTotalSharesOnChain(null);
+        setDedupedInvestors([]);
+      }
+    };
+    run();
+  }, [selectedId]);
+
+  // Sync treasury from prop
+  useEffect(() => {
+    if (treasuryProp && treasury !== treasuryProp) setTreasury(treasuryProp);
+  }, [treasuryProp]);
 
   const handlePayout = async () => {
     if (submitted) return; // guard double submit
@@ -114,6 +190,9 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
         { timestamp: nowIso, signature, totalValue: value, recipients },
       ]));
 
+      // Refresh on-chain balance shortly after payout
+      setTimeout(() => setBalanceRefreshKey((k) => k + 1), 500);
+
       // Re-fetch the latest fund data so balances reflect the payout without a page reload
       try {
         const refRes = await fetch(`/api/trader/eligible?wallet=${wallet.publicKey!.toString()}`, { cache: 'no-store' });
@@ -145,11 +224,20 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
       <div className="grid md:grid-cols-3 gap-4 items-end">
         <div>
           <label className="text-sm text-white/70">Fund</label>
-          <select className="input w-full appearance-none pr-8" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-            {funds.map((f, idx) => (
-              <option key={(f._id as string) || `fund-${idx}`} value={f.fundId as string}>{(f.name as string) || f.fundId as string}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm p-3 pr-10 appearance-none text-white"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              {funds.map((f, idx) => (
+                <option key={(f._id as string) || `fund-${idx}`} value={f.fundId as string} className="bg-brand-surface text-white">
+                  {(f.name as string) || (f.fundId as string)}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-white/50">▾</div>
+          </div>
         </div>
         <div>
           <label className="text-sm text-white/70">Payout Amount (SOL)</label>
@@ -179,8 +267,10 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
             <h3 className="text-lg font-semibold text-white">Investors</h3>
             <div className="flex items-center gap-3">
               <Button onClick={() => setShowHistory(true)} className="rounded-full bg-white/10 hover:bg-white/15 text-white/70 border border-white/10">Payments History</Button>
-              <span className="text-xs text-white/50">Fund SOL Balance: {Number(((selectedLocal as any)?.solBalance ?? 0)).toFixed(6)} SOL</span>
-              <span className="text-xs text-white/50">Total Shares: {Math.max(0, ((selectedLocal as any)?.totalShares as number) || (selected.totalShares as number) || 0)}</span>
+              <span className="text-xs text-white/50">
+                On-chain SOL: {fetchingBalance ? '…' : (onChainSol == null ? '—' : onChainSol.toFixed(6) + ' SOL')}
+              </span>
+              <span className="text-xs text-white/50">Total Shares: {(totalSharesOnChain ?? Math.max(0, ((selectedLocal as any)?.totalShares as number) || (selected.totalShares as number) || 0)).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -188,20 +278,15 @@ export function FundPayoutPanel({ funds, managerWallet }: { funds: Array<Partial
               <thead className="bg-brand-surface">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Wallet</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Shares</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 tracking-wide">Ownership</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {(((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []).map((inv: any, idx: number) => {
-                  const shares = Math.max(0, inv.shares || 0);
-                  const invs = (((selectedLocal as any)?.investments as any[]) || (selected.investments as any[]) || []);
-                  const total = Math.max(0, invs.reduce((s: number, i: any) => s + Math.max(0, i.shares || 0), 0));
-                  const pct = total > 0 ? Math.min(100, (100 * shares) / total) : 0;
+                {(dedupedInvestors || []).map((inv: any, idx: number) => {
+                  const pct = ownershipPctMap[String(inv.walletAddress)] ?? 0;
                   return (
                     <tr key={`${inv.walletAddress}-${idx}`} className="hover:bg-brand-yellow/5 transition">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{inv.walletAddress.slice(0, 4)}...{inv.walletAddress.slice(-4)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{shares.toFixed(4)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{pct.toFixed(2)}%</td>
                     </tr>
                   );

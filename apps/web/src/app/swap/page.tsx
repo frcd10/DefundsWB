@@ -99,6 +99,7 @@ export default function SwapPage() {
   const [minOut, setMinOut] = useState<number | null>(null);
   const [quoteLoading, setQuoteLoading] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
+  const [unwrapBusy, setUnwrapBusy] = useState<boolean>(false);
   const [lastSig, setLastSig] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState<boolean>(false);
   const lastClickRef = useRef<number>(0);
@@ -377,6 +378,79 @@ export default function SwapPage() {
               <div className="rounded-lg bg-black/30 border border-white/10 p-3">
                 <div className="text-xs text-white/60">WSOL balance</div>
                 <div className="text-lg font-semibold">{wsolUi.toFixed(6)} WSOL</div>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={!fundPubkey || wsolUi <= 0 || unwrapBusy || !publicKey}
+                    className={clsx(
+                      "inline-flex items-center gap-2 rounded-full bg-brand-yellow text-brand-black font-semibold px-3 py-1 text-xs",
+                      (!fundPubkey || wsolUi <= 0 || unwrapBusy || !publicKey) && "opacity-60 cursor-not-allowed"
+                    )}
+                    onClick={async () => {
+                      try {
+                        if (!publicKey || !signTransaction) { toast.error('Connect wallet'); return; }
+                        if (!fundPubkey) { toast.error('Select a fund'); return; }
+                        if (wsolUi <= 0) { toast.info('No WSOL to unwrap'); return; }
+                        setUnwrapBusy(true);
+                        const fundPk = new PublicKey(fundPubkey);
+                        // Fund WSOL ATA (associated with Fund PDA, not a user)
+                        const wsolAta = await getAssociatedTokenAddress(NATIVE_MINT, fundPk, true);
+                        const program = await getProgram(connection as unknown as Connection, { publicKey, signTransaction } as any);
+                        const ix = await (program as any).methods
+                          .unwrapWsolFund()
+                          .accounts({ fund: fundPk, fundWsolAta: wsolAta, destination: fundPk, tokenProgram: TOKEN_PROGRAM_ID })
+                          .instruction();
+                        const tx = new Transaction().add(ix);
+                        const { blockhash } = await connection.getLatestBlockhash('finalized');
+                        tx.recentBlockhash = blockhash;
+                        tx.feePayer = publicKey;
+                        const signed = await signTransaction(tx);
+                        const raw = signed.serialize();
+                        const txBase64 = (typeof Buffer !== 'undefined' ? Buffer.from(raw).toString('base64') : btoa(String.fromCharCode(...raw)));
+                        const res = await fetch('/api/rpc/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txBase64, options: { skipPreflight: false, maxRetries: 3 } }) });
+                        const body = await res.json().catch(() => ({} as any));
+                        if (!res.ok || body?.error) throw new Error(body?.error?.message || `RPC send failed (${res.status})`);
+                        const sig: string = body?.signature || body?.result || body?.txid;
+                        setLastSig(sig);
+                        setShowConfirm(true);
+                        // Refresh balances after short delay
+                        setTimeout(async () => {
+                          try {
+                            const [lam2, parsed2] = await Promise.all([
+                              connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
+                              connection.getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID })
+                            ]);
+                            setFundSolLamports(lam2);
+                            const rows2: any[] = [];
+                            let w2 = 0; let z2 = 0;
+                            for (const { pubkey, account } of parsed2.value) {
+                              const anyData: any = account.data;
+                              if (!anyData || anyData.program !== 'spl-token') continue;
+                              const info = (anyData.parsed?.info || {}) as any;
+                              const mint: string = info.mint;
+                              const amountRaw: string = info.tokenAmount?.amount ?? '0';
+                              const uiAmount: number = Number(info.tokenAmount?.uiAmount ?? 0);
+                              const decimals: number = Number(info.tokenAmount?.decimals ?? 0);
+                              const delegate = info.delegate as string | undefined;
+                              if (mint === NATIVE_MINT.toBase58()) w2 = uiAmount;
+                              if (amountRaw === '0' && !delegate) z2++;
+                              rows2.push({ ata: pubkey.toBase58(), mint, uiAmount, raw: amountRaw, decimals, hasDelegate: Boolean(delegate) });
+                            }
+                            rows2.sort((a: any, b: any) => b.uiAmount - a.uiAmount || a.mint.localeCompare(b.mint));
+                            setVaultTokens(rows2);
+                            setWsolUi(w2);
+                            setZeroCount(z2);
+                          } catch {}
+                        }, 700);
+                      } catch (e: any) {
+                        console.error('unwrap wsol error', e);
+                        toast.error(e?.message || 'Unwrap failed');
+                      } finally {
+                        setUnwrapBusy(false);
+                      }
+                    }}
+                  >Unwrap SOL</button>
+                </div>
               </div>
               <div className="rounded-lg bg-black/30 border border-white/10 p-3">
                 <div className="text-xs text-white/60">0-balance token accounts</div>

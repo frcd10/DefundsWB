@@ -18,6 +18,7 @@ export default function TraderPage() {
   const [loading, setLoading] = useState(true);
   const [funds, setFunds] = useState<Array<Record<string, unknown>>>([]);
   const [rwas, setRwas] = useState<Array<Record<string, unknown>>>([]);
+  const [treasury, setTreasury] = useState<string | null>(null);
   const [accessView, setAccessView] = useState<'funds' | 'rwa'>('funds');
   const [closingMgr, setClosingMgr] = useState(false);
 
@@ -38,6 +39,7 @@ export default function TraderPage() {
           setEligible(data.data.eligible);
           setFunds(data.data.funds || []);
           setRwas(data.data.rwas || []);
+          if (typeof data.data?.treasury === 'string') setTreasury(data.data.treasury);
         } else {
           setEligible(false);
         }
@@ -218,7 +220,7 @@ export default function TraderPage() {
                     {closingMgr ? 'Closing…' : 'Close manager zero-balance accounts'}
                   </button>
                 </div>
-                <FundPayoutPanel funds={funds} managerWallet={wallet.publicKey!.toString()} />
+                <FundPayoutPanel funds={funds} managerWallet={wallet.publicKey!.toString()} treasury={treasury ?? undefined} />
               </div>
             </TabsContent>
 

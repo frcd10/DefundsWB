@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
-import { Trophy, Copy, RefreshCw } from 'lucide-react';
+import { Trophy, Copy } from 'lucide-react';
 
 type Row = { address: string; invitedUsers: number; totalInvested: number; points: number };
 
@@ -14,13 +14,14 @@ export default function LeaderboardPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expectedDistribution, setExpectedDistribution] = useState<number | null>(null);
   const [treasuryAddress, setTreasuryAddress] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [view, setView] = useState<'live'|'snapshot'>('live');
 
   useEffect(() => {
     let cancelled = false;
     async function fetchBoard() {
       try {
-        const res = await fetch('/api/leaderboard?limit=100', { cache: 'no-store' });
+        const url = view === 'snapshot' ? '/api/leaderboard?snapshot=devnet_snapshot&limit=100' : '/api/leaderboard?limit=100';
+        const res = await fetch(url, { cache: 'no-store' });
         const json = await res.json();
         if (!cancelled && json?.success) setRows(json.data || []);
       } finally {
@@ -42,7 +43,7 @@ export default function LeaderboardPage() {
     fetchBoard();
     fetchTreasury();
     return () => { cancelled = true; };
-  }, []);
+  }, [view]);
 
   const sorted = useMemo(() => {
     const copy = [...rows];
@@ -65,16 +66,7 @@ export default function LeaderboardPage() {
     try { await navigator.clipboard.writeText(text); } catch {}
   }
 
-  async function refresh() {
-    try {
-      setRefreshing(true);
-      const res = await fetch('/api/leaderboard?limit=100', { cache: 'no-store' });
-      const json = await res.json();
-      if (json?.success) setRows(json.data || []);
-    } finally {
-      setRefreshing(false);
-    }
-  }
+  // no manual refresh button (removed);
 
   return (
     <main className="min-h-screen bg-brand-black text-white">
@@ -86,13 +78,14 @@ export default function LeaderboardPage() {
               <div className="p-2 rounded-xl bg-yellow-500/20 text-yellow-300"><Trophy size={24} /></div>
               <div>
                 <h1 className="text-3xl font-extrabold">Leaderboard</h1>
-                <p className="text-white/60 text-sm">Updated hourly. Rewards from 80% of treasury.</p>
+                <p className="text-white/60 text-sm">{view==='snapshot' ? 'Static snapshot. Rewards from 80% of treasury.' : 'Updated hourly. Rewards from 80% of treasury.'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={refresh} disabled={refreshing} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-sm">
-                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Refresh
-              </button>
+              <div className="inline-flex items-center bg-white/10 border border-white/10 rounded-lg overflow-hidden">
+                <button onClick={() => setView('live')} className={`px-3 py-2 text-sm transition ${view==='live' ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/15'}`}>Live</button>
+                <button onClick={() => setView('snapshot')} className={`px-3 py-2 text-sm transition ${view==='snapshot' ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/15'}`}>Snapshot 1</button>
+              </div>
               <div className="text-right text-sm text-white/80">
                 {expectedDistribution != null ? (
                   <div>

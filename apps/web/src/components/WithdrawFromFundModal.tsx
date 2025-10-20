@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { VersionedTransaction } from '@solana/web3.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -84,22 +85,116 @@ export function WithdrawFromFundModal({
 
     try {
       console.log('Starting withdrawal process...');
-      const startRes = await fetch('/api/withdraw/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          investor: wallet.publicKey.toBase58(),
-          fundId,
-          percentRequested: withdrawPct,
-        }),
-      });
-      const data = await startRes.json();
-      if (!startRes.ok || data?.success === false) {
-        throw new Error(data?.error || 'Withdraw start failed');
+      const b64ToBytes = (b64: string) => {
+        if (typeof atob === 'function') {
+          const bin = atob(b64); const ui8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) ui8[i] = bin.charCodeAt(i); return ui8;
+        } else { const buf = Buffer.from(b64, 'base64'); return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) }
+      };
+      const bytesToB64 = (bytes: Uint8Array) => {
+        if (typeof btoa !== 'function') { throw new Error('Base64 encoding not available'); }
+        let binary = ''; for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]); return btoa(binary);
+      };
+
+      const sendUnsignedTx = async (txBase64: string) => {
+        if (!wallet.signTransaction) throw new Error('Wallet does not support signing');
+        const bytes = b64ToBytes(txBase64);
+        const tx = VersionedTransaction.deserialize(bytes);
+        const signed = (await wallet.signTransaction(tx)) as VersionedTransaction;
+        const rawB64 = bytesToB64(signed.serialize());
+        const rpcRes = await fetch('/api/rpc/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ txBase64: rawB64, options: { skipPreflight: true, preflightCommitment: 'processed' } }) });
+        const body = await rpcRes.json().catch(() => ({} as any));
+        if (!rpcRes.ok || body?.error || body?.ok === false) throw new Error(body?.error?.message || body?.error || `RPC send failed (${rpcRes.status})`);
+        const sig: string = body?.signature || body?.result || body?.txid;
+        if (!sig) throw new Error('RPC send did not return a signature');
+        return sig;
+      };
+
+      const investor = wallet.publicKey.toBase58();
+      const perMintSigs: string[] = [];
+
+      // 1) Initiate
+      const startRes = await fetch('/api/withdraw/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ investor, fundId, percentRequested: withdrawPct }) });
+      const startData = await startRes.json();
+      if (!startRes.ok || startData?.success === false) throw new Error(startData?.error || 'Withdraw start failed');
+      const initSig = await sendUnsignedTx(startData.data.txBase64);
+      console.log('initiate signature', initSig);
+
+      // 2) Plan swaps (first pass)
+      const plan = async (opts?: { onlyDirectRoutes?: boolean; excludeDexes?: string }) => {
+        const res = await fetch('/api/withdraw/plan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ investor, fundId, ...(opts || {}) }) });
+        const json = await res.json();
+        if (!res.ok || json?.success === false) throw new Error(json?.error || 'Plan failed');
+        return json.data.items as Array<{ txBase64: string }>;
+      };
+
+      let items = await plan();
+      // 2a) Execute plan items, retry strategy if specific errors arise
+      const failed: Array<{ idx: number; err: string }> = [];
+      for (let i = 0; i < items.length; i++) {
+        try {
+          const sig = await sendUnsignedTx(items[i].txBase64);
+          perMintSigs.push(sig);
+        } catch (e: any) {
+          const msg = String(e?.message || e);
+          failed.push({ idx: i, err: msg });
+        }
       }
-      // When orchestration is implemented, expect finalize signature and amountSol
-      const sig = data?.data?.finalizeSig || data?.signature || 'pending-signature';
-      onWithdrawComplete?.(sig);
+      if (failed.length) {
+        const needDirect = failed.some(f => /encoding overruns|Transaction too large|account keys|too large/i.test(f.err));
+        const needExcludeSimple = failed.some(f => /from must not carry data/i.test(f.err));
+        if (needDirect || needExcludeSimple) {
+          items = await plan({ onlyDirectRoutes: needDirect, excludeDexes: needExcludeSimple ? 'Simple' : undefined });
+          // try all again; in a more granular flow we could skip those already sent, but txs depend on state so rerun all is safer
+          perMintSigs.length = 0; // reset to reflect the successful batch
+          for (let i = 0; i < items.length; i++) {
+            const sig = await sendUnsignedTx(items[i].txBase64);
+            perMintSigs.push(sig);
+          }
+        } else {
+          throw new Error(failed[0].err || 'Swap execution failed');
+        }
+      }
+
+      // 3) Unwrap
+      const unwrapRes = await fetch('/api/withdraw/unwrap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ investor, fundId }) });
+      const unwrapJson = await unwrapRes.json();
+      if (!unwrapRes.ok || unwrapJson?.success === false) throw new Error(unwrapJson?.error || 'Unwrap failed');
+      const unwrapSig = await sendUnsignedTx(unwrapJson.data.txBase64);
+      console.log('unwrap signature', unwrapSig);
+
+      // 4) Finalize
+      const finRes = await fetch('/api/withdraw/finalize', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ investor, fundId }) });
+      const finJson = await finRes.json();
+      if (!finRes.ok || finJson?.success === false) throw new Error(finJson?.error || 'Finalize failed');
+      const finalizeSig = await sendUnsignedTx(finJson.data.txBase64);
+      console.log('finalize signature', finalizeSig);
+
+      // 5) Derive payout lamports from finalize tx meta via RPC proxy
+      let amountSol = 0;
+      try {
+        const rpc = await fetch('/api/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: [finalizeSig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 }] }) });
+        const payload = await rpc.json();
+        const tx = payload?.result;
+        const meta = tx?.meta;
+  const pre = meta?.preBalances as number[] | undefined;
+  const post = meta?.postBalances as number[] | undefined;
+        const keys: string[] = (tx?.transaction?.message?.staticAccountKeys as string[]) || (tx?.transaction?.message?.accountKeys as string[]) || [];
+        const idx = Array.isArray(keys) ? keys.findIndex(k => k === investor) : -1;
+        if (idx >= 0 && pre && post) {
+          const deltaNum = (post[idx] || 0) - (pre[idx] || 0);
+          if (deltaNum > 0) amountSol = deltaNum / 1e9;
+        }
+      } catch {}
+
+      // 6) Persist record
+      try {
+        await fetch('/api/withdraw/record', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ investor, fundId, amountSol, signature: finalizeSig, details: { perMintSwapSigs: perMintSigs, percentRequested: withdrawPct } })
+        })
+      } catch {}
+
+      onWithdrawComplete?.(finalizeSig);
     } catch (error) {
       console.error('=== ERROR WITHDRAWING FROM FUND ===');
       console.error('Error details:', error);

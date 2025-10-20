@@ -160,6 +160,13 @@ export default function Home() {
       if (as > bs) return dir === 'asc' ? 1 : -1;
       return 0;
     });
+    // Pin a specific fund to always appear first
+    const PIN_ID = '2yJ2GV3Ua8mkWd2wHFKtCRwHBo4KBP6FJjXcbphXGpLN';
+    const idx = arr.findIndex(f => f.id === PIN_ID);
+    if (idx > 0) {
+      const [pinned] = arr.splice(idx, 1);
+      arr.unshift(pinned);
+    }
     return arr;
   }, [filteredFunds, sort]);
 

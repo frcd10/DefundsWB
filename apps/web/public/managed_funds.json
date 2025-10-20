@@ -1301,6 +1301,67 @@
       ]
     },
     {
+      "name": "unwrap_wsol_fund",
+      "docs": [
+        "Close the Fund's WSOL ATA and return lamports to the Fund PDA (unwrap)"
+      ],
+      "discriminator": [
+        232,
+        40,
+        45,
+        183,
+        186,
+        222,
+        81,
+        84
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "Fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "Fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "fund_wsol_ata",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "docs": [
+            "Destination for unwrapped SOL (Fund PDA lamports account)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "withdraw_swap_instruction",
       "docs": [
         "Investor-only: forward a single Jupiter router swap for withdrawals."

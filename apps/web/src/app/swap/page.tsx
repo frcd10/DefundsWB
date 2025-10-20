@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Connection, PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddress, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { toast } from 'sonner';
 import { getProgram } from '@/services/solanaFund/core/program';
 import { findTokenByMint } from '@/data/tokenlist';
@@ -263,6 +263,25 @@ export default function SwapPage() {
     return () => { cancelled = true; };
   }, [amountUi, inputMint, outputMint, getDecimals, ensureDecimals, slippage]);
 
+  // WSOL ATA derived address for the fund and whether it currently exists
+  const wsolAtaInfo = useMemo(() => {
+    try {
+      if (!fundPubkey?.trim()) return { address: null as PublicKey | null, exists: false };
+      const fundPk = new PublicKey(fundPubkey.trim());
+      const addr = getAssociatedTokenAddressSync(NATIVE_MINT, fundPk, true);
+      const exists = vaultTokens.some(r => r.ata === addr.toBase58());
+      return { address: addr, exists };
+    } catch {
+      return { address: null as PublicKey | null, exists: false };
+    }
+  }, [fundPubkey, vaultTokens]);
+
+  // All WSOL token accounts currently holding balance for the fund
+  const wsolTokenAccounts = useMemo(() => {
+    const wsolMint = NATIVE_MINT.toBase58();
+    return vaultTokens.filter(r => r.mint === wsolMint && r.uiAmount > 0).map(r => r.ata);
+  }, [vaultTokens]);
+
   const onSwap = useCallback(async () => {
     if (!publicKey || !signTransaction) return;
     if (busy) return;
@@ -393,14 +412,19 @@ export default function SwapPage() {
                         if (wsolUi <= 0) { toast.info('No WSOL to unwrap'); return; }
                         setUnwrapBusy(true);
                         const fundPk = new PublicKey(fundPubkey);
-                        // Fund WSOL ATA (associated with Fund PDA, not a user)
-                        const wsolAta = await getAssociatedTokenAddress(NATIVE_MINT, fundPk, true);
+                        // Close ALL WSOL token accounts owned by the fund (ATA or not)
                         const program = await getProgram(connection as unknown as Connection, { publicKey, signTransaction } as any);
-                        const ix = await (program as any).methods
-                          .unwrapWsolFund()
-                          .accounts({ fund: fundPk, fundWsolAta: wsolAta, destination: fundPk, tokenProgram: TOKEN_PROGRAM_ID })
-                          .instruction();
-                        const tx = new Transaction().add(ix);
+                        const tx = new Transaction();
+                        const targets = wsolTokenAccounts.length ? wsolTokenAccounts : [];
+                        if (!targets.length) { toast.info('No WSOL token accounts found'); setUnwrapBusy(false); return; }
+                        for (const ataStr of targets) {
+                          const ataPk = new PublicKey(ataStr);
+                          const ix = await (program as any).methods
+                            .unwrapWsolFund()
+                            .accounts({ fund: fundPk, fundWsolAta: ataPk, destination: fundPk, tokenProgram: TOKEN_PROGRAM_ID })
+                            .instruction();
+                          tx.add(ix);
+                        }
                         const { blockhash } = await connection.getLatestBlockhash('finalized');
                         tx.recentBlockhash = blockhash;
                         tx.feePayer = publicKey;
@@ -409,7 +433,13 @@ export default function SwapPage() {
                         const txBase64 = (typeof Buffer !== 'undefined' ? Buffer.from(raw).toString('base64') : btoa(String.fromCharCode(...raw)));
                         const res = await fetch('/api/rpc/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txBase64, options: { skipPreflight: false, maxRetries: 3 } }) });
                         const body = await res.json().catch(() => ({} as any));
-                        if (!res.ok || body?.error) throw new Error(body?.error?.message || `RPC send failed (${res.status})`);
+                        if (!res.ok || body?.ok === false || body?.error) {
+                          const errMsg: string = typeof body?.error === 'string' ? body.error : (body?.error?.message || `RPC send failed (${res.status})`);
+                          if (Array.isArray(body?.logs) && body.logs.length) {
+                            console.warn('RPC simulation logs:', body.logs);
+                          }
+                          throw new Error(errMsg);
+                        }
                         const sig: string = body?.signature || body?.result || body?.txid;
                         setLastSig(sig);
                         setShowConfirm(true);
@@ -657,6 +687,7 @@ export default function SwapPage() {
                   try {
                     if (!publicKey || !signTransaction) { toast.error('Connect wallet'); return; }
                     if (!fundPubkey) { toast.error('Select a fund'); return; }
+                    if (!wsolAtaInfo.exists) { toast.info('WSOL ATA missing; create it first to avoid program errors.'); return; }
                     const fundPk = new PublicKey(fundPubkey);
                     const zeroAtas = vaultTokens.filter(r => r.raw === '0' && !r.hasDelegate).map(r => new PublicKey(r.ata));
                     if (zeroAtas.length === 0) { toast.info('No zero-balance token accounts to close'); return; }

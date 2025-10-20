@@ -5,8 +5,6 @@ import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
 export async function GET(req: NextRequest) {
   try {
-    console.log('=== GET USER PORTFOLIO API CALLED ===');
-    
     const { searchParams } = new URL(req.url);
     const walletAddress = searchParams.get('walletAddress'); // Changed from 'wallet' to 'walletAddress'
 
@@ -17,7 +15,7 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('Getting portfolio for wallet:', walletAddress);
+    
 
     // Connect to MongoDB
     const client = await getClientPromise();
@@ -35,7 +33,7 @@ export async function GET(req: NextRequest) {
       ]
     }).toArray();
 
-    console.log('Found funds for wallet:', funds.length);
+    
 
     // Transform funds into portfolio positions
     // Preload invWithdraw map for this investor
@@ -204,7 +202,6 @@ export async function GET(req: NextRequest) {
     }
 
     const positions = await Promise.all(funds.map(async (fund) => {
-      console.log('Processing fund:', fund.name, 'for wallet:', walletAddress);
       
       const isManager = fund.manager === walletAddress;
       let userShares = 0;
@@ -279,11 +276,7 @@ export async function GET(req: NextRequest) {
   const wEntries = Array.isArray(withdrawMap?.[fundIdStr]) ? withdrawMap[fundIdStr] : []
   const totalWithdrawals = wEntries.reduce((s: number, e: { amountSol?: number }) => s + Number(e?.amountSol || 0), 0)
 
-      console.log('Position calculated:');
-      console.log('- User shares:', userShares);
-      console.log('- Total invested:', totalInvested);
-      console.log('- Total withdrawn:', totalWithdrawals);
-      console.log('- Current value:', currentValue);
+      
 
       return {
   fundId: fund.fundId || fund._id,
@@ -302,11 +295,10 @@ export async function GET(req: NextRequest) {
     }))
     .then(arr => arr.filter((position) => position !== null)); // Remove null positions
 
-    console.log('Final positions:', positions.length);
+    
 
     // RWA positions for this wallet (investments only)
-    const rwaDocs = await rwaCollection.find({ 'investments.walletAddress': walletAddress }).toArray();
-    console.log('Found RWA products with investments from wallet:', rwaDocs.length);
+  const rwaDocs = await rwaCollection.find({ 'investments.walletAddress': walletAddress }).toArray();
 
     const rwaPositions = rwaDocs.map((p: any) => {
       const userInvestments = (p.investments || []).filter((inv: any) => inv.walletAddress === walletAddress);
@@ -349,11 +341,7 @@ export async function GET(req: NextRequest) {
     const totalPnL = totalValue + totalWithdrawn - totalInvested;
     const totalPnLPercentage = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
 
-    console.log('Portfolio totals:');
-    console.log('- Total Value:', totalValue);
-    console.log('- Total Invested:', totalInvested);
-    console.log('- Total Withdrawn:', totalWithdrawn);
-    console.log('- Total P&L:', totalPnL);
+    
 
     return NextResponse.json({
       success: true,

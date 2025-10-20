@@ -115,16 +115,15 @@ export default function Landing() {
           <span className="hidden sm:inline-block w-px h-3 bg-white/15" />
           <span className="flex items-center gap-1">Open Source</span>
           <span className="hidden sm:inline-block w-px h-3 bg-white/15" />
-          <span className="flex items-center gap-1">22 users on Devnet</span>
+          <span className="flex items-center gap-1">Deployed to Mainnet</span>
         </div>
 
   <h1 className="mb-6 text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight max-w-4xl">
           Institutional-Grade On‑Chain Asset Management
         </h1>
   <p className="mb-10 max-w-2xl text-sm sm:text-base md:text-lg text-white/70 leading-relaxed">
-          Launch or allocate into professionally structured on-chain funds – and extend strategies into
-          <span className="text-brand-yellow"> real‑world assets (RWA)</span>. Maintain full custody while accessing audited
-          infrastructure, transparent fee mechanics and real-time program level NAV.
+          Launch or allocate into professionally structured on-chain funds. Maintain full custody with
+          transparent fee mechanics and real-time program level NAV. 
         </p>
 
   {/* Metrics (dynamic) */}

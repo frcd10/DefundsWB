@@ -10,7 +10,6 @@ async function main() {
   const res = await users.updateMany({}, {
     $set: {
       points: 0,
-      invitedUsers: 0,
       totalInvested: 0,
       lastPointsUpdateAt: null,
     }

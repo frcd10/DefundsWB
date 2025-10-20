@@ -34,6 +34,7 @@ export async function updateHourlyPoints() {
 
     // Compute total invested live from Funds and Rwa investments (same as leaderboard)
     const [fundsAgg] = await db.collection('Funds').aggregate([
+      { $match: { cluster: { $ne: 'devnet' } } },
       { $project: { investments: 1 } },
       { $unwind: { path: '$investments', preserveNullAndEmptyArrays: false } },
       { $match: { 'investments.walletAddress': address } },

@@ -6,8 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { solanaFundServiceModular as solanaFundService } from '@/services/solanaFund';
 import { SolscanLink } from '@/components/SolscanLink';
-import { PublicKey } from '@solana/web3.js';
-import { deriveVaultSolPda } from '@/services/solanaFund/utils/pdas';
+import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { PROGRAM_ID } from '@/services/solanaFund/core/constants';
 
 type FundDoc = {
@@ -59,7 +58,7 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
     }
   }, [funds, selectedId]);
 
-  // Fetch on-chain SOL balance: prefer vault_sol PDA, fallback to fund PDA (for older flows)
+  // Fetch on-chain SOL balance: show Fund PDA lamports only
   useEffect(() => {
     const fetchBalance = async () => {
       try {
@@ -69,13 +68,8 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
         }
         setFetchingBalance(true);
         const fundPk = new PublicKey(selectedId);
-        const [vaultSolPda] = deriveVaultSolPda(PROGRAM_ID, fundPk);
-        const [vaultLamports, fundLamports] = await Promise.all([
-          connection.getBalance(vaultSolPda, { commitment: 'processed' } as any).catch(() => 0),
-          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
-        ]);
-        const best = vaultLamports > 0 ? vaultLamports : fundLamports;
-        setOnChainSol(best / 1_000_000_000);
+        const lamports = await connection.getBalance(fundPk, { commitment: 'confirmed' } as any).catch(() => 0);
+        setOnChainSol(lamports / LAMPORTS_PER_SOL);
       } catch (e) {
         // If fetch fails, show as null to avoid misleading data
         setOnChainSol(null);
@@ -132,6 +126,8 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
     if (treasuryProp && treasury !== treasuryProp) setTreasury(treasuryProp);
   }, [treasuryProp]);
 
+  // No manual top-up controls in UI; payout flow auto-handles fund->vault transfers
+
   const handlePayout = async () => {
     if (submitted) return; // guard double submit
     setSubmitted(true);
@@ -144,7 +140,10 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
       if (!selected || !selected.fundId) throw new Error('Select a fund');
       if (!Number.isFinite(value) || value <= 0) throw new Error('Enter a positive payout');
 
-      const investorWallets = ((selected.investments || []) as Array<{ walletAddress: string }>).map((i) => i.walletAddress);
+      // Only include investors with non-zero ownership to avoid on-chain zero-share positions
+      const investorWallets = ((selected.investments || []) as Array<{ walletAddress: string; shares?: number }>).
+        filter((i) => (Number(i.shares || 0) > 0)).
+        map((i) => i.walletAddress);
       if (investorWallets.length === 0) throw new Error('No investors to pay');
 
       // Execute on-chain payout via program
@@ -208,7 +207,7 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
           }
         }
       } catch (e) {
-        console.warn('Post-payout refresh failed:', e);
+        // ignore refresh errors silently
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Payout failed');

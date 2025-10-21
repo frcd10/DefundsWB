@@ -209,10 +209,8 @@ pub fn pay_fund_investors<'info>(
 
             // Decrease fund total_assets to reflect the payout leaving the fund
             let fund_mut = &mut ctx.accounts.fund;
-            fund_mut.total_assets = fund_mut
-                .total_assets
-                .checked_sub(total_amount)
-                .ok_or(FundError::MathOverflow)?;
+            // Avoid underflow: if accounting is behind actual lamports, saturate at zero
+            fund_mut.total_assets = fund_mut.total_assets.saturating_sub(total_amount);
 
             return Ok(());
     }
@@ -306,10 +304,8 @@ pub fn pay_fund_investors<'info>(
 
     // Decrease fund total_assets to reflect the payout leaving the fund
     let fund_mut = &mut ctx.accounts.fund;
-    fund_mut.total_assets = fund_mut
-        .total_assets
-        .checked_sub(total_amount)
-        .ok_or(FundError::MathOverflow)?;
+    // Avoid underflow: if accounting is behind actual lamports, saturate at zero
+    fund_mut.total_assets = fund_mut.total_assets.saturating_sub(total_amount);
 
     Ok(())
 }

@@ -207,7 +207,7 @@ export function FundPayoutPanel({ funds, managerWallet, treasury: treasuryProp }
           }
         }
       } catch (e) {
-        console.warn('Post-payout refresh failed:', e);
+        // ignore refresh errors silently
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Payout failed');

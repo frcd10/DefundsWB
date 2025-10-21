@@ -92,20 +92,11 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
         data: Buffer.from(unwrapDisc),
       });
       preIxs.push(unwrapIx);
-      console.log('[payout] prepending unwrap_wsol_fund to top-up SOL vault', { fundWsolAta: fundWsolAta.toBase58(), to: vaultSolPda.toBase58(), wsolLamports: fundWsolLamports });
+      
       // Treat as if SOL vault will have enough post-unwrap
       vaultSolLamports = vaultSolLamports + fundWsolLamports;
     }
-    console.log('[payout] preflight:', {
-      fund: fundPda.toBase58(),
-      vaultPda: vaultPda.toBase58(),
-      vaultOwner: vaultInfo?.owner?.toBase58?.() || null,
-      vaultDataLen: vaultInfo?.data?.length ?? 0,
-      vaultSolPda: vaultSolPda.toBase58(),
-      vaultSolLamports,
-      fundLamports,
-      vaultSolOwner: vaultSolInfo?.owner?.toBase58?.() || null,
-    });
+    // debug preflight removed
     // Always ensure SPL vault exists: prepend repair_vault if missing (required by on-chain account constraints)
     if (!vaultInfo || (vaultInfo.data?.length ?? 0) === 0) {
       try {
@@ -126,7 +117,7 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
           data: dataRv,
         });
         preIxs.push(repairIxAlways);
-        console.log('[payout] vault missing — prepending repair_vault for', vaultPda.toBase58());
+        
       } catch (e) {
         // Fallback: encode manually with discriminator to avoid IDL dependency
         try {
@@ -162,9 +153,9 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
             data: dataRv,
           });
           preIxs.push(repairIxAlways);
-          console.log('[payout] IDL coder unavailable; using computed repair_vault discriminator');
+          
         } catch (e2) {
-          console.warn('[payout] Failed to add repair_vault pre-ix — payout may fail until IDL loads', e2);
+          
         }
       }
     }
@@ -200,11 +191,11 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
           data,
         });
         preIxs.push(ix);
-        console.log('[payout] topping up vault SOL from Fund PDA', { amountToTopUp });
+        
         vaultSolLamports += amountToTopUp;
         fundLamports -= amountToTopUp;
       } catch (e) {
-        console.warn('[payout] fund->vault top-up failed; continuing with best effort', e);
+        
       }
     }
 
@@ -282,7 +273,7 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
     ];
 
   // Debug account ordering to help diagnose server error mismatches
-  console.log('[payout] path=', useSolPath ? 'SOL' : 'WSOL', 'manual account order:', manualKeys.map((k, i) => `${i}: ${k.pubkey.toBase58()} w=${k.isWritable} s=${k.isSigner}`));
+  
     const finalIx = new TransactionInstruction({ programId: program.programId, keys: manualKeys, data });
     const tx = new Transaction();
     for (const ix of preIxs) tx.add(ix);
@@ -301,7 +292,7 @@ export async function payFundInvestors(connection: any, wallet: WalletContextSta
       } catch { /* ignore logging errors */ }
       return sig;
     } catch (e: any) {
-      console.error('[payout] error', e);
+      
       if (e.message?.includes('0x1')) {
         throw new Error('Payout failed: insufficient funds in vault SOL account or WSOL fallback path issue');
       }

@@ -43,19 +43,12 @@ interface RealFund {
   totalDeposits: number; // Keep for backward compatibility
   investorCount: number;
   performance: Array<{ date: string; nav: number; pnl?: number; pnlPercentage?: number }>;
-  stats: {
-    total: number;
-    wins: number;
-    losses: number;
-    avgWinPct: number;
-    avgWinSol: number;
-    avgLossPct: number;
-    avgLossSol: number;
-    drawdownPct: number;
-    drawdownSol: number;
-    topWins: Array<{ token: string; pct: number; sol: number }>;
-    topLosses: Array<{ token: string; pct: number; sol: number }>;
-  };
+  // Aggregated metrics
+  currentValue?: number;
+  invested?: number;
+  withdrawn?: number;
+  pnlSol?: number;
+  pnlPct?: number;
 }
 
 export default function Home() {
@@ -91,6 +84,7 @@ export default function Home() {
   /* ── Compute visible funds ----------------------------------------- */
   const allFunds: FundCardData[] = realFunds.map(fund => ({
     id: fund.fundId,
+    fundId: fund.fundId,
     name: fund.name,
     handle: fund.manager.slice(0, 8) + '...',
   creatorWallet: fund.manager,
@@ -105,19 +99,12 @@ export default function Home() {
     inviteOnly: !fund.isPublic,
     accessMode: fund.accessMode as any,
     performance: fund.performance || [],
-    stats: fund.stats || {
-      total: 0,
-      wins: 0,
-      losses: 0,
-      avgWinPct: 0,
-      avgWinSol: 0,
-      avgLossPct: 0,
-      avgLossSol: 0,
-      drawdownPct: 0,
-      drawdownSol: 0,
-      topWins: [],
-      topLosses: []
-    }
+    stats: { total: 0, wins: 0, losses: 0, avgWinPct: 0, avgWinSol: 0, avgLossPct: 0, avgLossSol: 0, drawdownPct: 0, drawdownSol: 0, topWins: [], topLosses: [] },
+    currentValue: fund.currentValue,
+    invested: fund.invested,
+    withdrawn: fund.withdrawn,
+    pnlSol: fund.pnlSol,
+    pnlPct: fund.pnlPct,
   }));
 
   const filteredFunds = useMemo(() => {
@@ -456,6 +443,13 @@ function FundsTable({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-semibold text-white truncate" title={f.name}>{f.name}</div>
+                <div className="text-[11px] text-white/50 flex items-center gap-2 mt-0.5">
+                  <span>{String(f.fundId || f.id).slice(0,8)}...{String(f.fundId || f.id).slice(-6)}</span>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(String(f.fundId || f.id))}
+                    className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70"
+                  >Copy</button>
+                </div>
                 {f.creatorWallet && (
                   <div className="text-[11px] text-white/60 mt-0.5">
                     <span className="text-white/40">by </span>
@@ -473,12 +467,12 @@ function FundsTable({
               >Invest</button>
             </div>
 
-            {/* Quick facts */}
+            {/* Summary metrics */}
             <ul className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/80">
-              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Type</span><span className="font-medium text-white">{f.type}</span></li>
-              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">TVL</span><span className="font-medium">{formatSol(f.tvl)}</span></li>
-              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Perf Fee</span><span className="font-medium">{f.perfFee}%</span></li>
-              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Investors</span><span className="font-medium">{f.investorCount}</span></li>
+              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Current Value</span><span className="font-medium text-white">{formatSol(f.currentValue ?? f.tvl)} SOL</span></li>
+              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Invested</span><span className="font-medium">{formatSol(f.invested ?? 0)} SOL</span></li>
+              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">Withdrawn</span><span className="font-medium text-orange-300">{formatSol(f.withdrawn ?? 0)} SOL</span></li>
+              <li className="bg-white/5 rounded-lg border border-white/10 p-2 flex items-center justify-between"><span className="text-white/60">P&L</span><span className={`font-medium ${((f.pnlSol ?? 0) >= 0) ? 'text-emerald-300' : 'text-red-300'}`}>{(f.pnlSol ?? 0) >= 0 ? '+' : ''}{formatSol(f.pnlSol ?? 0)} SOL ({(f.pnlPct ?? 0).toFixed(2)}%)</span></li>
             </ul>
 
             {/* PnL Summary */}
@@ -510,32 +504,13 @@ function FundsTable({
                     <p className="text-xs text-white/70 leading-relaxed">{f.description || '—'}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-white mb-2">Stats</h4>
-                    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/70">
-                      <li>Trades: <span className="text-white">{f.stats.total}</span></li>
-                      <li>Win/Loss: <span className="text-white">{f.stats.wins}/{f.stats.losses}</span></li>
-                      <li className="col-span-2">Avg Win: <span className="text-white">{f.stats.avgWinPct}% ({f.stats.avgWinSol} SOL)</span></li>
-                      <li className="col-span-2">Avg Loss: <span className="text-white">{f.stats.avgLossPct}% ({f.stats.avgLossSol} SOL)</span></li>
-                      <li className="col-span-2">Drawdown: <span className="text-white">{f.stats.drawdownPct}% ({f.stats.drawdownSol} SOL)</span></li>
+                    <h4 className="text-sm font-semibold text-white mb-2">Fund Summary</h4>
+                    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] text-white/80">
+                      <li>Current Value: <span className="text-white font-medium">{formatSol(f.currentValue ?? f.tvl)} SOL</span></li>
+                      <li>Invested: <span className="text-white font-medium">{formatSol(f.invested ?? 0)} SOL</span></li>
+                      <li>Withdrawn: <span className="text-orange-300 font-medium">{formatSol(f.withdrawn ?? 0)} SOL</span></li>
+                      <li>P&L: <span className={`${((f.pnlSol ?? 0) >= 0) ? 'text-emerald-300' : 'text-red-300'} font-medium`}>{(f.pnlSol ?? 0) >= 0 ? '+' : ''}{formatSol(f.pnlSol ?? 0)} SOL ({(f.pnlPct ?? 0).toFixed(2)}%)</span></li>
                     </ul>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="text-xs font-semibold text-white mb-1">Top Wins</h5>
-                      <ul className="text-[11px] text-white/70 space-y-0.5">
-                        {f.stats.topWins.slice(0, 5).map(w => (
-                          <li key={w.token} className="flex justify-between"><span>{w.token}</span><span>{w.pct}%</span></li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-semibold text-white mb-1">Top Losses</h5>
-                      <ul className="text-[11px] text-white/70 space-y-0.5">
-                        {f.stats.topLosses.slice(0, 5).map(l => (
-                          <li key={l.token} className="flex justify-between"><span>{l.token}</span><span>{l.pct}%</span></li>
-                        ))}
-                      </ul>
-                    </div>
                   </div>
                   {f.inviteOnly && (
                     <div className="text-[11px] font-medium text-brand-yellow/90 bg-brand-yellow/10 border border-brand-yellow/30 px-2 py-1.5 rounded-md inline-block">
@@ -559,6 +534,7 @@ function FundsTable({
             {headerCell('Fund', 'name')}
             {headerCell('Type', 'type')}
             {headerCell('TVL (SOL)', 'tvl')}
+            {headerCell('P&L %', 'pnlPct' as any)}
             {headerCell('Perf Fee %', 'perfFee')}
             {headerCell('Investors', 'investorCount')}
             <th className="px-4 py-3 text-right text-xs font-semibold text-white/70">Actions</th>
@@ -568,10 +544,10 @@ function FundsTable({
           {funds.map((f) => {
             const isOpen = expanded.has(f.id);
             const performanceData = (f.performance || []).map((p, idx, arr) => {
-              if ('pnl' in p && p.pnl !== undefined) return p as any;
+              if ('pnlPercentage' in p && (p as any).pnlPercentage !== undefined) return p as any;
               const base = arr[0]?.nav || 10;
-              const pnl = p.nav - base;
-              return { ...p, pnl, pnlPercentage: ((p.nav - base) / base) * 100 };
+              const pnlPercentage = base !== 0 ? ((p.nav - base) / base) * 100 : 0;
+              return { ...(p as any), pnlPercentage };
             });
             return (
               <React.Fragment key={`row-${f.id}`}>
@@ -588,7 +564,7 @@ function FundsTable({
                       {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
                   </td>
-                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[240px] truncate">
+                  <td className="px-4 py-3 align-top font-medium text-white whitespace-nowrap max-w-[320px]">
                     <div className="truncate" title={f.name}>{f.name}</div>
                     {f.creatorWallet && (
                       <div className="mt-1 text-[11px] font-normal text-white/50 leading-tight">
@@ -604,9 +580,24 @@ function FundsTable({
                         })()}
                       </div>
                     )}
+                    <div className="mt-1 text-[11px] text-white/50 flex items-center gap-2">
+                      <span className="truncate">{String(f.fundId || f.id).slice(0,8)}...{String(f.fundId || f.id).slice(-6)}</span>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(String(f.fundId || f.id))}
+                        className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70"
+                      >Copy</button>
+                    </div>
                   </td>
                   <td className="px-4 py-3 align-top text-white/70 whitespace-nowrap">{f.type}</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{formatSol(f.tvl)}</td>
+                  <td className="px-4 py-3 align-top tabular-nums">
+                    {(() => {
+                      const p = Number((f as any).pnlPct ?? 0);
+                      const cls = p >= 0 ? 'text-emerald-400' : 'text-red-400';
+                      const sign = p >= 0 ? '+' : '';
+                      return <span className={`font-medium ${cls}`}>{sign}{p.toFixed(2)}%</span>;
+                    })()}
+                  </td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.perfFee}%</td>
                   <td className="px-4 py-3 align-top tabular-nums text-white/80">{f.investorCount}</td>
                   <td className="px-4 py-3 align-top text-right">
@@ -620,8 +611,10 @@ function FundsTable({
                 </tr>
                 {isOpen && (
                   <tr className="bg-brand-surface" key={f.id + '-detail'}>
-                    <td colSpan={7} className="px-6 pb-8 pt-4">
-                      <div className="grid lg:grid-cols-3 gap-8">
+                    <td colSpan={10} className="p-0">
+                      {/* Full-width panel to avoid black gaps and fill grey area edge-to-edge */}
+                      <div className="bg-white/5 border-t border-white/10 p-4 px-6">
+                        <div className="grid lg:grid-cols-3 gap-6">
                         {/* Meta / Stats */}
                         <div className="space-y-6 lg:col-span-1">
                           <div>
@@ -653,33 +646,15 @@ function FundsTable({
                               </div>
                             );
                           })()}
+                          {/* Removed legacy stats and top wins/losses. Show summary metrics instead. */}
                           <div>
-                            <h4 className="text-sm font-semibold text-white mb-2">Stats</h4>
-                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-white/70">
-                              <li>Trades: <span className="text-white">{f.stats.total}</span></li>
-                              <li>Win/Loss: <span className="text-white">{f.stats.wins}/{f.stats.losses}</span></li>
-                              <li className="col-span-2">Avg Win: <span className="text-white">{f.stats.avgWinPct}% ({f.stats.avgWinSol} SOL)</span></li>
-                              <li className="col-span-2">Avg Loss: <span className="text-white">{f.stats.avgLossPct}% ({f.stats.avgLossSol} SOL)</span></li>
-                              <li className="col-span-2">Drawdown: <span className="text-white">{f.stats.drawdownPct}% ({f.stats.drawdownSol} SOL)</span></li>
+                            <h4 className="text-sm font-semibold text-white mb-2">Fund Summary</h4>
+                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] text-white/80">
+                              <li>Current Value: <span className="text-white font-medium">{formatSol(f.currentValue ?? f.tvl)} SOL</span></li>
+                              <li>Invested: <span className="text-white font-medium">{formatSol(f.invested ?? 0)} SOL</span></li>
+                              <li>Withdrawn: <span className="text-orange-300 font-medium">{formatSol(f.withdrawn ?? 0)} SOL</span></li>
+                              <li>P&L: <span className={`${((f.pnlSol ?? 0) >= 0) ? 'text-emerald-300' : 'text-red-300'} font-medium`}>{(f.pnlSol ?? 0) >= 0 ? '+' : ''}{formatSol(f.pnlSol ?? 0)} SOL ({(f.pnlPct ?? 0).toFixed(2)}%)</span></li>
                             </ul>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <h5 className="text-xs font-semibold text-white mb-1">Top Wins</h5>
-                              <ul className="text-[11px] text-white/70 space-y-0.5">
-                                {f.stats.topWins.slice(0, 5).map(w => (
-                                  <li key={w.token} className="flex justify-between"><span>{w.token}</span><span>{w.pct}%</span></li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div>
-                              <h5 className="text-xs font-semibold text-white mb-1">Top Losses</h5>
-                              <ul className="text-[11px] text-white/70 space-y-0.5">
-                                {f.stats.topLosses.slice(0, 5).map(l => (
-                                  <li key={l.token} className="flex justify-between"><span>{l.token}</span><span>{l.pct}%</span></li>
-                                ))}
-                              </ul>
-                            </div>
                           </div>
                           {f.inviteOnly && (
                             <div className="text-[11px] font-medium text-brand-yellow/90 bg-brand-yellow/10 border border-brand-yellow/30 px-2 py-1.5 rounded-md inline-block">
@@ -694,22 +669,23 @@ function FundsTable({
                           </div>
                         </div>
                         {/* Chart (hidden on mobile) */}
-                        <div className="hidden md:block lg:col-span-2">
+                        <div className="hidden md:block lg:col-span-2 min-w-0">
                           <h4 className="text-sm font-semibold text-white mb-3">P&L Performance</h4>
-                          <div className="h-56 bg-brand-surface/90 border border-white/10 rounded-xl p-3">
+                          <div className="h-56 bg-brand-surface/80 border border-white/10 rounded-xl p-3 w-full overflow-hidden">
                             {performanceData.length > 1 ? (
                               <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={performanceData}>
-                                  <Line type="monotone" dataKey="pnl" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={false} />
+                                <LineChart data={performanceData} margin={{ top: 0, right: -1, bottom: 0, left: 0 }}>
+                                  <Line type="monotone" dataKey="pnlPercentage" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#ffffff' }} />
                                   <XAxis dataKey="date" hide />
                                   <YAxis hide domain={['dataMin', 'dataMax']} />
-                                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(2)} SOL`, 'PnL']} labelFormatter={() => ''} />
+                                  <Tooltip formatter={(v: any) => [`${Number(v).toFixed(2)}%`, 'PnL %']} labelFormatter={() => ''} contentStyle={{ background: 'rgba(20,20,20,0.9)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }} />
                                 </LineChart>
                               </ResponsiveContainer>
                             ) : (
                               <div className="flex items-center justify-center h-full text-xs text-white/50">Insufficient data</div>
                             )}
                           </div>
+                        </div>
                         </div>
                       </div>
                     </td>

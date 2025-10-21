@@ -50,3 +50,16 @@ services:
         value: production
       # Required in env: MONGODB_URI
       # Optional: SOLANA_RPC_URL
+
+  - type: cron
+    name: defunds-pnl-daily-cron
+    env: node
+    # Run once daily at 01:00 UTC
+    schedule: "0 1 * * *"
+    region: oregon
+    buildCommand: npm install && npm -w apps/backend run build
+    startCommand: node apps/backend/dist/scripts/runDailyPnl.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      

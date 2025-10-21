@@ -19,7 +19,10 @@
     "deposit:investor": "tsx src/scripts/investorDeposit.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "pnl:run": "tsx src/scripts/runDailyPnl.ts",
+    "pnl:run:node": "node dist/scripts/runDailyPnl.js",
+    "pnl:seed": "tsx src/scripts/seedPnl.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",

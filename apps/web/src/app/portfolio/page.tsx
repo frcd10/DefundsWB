@@ -242,7 +242,15 @@ export default function PortfolioPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <p className="text-sm font-medium text-white">{position.fundName}</p>
-                        <p className="text-xs text-white/50">{position.fundId.slice(0, 8)}...</p>
+                        <div className="text-xs text-white/50 flex items-center gap-2">
+                          <span>{position.fundId.slice(0, 8)}...</span>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(position.fundId)}
+                            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70"
+                          >
+                            Copy
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

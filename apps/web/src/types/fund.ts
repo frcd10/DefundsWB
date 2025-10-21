@@ -42,13 +42,14 @@ export interface FundStats {
 
 export interface FundCardData {
   id: string;
+  fundId?: string;
   name: string;
   handle: string;
   traderTwitter: string;
   creatorWallet?: string; // NEW: wallet address of fund/product creator
   description: string;
   type: FundType;
-  tvl: number;
+  tvl: number; // current AUM in SOL
   perfFee: number;
   maxCap: number;
   investorCount: number;
@@ -57,4 +58,10 @@ export interface FundCardData {
   maxPerInvestor?: number;
   performance: PerformancePoint[];
   stats: FundStats;
+  // Aggregated metrics for card display
+  currentValue?: number;
+  invested?: number;
+  withdrawn?: number;
+  pnlSol?: number;
+  pnlPct?: number;
 }

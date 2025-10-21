@@ -7,6 +7,7 @@ import { getFund } from './fund/getFund';
 import { getUserFunds } from './fund/getUserFunds';
 import { withdrawFromFund } from './withdraw/withdrawFromFund';
 import { CreateFundParams } from './types';
+import { repairVaultTokenAccount } from './fund/repairVault';
 // Swap removed: do not import defundSwap
 
 export class SolanaFundServiceModular {
@@ -52,6 +53,9 @@ export class SolanaFundServiceModular {
   }
   payFundInvestors(wallet: WalletContextState, fundId: string, totalAmountSol: number, investorWallets: string[], treasuryWallet?: string) {
     return payFundInvestors(this.connection, wallet, fundId, totalAmountSol, investorWallets, treasuryWallet);
+  }
+  repairVault(wallet: WalletContextState, fundId: string) {
+    return repairVaultTokenAccount(this.connection, wallet, fundId);
   }
   getFund(fundId: string) {
     return getFund(this.connection, fundId);

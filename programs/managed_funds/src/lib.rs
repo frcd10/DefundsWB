@@ -108,6 +108,11 @@ pub mod managed_funds {
         instructions::unwrap_wsol_fund(ctx)
     }
 
+    /// Re-create the SPL vault TokenAccount PDA if it was closed
+    pub fn repair_vault(ctx: Context<RepairVault>) -> Result<()> {
+        instructions::repair_vault(ctx)
+    }
+
     /// Transfer SPL tokens between Fund PDA-owned token accounts (same mint)
     pub fn pda_token_transfer(
         ctx: Context<PdaTokenTransfer>,

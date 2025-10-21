@@ -1237,6 +1237,106 @@ export type ManagedFunds = {
       ]
     },
     {
+      "name": "repairVault",
+      "docs": [
+        "Re-create the SPL vault TokenAccount PDA if it was closed"
+      ],
+      "discriminator": [
+        100,
+        152,
+        67,
+        29,
+        93,
+        138,
+        69,
+        116
+      ],
+      "accounts": [
+        {
+          "name": "fund",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund.manager",
+                "account": "fund"
+              },
+              {
+                "kind": "account",
+                "path": "fund.name",
+                "account": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "manager",
+          "docs": [
+            "Manager must authorize the repair (pays rent for the new token account)"
+          ],
+          "signer": true,
+          "relations": [
+            "fund"
+          ]
+        },
+        {
+          "name": "vault",
+          "docs": [
+            "PDA for SPL vault (TokenAccount) that holds WSOL when base_mint is native",
+            "If missing, this instruction will create and initialize it."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "fund"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "baseMint",
+          "docs": [
+            "The base mint account (must match fund.base_mint)"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "tokenSwapVault",
       "docs": [
         "Forward Jupiter router instruction using vault PDA as program authority signer"
@@ -1534,13 +1634,53 @@ export type ManagedFunds = {
   "errors": [
     {
       "code": 6000,
-      "name": "insufficientFunds",
-      "msg": "Insufficient lamports in fund PDA"
+      "name": "invalidFee",
+      "msg": "Er fee"
     },
     {
       "code": 6001,
+      "name": "insufficientFunds",
+      "msg": "Er funds"
+    },
+    {
+      "code": 6002,
+      "name": "invalidAmount",
+      "msg": "Er amount"
+    },
+    {
+      "code": 6003,
+      "name": "invalidShares",
+      "msg": "Er shares"
+    },
+    {
+      "code": 6004,
+      "name": "invalidMint",
+      "msg": "Er mint"
+    },
+    {
+      "code": 6005,
       "name": "mathOverflow",
-      "msg": "Arithmetic overflow"
+      "msg": "Math Er"
+    },
+    {
+      "code": 6006,
+      "name": "slippageExceeded",
+      "msg": "Slp excd"
+    },
+    {
+      "code": 6007,
+      "name": "invalidWithdrawalStatus",
+      "msg": "Er withdrawal"
+    },
+    {
+      "code": 6008,
+      "name": "invalidInput",
+      "msg": "Er input"
+    },
+    {
+      "code": 6009,
+      "name": "invocationFailed",
+      "msg": "Inv Er"
     }
   ],
   "types": [

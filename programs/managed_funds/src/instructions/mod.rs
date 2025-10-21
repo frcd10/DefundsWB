@@ -12,6 +12,7 @@ pub mod pda_token_revoke;
 pub mod close_zero_token_accounts;
 pub mod withdraw_swap_instruction;
 pub mod unwrap_wsol_fund;
+pub mod repair_vault;
 
 // Re-export active instructions for Anchor codegen and client convenience
 pub use initialize_fund::*;
@@ -28,3 +29,4 @@ pub use pda_token_revoke::*;
 pub use close_zero_token_accounts::*;
 pub use withdraw_swap_instruction::*;
 pub use unwrap_wsol_fund::*;
+pub use repair_vault::*;

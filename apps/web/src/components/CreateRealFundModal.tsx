@@ -211,7 +211,7 @@ export function CreateRealFundModal({ isOpen, onClose, onFundCreated }: CreateRe
                   <p className="text-xs text-white/50 mt-1">If set, a wallet cannot exceed this cumulative SOL invested.</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-white/70">Initial Deposit (SOL)</label>
+                  <label className="block text-sm font-medium mb-1 text-white/70">Initial Deposit (SOL) - You need extra 0.01 SOL to complete</label>
                   <Input ref={initialDepositRef} type="text" inputMode="decimal" value={initialDepositInput} placeholder="0.1" onChange={(e) => { const raw = e.target.value; if (!DECIMAL_INPUT_REGEX.test(raw)) return; setInitialDepositInput(raw); const normalized = raw.replace(/,/g, '.'); const n = Number(normalized || '0'); setFormData(p => ({ ...p, initialDeposit: Number.isFinite(n) ? n : 0 })); }} onBlur={() => setInitialDepositInput(String(formData.initialDeposit))} className="w-full rounded-lg bg-white/5 border border-white/15 text-sm" />
                   <p className="text-xs text-white/50 mt-1">You&apos;ll own 100% of the fund initially. Others can invest later.</p>
                   <p className="text-xs text-brand-yellow mt-1">Phase limit: up to {LIMIT_CREATE} SOL to create. After audit, limits will be removed.</p>

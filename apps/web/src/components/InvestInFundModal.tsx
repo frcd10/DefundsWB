@@ -294,7 +294,7 @@ export function InvestInFundModal({
                 placeholder="0.1"
                 className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white"
               />
-        <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL - You need at least 0.006 extra SOL on your wallet</p>
+        <p className="text-xs text-white/50 mt-1">Minimum investment: 0.001 SOL - You need at least 0.01 extra SOL on your wallet</p>
         <p className="text-xs text-brand-yellow mt-1">Phase limit: up to {LIMIT_INVEST} SOL per invest. After audit, limits will be removed.</p>
             </div>
             {requiresInviteCode && (

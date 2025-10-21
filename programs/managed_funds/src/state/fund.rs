@@ -38,8 +38,10 @@ impl Fund {
         1; // shares_bump
 
     pub fn calculate_shares_to_mint(&self, deposit_amount: u64) -> u64 {
-        if self.total_shares == 0 {
-            // First deposit: 1:1 ratio
+        // Safety: if there are no shares yet OR assets accounting is zero (e.g., after full payout),
+        // treat as first deposit to avoid division by zero. This resets price anchor fairly.
+        if self.total_shares == 0 || self.total_assets == 0 {
+            // First deposit or reset state: 1:1 ratio in base units
             deposit_amount
         } else {
             // Calculate shares based on current share price

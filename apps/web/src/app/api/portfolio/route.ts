@@ -138,7 +138,10 @@ export async function GET(req: NextRequest) {
       return hi * 2 ** 32 + lo;
     }
 
-    async function getInvestorSharesFromChain(fundPkStr: string, investorPkStr: string): Promise<number> {
+    async function getInvestorSharesFromChain(
+      fundPkStr: string,
+      investorPkStr: string
+    ): Promise<{ value: number; isUi: boolean }> {
       try {
         const fundPk = new PublicKey(fundPkStr);
         const investorPk = new PublicKey(investorPkStr);
@@ -147,7 +150,9 @@ export async function GET(req: NextRequest) {
           Buffer.from('shares'),
           fundPk.toBuffer(),
         ], PROGRAM_ID);
-        const ataRes = await connection.getParsedTokenAccountsByOwner(investorPk, { mint: sharesMintPk }, 'confirmed').catch(() => ({ value: [] as any[] } as any));
+        const ataRes = await connection
+          .getParsedTokenAccountsByOwner(investorPk, { mint: sharesMintPk }, 'confirmed')
+          .catch(() => ({ value: [] as any[] } as any));
         if (ataRes && Array.isArray(ataRes.value) && ataRes.value.length > 0) {
           let sumUi = 0;
           for (const { account } of ataRes.value) {
@@ -157,7 +162,7 @@ export async function GET(req: NextRequest) {
               if (Number.isFinite(ui)) sumUi += ui;
             }
           }
-          if (sumUi > 0) return sumUi;
+          if (sumUi > 0) return { value: sumUi, isUi: true };
         }
         // Fallback to investorPosition.shares u64 (may require scaling)
         const [invPosPk] = PublicKey.findProgramAddressSync([
@@ -166,13 +171,13 @@ export async function GET(req: NextRequest) {
           fundPk.toBuffer(),
         ], PROGRAM_ID);
         const acc = await connection.getAccountInfo(invPosPk, 'confirmed');
-        if (!acc || !acc.data) return 0;
+        if (!acc || !acc.data) return { value: 0, isUi: false };
         // Anchor account: 8 bytes discriminator + struct
         // struct layout: investor(32) fund(32) shares(u64) ...
         const shares = readU64LE(acc.data as Buffer, 8 + 32 + 32);
-        return shares;
+        return { value: shares, isUi: false };
       } catch (e) {
-        return 0;
+        return { value: 0, isUi: false };
       }
     }
 
@@ -204,12 +209,17 @@ export async function GET(req: NextRequest) {
     const positions = await Promise.all(funds.map(async (fund) => {
       
       const isManager = fund.manager === walletAddress;
-      let userShares = 0;
+  let userShares = 0;
+  let userSharesIsUi = false;
       let totalInvested = 0;
       let investmentHistory: Array<{ walletAddress: string; amount: number; shares: number; timestamp: string; transactionSignature: string; type: string }> = [];
 
       // Prefer on-chain ownership (investorPosition.shares)
-  userShares = await getInvestorSharesFromChain(String(fund.fundId), walletAddress);
+      {
+        const res = await getInvestorSharesFromChain(String(fund.fundId), walletAddress);
+        userShares = res.value;
+        userSharesIsUi = res.isUi;
+      }
 
       // Fallback to DB if chain shows 0 but DB has entries (still keep chain as source of truth)
       if (userShares <= 0 && Array.isArray(fund.investments) && fund.investments.length > 0) {
@@ -244,8 +254,8 @@ export async function GET(req: NextRequest) {
       }
 
       // If we got investor shares from chain (raw u64), scale by decimals when we have them
-      if (sharesDecimals > 0 && typeof userShares === 'number' && userShares > 0 && Number.isInteger(userShares)) {
-        // Heuristic: if userShares seems like a big integer, scale it
+      // Only scale by decimals if we sourced raw u64 from InvestorPosition (not ATA uiAmount)
+      if (!userSharesIsUi && sharesDecimals > 0 && typeof userShares === 'number' && userShares > 0) {
         userShares = userShares / Math.pow(10, sharesDecimals);
       }
 

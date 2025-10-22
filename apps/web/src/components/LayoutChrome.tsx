@@ -8,7 +8,7 @@ export default function LayoutChrome({ children }: { children: React.ReactNode }
   return (
     <>
       <Navbar />
-  <div className={`pt-[68px] pb-[64px] bg-brand-black`}>{children}</div>
+  <div className={`pt-[68px] pb-0 sm:pb-[64px] bg-brand-black`}>{children}</div>
       <Footer />
     </>
   );

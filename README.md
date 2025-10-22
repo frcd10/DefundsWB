@@ -50,16 +50,3 @@ git pull origin main
 git checkout mainnet
 git merge main
 git push origin mainnet
-
-## Daily P&L updater
-
-- A daily cron is defined in `render.yaml` and `render.backend.yaml` as `defunds-pnl-daily-cron`.
-- It runs `node apps/backend/dist/scripts/runDailyPnl.js` once per day at 01:00 UTC.
-- Required env: `MONGODB_URI`. Optional: `SOLANA_RPC_URL`, `MANAGED_FUNDS_PROGRAM_ID`, and either `PRICES_BASE_URL` or `WEB_BASE_URL` for price lookups.
-
-One-time seeding for a fund (baseline yesterday=1.0 and today=cumulative):
-- Temporarily set `SEED_FUND_ID=3fjnB17kMDwfWBbswPAKpQ4Frk7Uyg8i6NrHMHR2zxz3` on the cron (or run the script locally with that env).
-- Let it run once, then remove the env to avoid re-seeding.
-
-Local run (optional):
-- From repo root: `npm -w apps/backend run build` then `SEED_FUND_ID=<FUND_ID> node apps/backend/dist/scripts/runDailyPnl.js`

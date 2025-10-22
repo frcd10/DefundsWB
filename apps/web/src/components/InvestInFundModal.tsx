@@ -276,7 +276,11 @@ export function InvestInFundModal({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5 px-4 sm:px-6 pb-6 sm:pb-7">
+          // Mobile: make content scrollable and move actions to a sticky bottom bar.
+          // Desktop (sm+): preserve existing layout and actions inline.
+          <>
+          <div className="max-h-[75vh] overflow-y-auto sm:max-h-none sm:overflow-visible">
+          <form id="invest-form" onSubmit={handleSubmit} className="space-y-5 px-4 sm:px-6 pb-28 sm:pb-7">
             <div>
               <label className="block text-sm font-medium mb-1 text-white/70">Investment Amount (SOL)</label>
               <Input
@@ -366,7 +370,8 @@ export function InvestInFundModal({
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
+            {/* Desktop actions: visible on sm+ only */}
+            <div className="hidden sm:flex flex-row gap-4 pt-2">
               <button
                 type="button"
                 onClick={onClose}
@@ -384,6 +389,29 @@ export function InvestInFundModal({
               </button>
             </div>
           </form>
+          </div>
+          {/* Mobile sticky action bar */}
+          <div className="sm:hidden sticky bottom-0 left-0 right-0 bg-[#0B0B0C]/90 backdrop-blur supports-[backdrop-filter]:bg-[#0B0B0C]/80 border-t border-white/10 px-4 pt-2 pb-3 [padding-bottom:calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-8px_20px_-8px_rgba(0,0,0,0.6)]">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isLoading}
+                className="flex-1 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 text-sm font-medium h-11 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="invest-form"
+                disabled={isLoading}
+                className="flex-1 inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-black font-semibold h-11 shadow-[0_3px_18px_rgba(246,210,58,0.35)] hover:brightness-110 active:scale-[0.97] transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Investing...' : `Invest ${amount ? amount.replace(/,/g, '.') : ''} SOL`}
+              </button>
+            </div>
+          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

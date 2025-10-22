@@ -127,7 +127,7 @@ export default function Landing() {
         </p>
 
   {/* Metrics (dynamic) */}
-  <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10 mb-12 w-full max-w-4xl">
+  <div className="grid grid-cols-3 sm:grid-cols-3 gap-6 sm:gap-10 mb-12 w-full max-w-4xl">
     <Metric label="ACTIVE FUNDS" value={loading ? 0 : activeFunds} />
     {/* Scale TVL by decimals factor so animation counts integer steps; then format */}
     <Metric label="TOTAL TVL (SOL)" value={loading ? 0 : Math.round(totalTvl * 100)} suffix="" decimals={2} />

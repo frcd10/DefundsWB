@@ -27,9 +27,9 @@ export default function Footer() {
           <Separator />
           <Link href="/roadmap" className="hover:text-white transition-colors">Roadmap</Link>
           <Separator />
-          <Link href="http://defunds-finance.gitbook.io/whitepaper" className="hover:text-white transition-colors">Whitepaper</Link>
+          <Link href="https://defunds-finance.gitbook.io/whitepaper" className="hover:text-white transition-colors">Whitepaper</Link>
           <Separator />
-          <Link href="http://defunds-finance.gitbook.io/tutorial" className="hover:text-white transition-colors">Tutorial</Link>
+          <Link href="https://defunds-finance.gitbook.io/tutorial" className="hover:text-white transition-colors">Tutorial</Link>
           <Separator />
           <Link href="/news" className="hover:text-white transition-colors">News</Link>
           <Separator />

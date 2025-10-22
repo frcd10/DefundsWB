@@ -271,7 +271,7 @@ export default function Navbar() {
                 </li>
                 <li>
                   <Link 
-                    href="http://defunds-finance.gitbook.io/whitepaper" 
+                    href="https://defunds-finance.gitbook.io/whitepaper" 
                     className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
                     onClick={closeMobileMenu}
                   >
@@ -280,7 +280,7 @@ export default function Navbar() {
                 </li>
                 <li>
                   <Link 
-                    href="http://defunds-finance.gitbook.io/tutorial" 
+                    href="https://defunds-finance.gitbook.io/tutorial" 
                     className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
                     onClick={closeMobileMenu}
                   >

@@ -7,7 +7,8 @@ interface PitchDeckModalProps { open: boolean; onClose: () => void; }
 const weeks = [
   { week: 'Week 1', progress: 'October 2', summary: 'https://www.youtube.com/watch?v=aucL3IrktPo' },
   { week: 'Week 2', progress: 'October 9', summary: 'https://www.youtube.com/watch?v=On6Ki4A35ss' },
-  { week: 'Week 3', progress: 'October 16', summary: 'Soon' },
+  { week: 'Week 3', progress: 'October 16', summary: 'https://youtu.be/BWpdo1xu4eY' },
+  { week: 'Week 4', progress: 'October 16', summary: 'https://youtu.be/L4K4C1fxdZU' },
 ];
 
 export function PitchDeckModal({ open, onClose }: PitchDeckModalProps) {

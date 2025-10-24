@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { SubscribeForm } from '@/components/SubscribeForm';
 import Image from 'next/image';
 import CypherpunkImg from '@/images/Cypherpunk.png';
@@ -17,6 +16,16 @@ function linkify(text: string) {
 }
 
 const newsArticles = [
+  {
+    id: 7,
+    title: "Weekly Update: Week 4 — Public Mainnet Launch, Community Growth, Superteam Earn Phase 2",
+    summary: "Mainnet is live. A look behind launch day, early community traction, and how we’re polishing the investor experience. Watch: https://youtu.be/L4K4C1fxdZU",
+    content: `Launch day.\nOn October 21st launch our public mainnet. After weeks of testing CPI swaps, fixing withdraw flows, and hardening the daily P&L pipeline, the system went live for everyone. It felt less like fireworks and more like a quiet, confident handoff: investors deposited, shares minted, and the machine kept ticking.\n\nA community shows up.\nBy the end of the week, our Discord reached 57 members and Twitter crossed 130 followers. Not vanity — signals. People asked smart questions about fees, vault safety, and payout math. We answered with code and docs, not threads.\n\nSuperteam Earn, phase 2.\nWe lined up our public launch with the next phase of Superteam Earn to invite more testers to try real flows on mainnet. Fewer slides, more clicks. The goal is simple: put the product in people’s hands and learn fast.\n\nPolish where it matters.\nWe focused this sprint on investor clarity. The portfolio page now surfaces cleaner positions and current value, and the P&L math is consistent across cards, tables, and charts — expressed as percentage from a daily baseline so everyone sees the same curve. On mobile, we continued smoothing the invest experience so key actions are always within reach.\n\nWhat’s next.\nWe’ll keep pressure-testing payouts, tighten portfolio ownership edge‑cases, and widen access through codes while we scale responsibly. If you’ve been watching from the sidelines, now’s a great time to jump in.`,
+    date: "October 23, 2025",
+    author: "Defunds Team",
+    category: "Weekly Update",
+    tags: ["Update", "Mainnet", "Community", "Superteam", "UI", "PnL"]
+  },
   {
     id: 6,
     title: "Weekly Update: Week 3 — Mainnet Deploy, CPI Swaps, Community Growth",

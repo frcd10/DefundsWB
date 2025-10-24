@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 import { WithdrawFromFundModal } from '@/components/WithdrawFromFundModal';
@@ -16,6 +16,7 @@ interface PortfolioPosition {
   initialInvestment: number;
   totalWithdrawals: number;
   lastUpdated: string;
+  fundPnlPct?: number | null;
 }
 
 interface PortfolioData {
@@ -35,6 +36,8 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPosition, setSelectedPosition] = useState<PortfolioPosition | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
+  const lastFetchRef = useRef<number>(0);
 
   const fetchPortfolio = useCallback(async () => {
     if (!wallet.publicKey) {
@@ -47,13 +50,14 @@ export default function PortfolioPage() {
     try {
       console.log('Fetching portfolio for wallet:', wallet.publicKey.toString());
       
-      const response = await fetch(`/api/portfolio?walletAddress=${wallet.publicKey.toString()}`);
+      const response = await fetch(`/api/portfolio?walletAddress=${wallet.publicKey.toString()}&ts=${Date.now()}` , { cache: 'no-store' });
       const data = await response.json();
 
       console.log('Portfolio response:', data);
 
       if (data.success) {
         setPortfolio(data.data);
+        setLastRefreshedAt(data.data?.serverTimestamp || new Date().toISOString());
       } else {
         console.error('Portfolio fetch failed:', data.error);
         setPortfolio(null);
@@ -64,9 +68,34 @@ export default function PortfolioPage() {
     } finally {
       setLoading(false);
     }
-  }, [wallet.publicKey]);  useEffect(() => {
+  }, [wallet.publicKey]);  
+
+  // Debounced/safe refetch helper to coalesce rapid duplicate triggers
+  const safeFetchPortfolio = useCallback(() => {
+    const now = Date.now();
+    // Skip if we fetched very recently (< 1000ms)
+    if (now - lastFetchRef.current < 1000) return;
+    lastFetchRef.current = now;
     fetchPortfolio();
-  }, [wallet.publicKey, fetchPortfolio]);
+  }, [fetchPortfolio]);
+
+  useEffect(() => {
+    // Reset guard when wallet changes so first fetch is not blocked
+    lastFetchRef.current = 0;
+    safeFetchPortfolio();
+  }, [wallet.publicKey, safeFetchPortfolio]);
+
+  // Refetch when the window gains focus or the tab becomes visible
+  useEffect(() => {
+    const onFocus = () => safeFetchPortfolio();
+    const onVisibility = () => { if (document.visibilityState === 'visible') safeFetchPortfolio(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [safeFetchPortfolio]);
 
   const handleWithdraw = (position: PortfolioPosition) => {
     console.log('Opening withdraw modal for position:', position);
@@ -158,7 +187,10 @@ export default function PortfolioPage() {
   return (
     <div className="min-h-screen bg-brand-black text-white">
       <div className="max-w-6xl mx-auto px-4 py-20">
-        <h1 className="text-4xl font-extrabold mb-8 text-center">Your Portfolio</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-extrabold">Your Portfolio</h1>
+          <Button onClick={fetchPortfolio} className="rounded-full bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2">Refresh</Button>
+        </div>
         
         {/* Portfolio Summary */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-12">
@@ -280,9 +312,13 @@ export default function PortfolioPage() {
                         {(() => {
                           // Calculate P&L: Current Value + Withdrawn - Invested
                           const pnl = position.currentValue + position.totalWithdrawals - position.initialInvestment;
-                          const pnlPercentage = position.initialInvestment > 0 
+                          // Prefer fund cumulative PnL % from index (matches Funds page); fallback to personal PnL %
+                          const personalPct = position.initialInvestment > 0 
                             ? (pnl / position.initialInvestment) * 100 
                             : 0;
+                          const pnlPercentage = (typeof position.fundPnlPct === 'number' && Number.isFinite(position.fundPnlPct))
+                            ? position.fundPnlPct
+                            : personalPct;
                           
                           return (
                             <>
@@ -316,9 +352,7 @@ export default function PortfolioPage() {
 
         {/* Last Updated */}
         <div className="text-center mt-8">
-          <p className="text-sm text-white/50">
-            Portfolio last updated: {new Date().toLocaleString()}
-          </p>
+          <p className="text-sm text-white/50">Portfolio last updated: {lastRefreshedAt ? new Date(lastRefreshedAt).toLocaleString() : new Date().toLocaleString()}</p>
         </div>
       </div>
 

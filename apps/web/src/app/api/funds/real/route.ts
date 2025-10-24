@@ -3,6 +3,10 @@ import getClientPromise from '@/lib/mongodb';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
+// Ensure this route is always dynamic and never statically cached
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -124,7 +128,7 @@ export async function GET(req: NextRequest) {
       const withdrawn = wEntries.reduce((s: number, e: any) => s + Number(e?.amountSol || 0), 0);
       const currentValue = aumSol;
       const pnlSol = currentValue + withdrawn - invested;
-      const pnlPct = invested > 0 ? (pnlSol / invested) * 100 : 0;
+      const pnlPctAgg = invested > 0 ? (pnlSol / invested) * 100 : 0;
       
       // Build performance from stored pnl index series if present; fallback to history or seed
       const perfFromPnl = Array.isArray((fund as any).pnl) && (fund as any).pnl.length
@@ -133,6 +137,15 @@ export async function GET(req: NextRequest) {
             .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
             .map((p: any) => ({ date: new Date(p.date).toISOString(), nav: Number(p.index || 1) }))
         : null;
+
+      // Prefer P&L % derived from pnl index series (cumulative from baseline 1.0)
+      let pnlPct = pnlPctAgg;
+      if (perfFromPnl && perfFromPnl.length > 0) {
+        const lastNav = Number(perfFromPnl[perfFromPnl.length - 1]?.nav || 1);
+        if (Number.isFinite(lastNav) && lastNav > 0) {
+          pnlPct = (lastNav - 1) * 100;
+        }
+      }
 
       return {
         id: fund._id,
@@ -181,8 +194,9 @@ export async function GET(req: NextRequest) {
           totalCount,
           totalPages: Math.ceil(totalCount / limit),
         },
+        serverTimestamp: new Date().toISOString(),
       },
-    });
+    }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
   } catch (error) {
     console.error('=== ERROR FETCHING REAL FUNDS ===');

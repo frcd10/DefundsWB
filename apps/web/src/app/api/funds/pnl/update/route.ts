@@ -120,9 +120,9 @@ export async function POST(req: NextRequest) {
       const wEntries = Array.isArray(invDoc?.funds?.[fundId]) ? invDoc.funds[fundId] : [];
       const withdrawn = wEntries.reduce((s: number, e: any) => s + Number(e?.amountSol || 0), 0);
 
-      // Overall P&L percentage (fraction)
-      const pnlSol = aumSol + withdrawn - invested;
-      const pnlPct = invested > 0 ? (pnlSol / invested) : 0;
+  // Overall P&L percentage (fraction), cumulative from baseline
+  const pnlSol = aumSol + withdrawn - invested;
+  const pnlPct = invested > 0 ? (pnlSol / invested) : 0;
 
       // Determine previous cumulative index from latest pnl entry (default 1)
       const pnlArr: Array<{ date: Date | string; index: number }> = Array.isArray((fund as any).pnl) ? (fund as any).pnl : [];
@@ -139,9 +139,9 @@ export async function POST(req: NextRequest) {
         return d.getUTCFullYear() === today.getUTCFullYear() && d.getUTCMonth() === today.getUTCMonth() && d.getUTCDate() === today.getUTCDate();
       });
 
-      // Cumulative factor for today
-      const factor = 1 + pnlPct;
-      const todayCumIndex = (lastEntry ? lastIndex : 1) * factor;
+  // Cumulative index for today should reflect total return from baseline
+  // i.e., index_today = 1 + cumulative_pct_today
+  const todayCumIndex = 1 + pnlPct;
 
       const idCond = (() => { try { return new ObjectId(fundId); } catch { return null; } })();
 

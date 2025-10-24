@@ -62,7 +62,7 @@ export default function Home() {
   // Load real funds from backend
   const loadRealFunds = async () => {
     try {
-      const response = await fetch('/api/funds/real');
+      const response = await fetch('/api/funds/real', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setRealFunds(data.data.funds || []);
@@ -74,6 +74,18 @@ export default function Home() {
 
   useEffect(() => {
     loadRealFunds();
+  }, []);
+
+  // Refresh funds when the page/tab gains focus or becomes visible
+  useEffect(() => {
+    const onFocus = () => loadRealFunds();
+    const onVisibility = () => { if (document.visibilityState === 'visible') loadRealFunds(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const handleRealFundCreated = (fundId: string) => {
@@ -425,11 +437,25 @@ function FundsTable({
             return next;
           });
         };
-        const performanceData = (f.performance || []).map((p, idx, arr) => {
-          if ('pnl' in p && (p as any).pnl !== undefined) return p as any;
-          const base = arr[0]?.nav || 10;
-          const pnl = (p as any).nav - base;
-          return { ...(p as any), pnl, pnlPercentage: (((p as any).nav - base) / base) * 100 };
+        // Normalize performance to ensure a baseline (nav=1.0) so chart shows 0%, 6.13%, 7.88%, ...
+        const perfSorted = (f.performance || [])
+          .slice()
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const perfWithBaseline = (() => {
+          if (perfSorted.length === 0) return perfSorted;
+          const first = perfSorted[0];
+          const firstNav = Number((first as any).nav || 0);
+          if (!Number.isFinite(firstNav) || Math.abs(firstNav - 1) < 1e-9) return perfSorted;
+          const firstDate = new Date(first.date);
+          const baselineDate = new Date(firstDate.getTime() - 24 * 60 * 60 * 1000);
+          return [{ date: baselineDate.toISOString(), nav: 1 }, ...perfSorted];
+        })();
+        const performanceData = perfWithBaseline.map((p) => {
+          const base = 1; // baseline always 1.0
+          const nav = Number((p as any).nav || 1);
+          const pnl = nav - base;
+          const pnlPercentage = (nav - 1) * 100;
+          return { ...(p as any), pnl, pnlPercentage };
         });
         const last = performanceData.length ? performanceData[performanceData.length - 1] : undefined;
         const pnlPct = typeof last?.pnlPercentage === 'number' ? last.pnlPercentage : 0;
@@ -543,10 +569,23 @@ function FundsTable({
   <tbody className="divide-y divide-white/5 bg-brand-surface">
           {funds.map((f) => {
             const isOpen = expanded.has(f.id);
-            const performanceData = (f.performance || []).map((p, idx, arr) => {
-              if ('pnlPercentage' in p && (p as any).pnlPercentage !== undefined) return p as any;
-              const base = arr[0]?.nav || 10;
-              const pnlPercentage = base !== 0 ? ((p.nav - base) / base) * 100 : 0;
+            // Normalize performance to ensure a baseline (nav=1.0)
+            const perfSorted = (f.performance || [])
+              .slice()
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const perfWithBaseline = (() => {
+              if (perfSorted.length === 0) return perfSorted;
+              const first = perfSorted[0];
+              const firstNav = Number((first as any).nav || 0);
+              if (!Number.isFinite(firstNav) || Math.abs(firstNav - 1) < 1e-9) return perfSorted;
+              const firstDate = new Date(first.date);
+              const baselineDate = new Date(firstDate.getTime() - 24 * 60 * 60 * 1000);
+              return [{ date: baselineDate.toISOString(), nav: 1 }, ...perfSorted];
+            })();
+            const performanceData = perfWithBaseline.map((p) => {
+              const base = 1;
+              const nav = Number((p as any).nav || 1);
+              const pnlPercentage = (nav - 1) * 100;
               return { ...(p as any), pnlPercentage };
             });
             return (
@@ -675,9 +714,9 @@ function FundsTable({
                             {performanceData.length > 1 ? (
                               <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={performanceData} margin={{ top: 0, right: -1, bottom: 0, left: 0 }}>
-                                  <Line type="monotone" dataKey="pnlPercentage" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: '#ffffff', strokeWidth: 2, fill: '#ffffff' }} />
+                                  <Line type="monotone" dataKey="pnlPercentage" stroke="var(--color-brand-yellow)" strokeWidth={2} dot={{ r: 3, stroke: '#111', strokeWidth: 1, fill: 'var(--color-brand-yellow)' }} activeDot={{ r: 5, stroke: '#ffffff', strokeWidth: 2, fill: '#ffffff' }} />
                                   <XAxis dataKey="date" hide />
-                                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                                  <YAxis hide domain={[dataMin => Math.min(dataMin as number, -1), dataMax => Math.max(dataMax as number, 1)]} />
                                   <Tooltip formatter={(v: any) => [`${Number(v).toFixed(2)}%`, 'PnL %']} labelFormatter={() => ''} contentStyle={{ background: 'rgba(20,20,20,0.9)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }} />
                                 </LineChart>
                               </ResponsiveContainer>

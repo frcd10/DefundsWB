@@ -3,6 +3,10 @@ import getClientPromise from '@/lib/mongodb';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
+// Ensure this route is always dynamic and never statically cached
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -206,7 +210,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const positions = await Promise.all(funds.map(async (fund) => {
+  const positions = await Promise.all(funds.map(async (fund) => {
       
       const isManager = fund.manager === walletAddress;
   let userShares = 0;
@@ -288,6 +292,17 @@ export async function GET(req: NextRequest) {
 
       
 
+      // Derive fund-level cumulative PnL % from pnl index series (if present)
+      let fundPnlPct: number | null = null;
+      if (Array.isArray((fund as any).pnl) && (fund as any).pnl.length > 0) {
+        const last = (fund as any).pnl
+          .slice()
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .pop();
+        const lastNav = Number(last?.index || 1);
+        if (Number.isFinite(lastNav) && lastNav > 0) fundPnlPct = (lastNav - 1) * 100;
+      }
+
       return {
   fundId: fund.fundId || fund._id,
         fundName: fund.name,
@@ -300,7 +315,8 @@ export async function GET(req: NextRequest) {
         initialInvestment: totalInvested,
         totalWithdrawals,
         investmentHistory,
-        lastUpdated: fund.updatedAt ? new Date(fund.updatedAt).toISOString() : new Date().toISOString()
+        lastUpdated: fund.updatedAt ? new Date(fund.updatedAt).toISOString() : new Date().toISOString(),
+        fundPnlPct,
       };
     }))
     .then(arr => arr.filter((position) => position !== null)); // Remove null positions
@@ -364,8 +380,9 @@ export async function GET(req: NextRequest) {
         activeFunds: positions.length,
         positions,
         rwaPositions,
+        serverTimestamp: new Date().toISOString(),
       }
-    }, { status: 200 });
+    }, { status: 200, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
   } catch (error) {
     console.error('=== ERROR GETTING PORTFOLIO ===');

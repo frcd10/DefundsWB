@@ -31,8 +31,7 @@ export default function InvestorPage() {
             <div className="rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-5 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 text-left sm:text-center">
               <div className="flex-1">
                 <p className="text-sm sm:text-base leading-relaxed text-white/80">
-                  <span className="text-brand-yellow font-semibold">Current valuation: $15M (FDV)</span>. First round
-                  targeting an allocation of <span className="font-medium text-white/90">3.34% to 6.67%</span> at that valuation.
+                  <span className="text-brand-yellow font-semibold">We will run our 1st seed round after Hackaton!</span>. 
                 </p>
               </div>
               <Button
@@ -128,11 +127,11 @@ export default function InvestorPage() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-brand-yellow font-semibold">•</span>
-                  <span><strong>Technology:</strong> self-destructing key architecture</span>
+                  <span><strong>Technology:</strong> Full on chain + Open source</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-brand-yellow font-semibold">•</span>
-                  <span><strong>Revenue Model:</strong> 0.1% management / month + 20% performance</span>
+                  <span><strong>Revenue Model:</strong> 1% Withdraw fee + 20% performance</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="text-brand-yellow font-semibold">•</span>

@@ -26,23 +26,7 @@ __________________TO change run Devnet vs Mainnet.
 .env in web,root and backend
 
 
-______Retrieve back SOL after launch
-Check you control it (Recipient will receive the funds - good to be same as auth)
-solana program show DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd \
-  --url "https://devnet.helius-rpc.com/?api-key=APIKEY"
 
-solana program close DEFuNDoMVQ8TnYjDM95bJK55Myr5dmwor43xboG2XQYd \
-  --bypass-warning \
-  --recipient DefUNDgVXcK1P6QA3mgWCXpRxaXo1v3BrBb9UF3tK7HW \
-  --url "https://devnet.helius-rpc.com/?api-key={APIKEY}"
-
-
-  _______If error on upgrade.
-  solana program show --buffers
-
-solana -u mainnet-beta -k /home/felip/.config/solana/id_mainnet.json \
-  program close --buffers \
-  --recipient DefUNDgVXcK1P6QA3mgWCXpRxaXo1v3BrBb9UF3tK7HW
 
 # After PRs.
 git checkout main

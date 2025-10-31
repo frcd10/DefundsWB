@@ -4,6 +4,8 @@ export async function updateHourlyPoints() {
   const client = await getClientPromise();
   const db = client.db('Defunds');
   const users = db.collection<any>('Users');
+  const funds = db.collection<any>('Funds');
+  const rwa = db.collection<any>('Rwa');
 
   const now = new Date();
   // Guard: only run if not already executed this hour (server time). We check a singleton doc.
@@ -12,7 +14,6 @@ export async function updateHourlyPoints() {
   const lockId = 'points-hourly-lock';
   const lock = await meta.findOne({ _id: lockId });
   if (lock?.lastRunKey === hourKey) {
-    console.log('Points updater: already ran for hour', hourKey);
     return;
   }
   await meta.updateOne(
@@ -21,19 +22,41 @@ export async function updateHourlyPoints() {
     { upsert: true }
   );
 
-  // Stream through users to avoid loading all in memory in large datasets
-  // Only need the wallet (address) and current points value
-  const cursor = users.find({}, { projection: { _id: 1, points: 1 } });
+  // Build a union of all relevant wallet addresses to ensure full coverage
+  const addressSet = new Set<string>();
 
+  // 1) Existing Users
+  const userCursor = users.find({}, { projection: { _id: 1 } });
+  for await (const u of userCursor) {
+    if (u && typeof u._id === 'string') addressSet.add(u._id);
+  }
+
+  // 2) From Funds investments (exclude devnet)
+  try {
+    const fundAddresses: string[] = await funds.distinct('investments.walletAddress', {
+      cluster: { $ne: 'devnet' },
+      'investments.walletAddress': { $type: 'string' },
+    });
+    for (const a of fundAddresses) if (a) addressSet.add(a);
+  } catch {}
+
+  // 3) From Rwa investments (include docs without cluster or cluster != devnet)
+  try {
+    const rwaAddresses: string[] = await rwa.distinct('investments.walletAddress', {
+      $or: [ { cluster: { $exists: false } }, { cluster: { $ne: 'devnet' } } ],
+      'investments.walletAddress': { $type: 'string' },
+    });
+    for (const a of rwaAddresses) if (a) addressSet.add(a);
+  } catch {}
+
+  // Process each address and upsert Users docs so leaderboard includes everyone
   let updated = 0;
-  for await (const u of cursor) {
-    const address = u._id;
-
-    // Compute invited users live from Users.referredBy to keep in sync with leaderboard
+  for (const address of addressSet) {
+    // Compute invited users live from Users.referredBy
     const invitedUsers = await users.countDocuments({ referredBy: address });
 
-    // Compute total invested live from Funds and Rwa investments (same as leaderboard)
-    const [fundsAgg] = await db.collection('Funds').aggregate([
+    // Compute total invested live from Funds and Rwa (aligned with leaderboard filters)
+    const [fundsAgg] = await funds.aggregate([
       { $match: { cluster: { $ne: 'devnet' } } },
       { $project: { investments: 1 } },
       { $unwind: { path: '$investments', preserveNullAndEmptyArrays: false } },
@@ -41,7 +64,8 @@ export async function updateHourlyPoints() {
       { $group: { _id: null, amt: { $sum: { $ifNull: ['$investments.amount', 0] } } } },
     ]).toArray();
 
-    const [rwaAgg] = await db.collection('Rwa').aggregate([
+    const [rwaAgg] = await rwa.aggregate([
+      { $match: { $or: [ { cluster: { $exists: false } }, { cluster: { $ne: 'devnet' } } ] } },
       { $project: { investments: 1 } },
       { $unwind: { path: '$investments', preserveNullAndEmptyArrays: false } },
       { $match: { 'investments.walletAddress': address } },
@@ -61,19 +85,20 @@ export async function updateHourlyPoints() {
           $set: {
             lastPointsUpdateAt: now,
             invitedUsers,
-            totalInvested, // keep a cached copy for quick reads (source of truth is Funds/Rwa)
-          }
-        }
+            totalInvested,
+          },
+        },
+        { upsert: true }
       );
       updated += 1;
     } else {
-      // still set timestamp to mark we processed
       await users.updateOne(
         { _id: address },
-        { $set: { lastPointsUpdateAt: now, invitedUsers, totalInvested }, $setOnInsert: { points: 0 } }
+        { $set: { lastPointsUpdateAt: now, invitedUsers, totalInvested }, $setOnInsert: { points: 0 } },
+        { upsert: true }
       );
     }
   }
 
-  console.log(`Points updater: processed users=${updated} at ${now.toISOString()} (key ${hourKey})`);
+  // finished
 }

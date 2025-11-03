@@ -233,6 +233,8 @@ export async function POST(req: NextRequest) {
 
     const swapReq: any = { quoteResponse: quote, payer, skipUserAccountsRpcCalls: true, useTokenLedger: false, skipAtaCreation: true };
     if (isSolInput) {
+      // Manager signs Jupiter route, but we pre-fund the manager from the Fund PDA so that
+      // no personal funds are used. This keeps “SOL input” UX while charging the vault.
       swapReq.userPublicKey = payer;
       swapReq.wrapAndUnwrapSol = true;
       swapReq.useSharedAccounts = false;
@@ -299,11 +301,33 @@ export async function POST(req: NextRequest) {
       }, []);
     }
 
+    // If SOL input, pre-fund the manager wallet from the Fund PDA so the wrap + fees use fund SOL, not personal funds
+    let prefundIx: TransactionInstruction | null = null;
+    if (isSolInput) {
+      const feeBudgetLamports = BigInt(String(process.env.SOL_SWAP_FEE_BUDGET_LAMPORTS || '3000000')); // ~0.003 SOL buffer
+      const totalFundOut = (amountLamports as bigint) + feeBudgetLamports;
+      const dataPrefund = coder.instruction.encode('pda_lamports_transfer', { amount: new BN(totalFundOut.toString()) });
+      const keysPrefund = [
+        { pubkey: FUND, isWritable: true, isSigner: false },
+        { pubkey: payerKey, isWritable: true, isSigner: false }, // to_system = manager wallet
+        { pubkey: payerKey, isWritable: false, isSigner: true }, // manager signer
+      ];
+      prefundIx = new TransactionInstruction({ programId: PROGRAM_ID, keys: keysPrefund, data: dataPrefund });
+    }
+
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
     const messageV0 = new TransactionMessage({
       payerKey,
       recentBlockhash: blockhash,
-      instructions: [...setupIxs, ...decodedSetup, addPriorityFee, modifyComputeUnits, programIx, ...decodedCleanup],
+      instructions: [
+        ...(prefundIx ? [prefundIx] : []),
+        ...setupIxs,
+        ...decodedSetup,
+        addPriorityFee,
+        modifyComputeUnits,
+        programIx,
+        ...decodedCleanup,
+      ],
     }).compileToV0Message(lookupAccounts);
     const unsignedTx = new VersionedTransaction(messageV0);
     const txBase64 = Buffer.from(unsignedTx.serialize()).toString('base64');

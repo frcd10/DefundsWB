@@ -9,6 +9,7 @@ ________
 1 - Clone Repo
 2 - Add .env file to root and web
 3 - add managed_funds-keypair.json to deploy folder inside target to use/upgrade deployed program (target should be in root folder.)
+  - Important: never commit any keypair files. The entire `target/` folder (and any `*-keypair.json`) should remain untracked.
 4 - To upgrade deployed program also you need the correct wallet auth keypair inside "~/.config/solana/id.json"
 *If no program is set on number 3 = New program will be created
 *To use first time, ignore step 3 and 4 - Make sure wallet in "~/.config/solana/id.json" has ~4 Sol to deploy program 1st time.
@@ -31,4 +32,16 @@ Run npm run dev to use website locally.
 __________________TO change run Devnet vs Mainnet.
 1 - Anchor.toml
 2 - lib.rs
+.env in web,root and backend
 
+
+
+
+# After PRs.
+git checkout main
+git pull origin main
+git checkout mainnet
+git merge main
+git push origin mainnet
+
+I rotated the helius key found on earlier commit

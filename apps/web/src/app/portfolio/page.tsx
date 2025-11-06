@@ -48,22 +48,22 @@ export default function PortfolioPage() {
 
     setLoading(true);
     try {
-      console.log('Fetching portfolio for wallet:', wallet.publicKey.toString());
+  // removed logs
       
       const response = await fetch(`/api/portfolio?walletAddress=${wallet.publicKey.toString()}&ts=${Date.now()}` , { cache: 'no-store' });
       const data = await response.json();
 
-      console.log('Portfolio response:', data);
+  // removed logs
 
       if (data.success) {
         setPortfolio(data.data);
         setLastRefreshedAt(data.data?.serverTimestamp || new Date().toISOString());
       } else {
-        console.error('Portfolio fetch failed:', data.error);
+  // keep silent on non-success; top-level error toast could be added if needed
         setPortfolio(null);
       }
     } catch (error) {
-      console.error('Error fetching portfolio:', error);
+  // swallow fetch errors to avoid noisy console in production
       setPortfolio(null);
     } finally {
       setLoading(false);
@@ -98,13 +98,13 @@ export default function PortfolioPage() {
   }, [safeFetchPortfolio]);
 
   const handleWithdraw = (position: PortfolioPosition) => {
-    console.log('Opening withdraw modal for position:', position);
+  // removed logs
     setSelectedPosition(position);
     setShowWithdrawModal(true);
   };
 
   const handleWithdrawComplete = (signature: string) => {
-    console.log('Withdrawal completed with signature:', signature);
+  // removed logs
     // Refresh portfolio data after withdrawal
     fetchPortfolio();
     setShowWithdrawModal(false);
@@ -312,20 +312,16 @@ export default function PortfolioPage() {
                         {(() => {
                           // Calculate P&L: Current Value + Withdrawn - Invested
                           const pnl = position.currentValue + position.totalWithdrawals - position.initialInvestment;
-                          // Prefer fund cumulative PnL % from index (matches Funds page); fallback to personal PnL %
-                          const personalPct = position.initialInvestment > 0 
+                          // Use investor-specific P&L % (matches the top card)
+                          const pnlPercentage = position.initialInvestment > 0 
                             ? (pnl / position.initialInvestment) * 100 
                             : 0;
-                          const pnlPercentage = (typeof position.fundPnlPct === 'number' && Number.isFinite(position.fundPnlPct))
-                            ? position.fundPnlPct
-                            : personalPct;
-                          
                           return (
                             <>
-          <p className={`text-sm font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              <p className={`text-sm font-medium ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {pnl >= 0 ? '+' : ''}{pnl.toFixed(4)} SOL
                               </p>
-          <p className={`text-xs ${pnlPercentage >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              <p className={`text-xs ${pnlPercentage >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                 ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
                               </p>
                             </>

@@ -9,8 +9,9 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url);
     const walletAddress = searchParams.get('walletAddress'); // Changed from 'wallet' to 'walletAddress'
+  // removed debug logging flag
 
     if (!walletAddress) {
       return NextResponse.json({
@@ -67,39 +68,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    function getHeliusUrl() {
+      const key = process.env.HELIUS_API_KEY || process.env.HELIUS_KEY || '';
+      const base = process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : 'https://api.mainnet-beta.solana.com');
+      return base;
+    }
+    async function fetchPricesDirect(mints: string[]): Promise<Record<string, { priceBaseUnits: string; updatedAt: number }>> {
+      const heliusUrl = getHeliusUrl();
+      const out: Record<string, { priceBaseUnits: string; updatedAt: number }> = {};
+      const nowSec = Math.floor(Date.now() / 1000);
+      for (const mint of Array.from(new Set(mints))) {
+        try {
+          const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
+          const resp = await fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (!resp.ok) continue;
+          const data: any = await resp.json();
+          const tokenInfo = data?.result?.token_info || {};
+          const priceInfo = tokenInfo?.price_info || {};
+          const pricePerToken = Number(priceInfo?.price_per_token || 0);
+          if (pricePerToken > 0) out[mint] = { priceBaseUnits: String(Math.round(pricePerToken * 1_000_000)), updatedAt: nowSec };
+        } catch {}
+      }
+      return out;
+    }
+
     async function computeAumSolFromChain(fundPkStr: string): Promise<number> {
       try {
         const fundPk = new PublicKey(fundPkStr);
-        // Derive vault PDA (owner of SPL positions)
-        const [vaultPk] = PublicKey.findProgramAddressSync([
-          Buffer.from('vault'),
-          fundPk.toBuffer(),
-        ], PROGRAM_ID);
+        // Swap-page parity: fund-owned assets only (fund lamports + fund-owned token accounts)
+        const fundLamports = await connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0);
+        let aumSol = fundLamports / 1_000_000_000;
 
-        // Attempt to derive vault SOL account as well (if exists)
-        const [vaultSolPk] = PublicKey.findProgramAddressSync([
-          Buffer.from('vault_sol'),
-          fundPk.toBuffer(),
-        ], PROGRAM_ID);
-
-        // Gather balances: fund lamports, vault lamports, vault_sol lamports (if account exists)
-        const [fundLamports, vaultLamports] = await Promise.all([
-          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
-          connection.getBalance(vaultPk, { commitment: 'processed' } as any).catch(() => 0),
-        ]);
-        let aumSol = (fundLamports + vaultLamports) / 1_000_000_000;
-
-        // vault_sol (optional)
-        try {
-          const vaultSolInfo = await connection.getAccountInfo(vaultSolPk, 'processed');
-          if (vaultSolInfo) {
-            aumSol += (vaultSolInfo.lamports || 0) / 1_000_000_000;
-          }
-        } catch {}
-
-        // Token balances owned by the vault
+        // Token balances owned by the fund
         const tokenAccounts = await connection
-          .getParsedTokenAccountsByOwner(vaultPk, { programId: TOKEN_PROGRAM_ID as any })
+          .getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID as any })
           .catch(() => ({ value: [] as any[] } as any));
 
         const rows: Array<{ mint: string; uiAmount: number }> = [];
@@ -115,15 +117,25 @@ export async function GET(req: NextRequest) {
         }
         const SOL_MINT = 'So11111111111111111111111111111111111111112';
         const mints = Array.from(new Set(rows.map(r => r.mint).concat([SOL_MINT])));
-        const prices = await fetchPrices(mints);
+        let prices = await fetchPrices(mints);
+        const missing = mints.filter(m => !prices[m] || Number(prices[m].priceBaseUnits || '0') <= 0);
+        if (missing.length) {
+          const direct = await fetchPricesDirect(missing);
+          prices = { ...prices, ...direct };
+        }
         const solPriceUsd = Number(prices[SOL_MINT]?.priceBaseUnits || '0') / 1_000_000 || 0;
         const solUsd = solPriceUsd > 0 ? solPriceUsd : 1; // fallback to 1 to avoid division by zero
         for (const r of rows) {
-          if (r.mint === SOL_MINT) { aumSol += r.uiAmount; continue; }
+          if (r.mint === SOL_MINT) { 
+            aumSol += r.uiAmount; 
+            continue; 
+          }
           const p = prices[r.mint];
-          if (!p) continue;
-          const tokenUsd = (Number(p.priceBaseUnits || '0') / 1_000_000) * r.uiAmount;
-          aumSol += tokenUsd / solUsd;
+          if (!p) { continue; }
+          const usdPerToken = Number(p.priceBaseUnits || '0') / 1_000_000;
+          const tokenUsd = usdPerToken * r.uiAmount;
+          const tokenSol = tokenUsd / solUsd;
+          aumSol += tokenSol;
         }
         return aumSol;
       } catch {

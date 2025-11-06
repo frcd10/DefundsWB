@@ -9,10 +9,11 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
+  // removed debug logging
 
     // Get funds from MongoDB
   const client = await getClientPromise();
@@ -57,30 +58,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
+      // Direct Helius price fetch fallback for any mint missing price or with zero price
+      function getHeliusUrl() {
+        const key = process.env.HELIUS_API_KEY || process.env.HELIUS_KEY || '';
+        const base = process.env.SOLANA_RPC_URL || process.env.ANCHOR_PROVIDER_URL || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : 'https://api.mainnet-beta.solana.com');
+        return base;
+      }
+      async function fetchPricesDirect(mints: string[]): Promise<Record<string, { priceBaseUnits: string; updatedAt: number }>> {
+        const heliusUrl = getHeliusUrl();
+        const out: Record<string, { priceBaseUnits: string; updatedAt: number }> = {};
+        const nowSec = Math.floor(Date.now() / 1000);
+        for (const mint of Array.from(new Set(mints))) {
+          try {
+            const payload = { jsonrpc: '2.0', id: '1', method: 'getAsset', params: { id: mint } };
+            const resp = await fetch(heliusUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!resp.ok) continue;
+            const data: any = await resp.json();
+            const tokenInfo = data?.result?.token_info || {};
+            const priceInfo = tokenInfo?.price_info || {};
+            const pricePerToken = Number(priceInfo?.price_per_token || 0);
+            if (pricePerToken > 0) out[mint] = { priceBaseUnits: String(Math.round(pricePerToken * 1_000_000)), updatedAt: nowSec };
+          } catch {}
+        }
+        return out;
+      }
+
     async function computeAumSolFromChain(fundPkStr: string): Promise<number> {
       try {
         const fundPk = new PublicKey(fundPkStr);
-        const [vaultPk] = PublicKey.findProgramAddressSync([
-          Buffer.from('vault'),
-          fundPk.toBuffer(),
-        ], PROGRAM_ID);
-        const [vaultSolPk] = PublicKey.findProgramAddressSync([
-          Buffer.from('vault_sol'),
-          fundPk.toBuffer(),
-        ], PROGRAM_ID);
-
-        const [fundLamports, vaultLamports] = await Promise.all([
-          connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0),
-          connection.getBalance(vaultPk, { commitment: 'processed' } as any).catch(() => 0),
-        ]);
-        let aumSol = (fundLamports + vaultLamports) / 1_000_000_000;
-        try {
-          const vaultSolInfo = await connection.getAccountInfo(vaultSolPk, 'processed');
-          if (vaultSolInfo) aumSol += (vaultSolInfo.lamports || 0) / 1_000_000_000;
-        } catch {}
+        // Swap-page parity: value fund-owned assets only (lamports on fund + ATAs owned by fund)
+        const fundLamports = await connection.getBalance(fundPk, { commitment: 'processed' } as any).catch(() => 0);
+        let aumSol = fundLamports / 1_000_000_000;
 
         const tokenAccounts = await connection
-          .getParsedTokenAccountsByOwner(vaultPk, { programId: TOKEN_PROGRAM_ID as any })
+          .getParsedTokenAccountsByOwner(fundPk, { programId: TOKEN_PROGRAM_ID as any })
           .catch(() => ({ value: [] as any[] } as any));
         const rows: Array<{ mint: string; uiAmount: number }> = [];
         for (const { account } of (tokenAccounts?.value || [])) {
@@ -95,15 +106,26 @@ export async function GET(req: NextRequest) {
         }
         const SOL_MINT = 'So11111111111111111111111111111111111111112';
         const mints = Array.from(new Set(rows.map(r => r.mint).concat([SOL_MINT])));
-        const prices = await fetchPrices(mints);
+        let prices = await fetchPrices(mints);
+        // Fallback: fetch missing or zero prices directly from Helius
+        const missing = mints.filter(m => !prices[m] || Number(prices[m].priceBaseUnits || '0') <= 0);
+        if (missing.length) {
+          const direct = await fetchPricesDirect(missing);
+          prices = { ...prices, ...direct };
+        }
         const solPriceUsd = Number(prices[SOL_MINT]?.priceBaseUnits || '0') / 1_000_000 || 0;
         const solUsd = solPriceUsd > 0 ? solPriceUsd : 1;
         for (const r of rows) {
-          if (r.mint === SOL_MINT) { aumSol += r.uiAmount; continue; }
+          if (r.mint === SOL_MINT) {
+            aumSol += r.uiAmount; // WSOL counts directly in SOL
+            continue;
+          }
           const p = prices[r.mint];
-          if (!p) continue;
-          const tokenUsd = (Number(p.priceBaseUnits || '0') / 1_000_000) * r.uiAmount;
-          aumSol += tokenUsd / solUsd;
+          if (!p) { continue; }
+          const usdPerToken = Number(p.priceBaseUnits || '0') / 1_000_000;
+          const tokenUsd = usdPerToken * r.uiAmount;
+          const tokenSol = tokenUsd / solUsd;
+          aumSol += tokenSol;
         }
         return aumSol;
       } catch {
@@ -116,7 +138,7 @@ export async function GET(req: NextRequest) {
       const accessMode = fund.accessMode || fund.access?.type || (fund.isPublic === false ? 'single_code' : 'public');
       const fundId = String(fund.fundId || fund._id);
       // Aggregated metrics
-      const aumSol = await computeAumSolFromChain(fundId);
+  const aumSol = await computeAumSolFromChain(fundId);
       // Invested: prefer DB totalDeposits; else sum investments
       let invested = Number(fund.totalDeposits || 0);
       if (!invested && Array.isArray(fund.investments)) {
@@ -129,6 +151,7 @@ export async function GET(req: NextRequest) {
       const currentValue = aumSol;
       const pnlSol = currentValue + withdrawn - invested;
       const pnlPctAgg = invested > 0 ? (pnlSol / invested) * 100 : 0;
+      // removed PNL debug logs
       
       // Build performance from stored pnl index series if present; fallback to history or seed
       const perfFromPnl = Array.isArray((fund as any).pnl) && (fund as any).pnl.length
@@ -138,14 +161,10 @@ export async function GET(req: NextRequest) {
             .map((p: any) => ({ date: new Date(p.date).toISOString(), nav: Number(p.index || 1) }))
         : null;
 
-      // Prefer P&L % derived from pnl index series (cumulative from baseline 1.0)
-      let pnlPct = pnlPctAgg;
-      if (perfFromPnl && perfFromPnl.length > 0) {
-        const lastNav = Number(perfFromPnl[perfFromPnl.length - 1]?.nav || 1);
-        if (Number.isFinite(lastNav) && lastNav > 0) {
-          pnlPct = (lastNav - 1) * 100;
-        }
-      }
+      // Card P&L% should reflect the aggregate formula using on-chain AUM:
+      // pnlPct = (currentValue + withdrawn - invested) / invested * 100
+      // Do NOT override with pnl index; keep series only for charting.
+      const pnlPct = pnlPctAgg;
 
       return {
         id: fund._id,

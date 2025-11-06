@@ -62,7 +62,8 @@ export default function Home() {
   // Load real funds from backend
   const loadRealFunds = async () => {
     try {
-      const response = await fetch('/api/funds/real', { cache: 'no-store' });
+      const url = '/api/funds/real';
+      const response = await fetch(url, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setRealFunds(data.data.funds || []);
@@ -88,8 +89,7 @@ export default function Home() {
     };
   }, []);
 
-  const handleRealFundCreated = (fundId: string) => {
-    console.log('Fund created:', fundId);
+  const handleRealFundCreated = (_fundId: string) => {
     loadRealFunds(); // Reload funds
   };
 
@@ -118,6 +118,8 @@ export default function Home() {
     pnlSol: fund.pnlSol,
     pnlPct: fund.pnlPct,
   }));
+
+  // no-op: removed debug logging
 
   const filteredFunds = useMemo(() => {
     return allFunds.filter((f) => {
@@ -176,6 +178,8 @@ export default function Home() {
     page * PAGE_SIZE,
     page * PAGE_SIZE + PAGE_SIZE,
   );
+
+  // removed page debug logs
 
   /* ── Handlers ------------------------------------------------------ */
   const prev = () => setPage((p) => Math.max(0, p - 1));
@@ -503,7 +507,7 @@ function FundsTable({
 
             {/* PnL Summary */}
             <div className="mt-3 bg-white/5 rounded-lg border border-white/10 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-white/50 mb-1">P&L Performance</div>
+              <div className="text-[11px] uppercase tracking-wide text-white/50 mb-1">P&L Performance (Updated daily)</div>
               {performanceData.length > 1 ? (
                 <div className="text-sm">
                   <span className={pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</span>

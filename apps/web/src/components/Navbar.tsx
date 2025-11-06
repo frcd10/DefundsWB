@@ -101,6 +101,7 @@ export default function Navbar() {
         <ul className="hidden lg:flex items-center gap-4 xl:gap-6 text-white text-sm xl:text-base">
           <li><Link href="/Funds" className="hover:text-brand-yellow transition-colors">Funds</Link></li>
           <li><Link href="/leaderboard" className="hover:text-brand-yellow transition-colors">Leaderboard</Link></li>
+
           {wallet.connected && (
             <li><Link href="/portfolio" className="hover:text-brand-yellow transition-colors">Portfolio</Link></li>
           )}
@@ -120,6 +121,11 @@ export default function Navbar() {
             </li>
           )}
       <li><Link href="/news" className="hover:text-brand-yellow transition-colors">News</Link></li>
+                <li>
+            <Link href="/fixed-income" className="hover:text-brand-yellow transition-colors">
+              Fixed Income <span className="text-white/50 text-xs align-middle">(coming soon)</span>
+            </Link>
+          </li>
         </ul>
 
 
@@ -198,6 +204,15 @@ export default function Navbar() {
                     onClick={closeMobileMenu}
                   >
                     Funds
+                  </Link>
+                </li>
+                <li>
+                  <Link 
+                    href="/fixed-income" 
+                    className="block text-white text-2xl py-4 hover:text-brand-yellow transition-colors font-medium border-b border-white/10"
+                    onClick={closeMobileMenu}
+                  >
+                    Fixed Income <span className="text-white/50 text-base align-middle">(coming soon)</span>
                   </Link>
                 </li>
                 <li>

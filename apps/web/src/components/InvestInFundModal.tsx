@@ -303,12 +303,12 @@ export function InvestInFundModal({
             </div>
             {requiresInviteCode && (
               <div>
-                <label className="block text-sm font-medium mb-1 text-white/70">Invite Code - Use "DEFUNDSFIN" for Early Adopters fund</label>
+                <label className="block text-sm font-medium mb-1 text-white/70">Invite Code</label>
                 <Input
                   type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
-                  placeholder="DEFUNDSFIN"
+                  placeholder="Invite code"
                   className="w-full rounded-lg bg-white/5 border border-white/15 focus:border-brand-yellow/60 focus:ring-0 text-sm placeholder-white/30 text-white tracking-wider"
                   maxLength={10}
                 />

@@ -1,3 +1,5 @@
+Donations --> blchead.skr
+
 DeFunds Finance is a DeFi platform that provides the best tools for influencers and KOLs to interact with their audience. We’re redefining copy trading by introducing Vaults that act as single on-chain investors, where managers execute swaps, and all participants within a vault are included in one unified order. We’re bringing to Solana what traditional finance has had for decades. Our goal is to become the standard infrastructure for decentralized asset management on-chain.
 
 Defunds’ edge starts with being permissionless, allowing anyone to act as a manager and receive a performance fee.

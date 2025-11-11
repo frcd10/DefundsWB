@@ -66,8 +66,33 @@ export function PitchDeckModal({ open, onClose }: PitchDeckModalProps) {
                 <li>Incentive layer aligning managers, investors, and governance</li>
                 <li>Progressive decentralization & compliance bridging</li>
               </ul>
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60">
-                Full Pitch PDF / interactive deck will be attached here (under review). Request early access via investor form.
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-sm text-white/70 mb-2">Full Pitch (Video)</div>
+                <a
+                  href="https://www.youtube.com/watch?v=xuU26R39dNo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-brand-yellow hover:underline break-words"
+                >
+                  Watch on YouTube
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M5 10a1 1 0 011-1h5.586L9.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 11-1.414-1.414L11.586 11H6a1 1 0 01-1-1z" clipRule="evenodd" />
+                  </svg>
+                </a>
+              </div>
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="text-sm text-white/70 mb-2">Colosseum Cypherpunk</div>
+                <a
+                  href="https://arena.colosseum.org/projects/explore/defunds-finance"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-brand-yellow hover:underline break-words"
+                >
+                  View project on Colosseum
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M5 10a1 1 0 011-1h5.586L9.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 11-1.414-1.414L11.586 11H6a1 1 0 01-1-1z" clipRule="evenodd" />
+                  </svg>
+                </a>
               </div>
             </div>
           )}
